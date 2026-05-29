@@ -1,0 +1,23 @@
+symbol,company_name,ir_url,source_focus
+MSFT,Microsoft,https://www.microsoft.com/en-us/Investor,investor relations home
+NVDA,NVIDIA,https://investor.nvidia.com/news/default.aspx,news releases
+GOOGL,Alphabet,https://abc.xyz/investor/,investor relations home
+AMZN,Amazon,https://ir.aboutamazon.com/overview/default.aspx,investor relations home
+META,Meta Platforms,https://investor.atmeta.com/investor-news/default.aspx,investor news
+AVGO,Broadcom,https://investors.broadcom.com/,investor relations home
+AMD,Advanced Micro Devices,https://ir.amd.com/news-events/press-releases,press releases
+ARM,Arm Holdings,https://investors.arm.com/,investor relations home
+MU,Micron Technology,https://investors.micron.com/news-releases,news releases
+TSM,Taiwan Semiconductor Manufacturing,https://investor.tsmc.com/english,investor relations home
+ASML,ASML Holding,https://www.asml.com/en/investors,investor relations home
+CRWD,CrowdStrike,https://ir.crowdstrike.com/news-releases,news releases
+PANW,Palo Alto Networks,https://investors.paloaltonetworks.com/news-releases,news releases
+NET,Cloudflare,https://cloudflare.net/news/default.aspx,news releases
+DDOG,Datadog,https://investors.datadoghq.com/news-releases,news releases
+SNOW,Snowflake,https://investors.snowflake.com/news/default.aspx,news releases
+MDB,MongoDB,https://investors.mongodb.com/news-releases,news releases
+SOUN,SoundHound AI,https://investors.soundhound.com/news-releases,news releases
+AEHR,Aehr Test Systems,https://ir.aehr.com/news-events/press-releases,press releases
+BBAI,BigBear.ai,https://ir.bigbear.ai/news-events/press-releases,press releases
+ALAB,Astera Labs,https://ir.asteralabs.com/news-events/news-releases,news releases
+PLAB,Photronics,https://www.photronics.com/investors/news-events/press-releases,press releases

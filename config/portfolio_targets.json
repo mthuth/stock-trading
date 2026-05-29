@@ -1,0 +1,389 @@
+{
+  "account_value": 50000,
+  "monthly_contribution": 2500,
+  "daily_report_schedule": {
+    "pre_market_time": "08:30",
+    "after_close_time": "17:00",
+    "timezone": "America/New_York"
+  },
+  "email_reports": {
+    "enabled": true,
+    "recipient": "mthuth@gmail.com",
+    "cadence": "daily",
+    "format": "summary_with_dashboard_link",
+    "send_mode": "draft_or_manual_approval"
+  },
+  "spreadsheet_reports": {
+    "destination": "google_sheets",
+    "drive_target": "google_drive",
+    "mode": "pending_sheet_selection",
+    "local_fallback": "csv",
+    "preferred_tabs": [
+      "Daily Recommendations",
+      "Holdings",
+      "Provider Gaps",
+      "Research Sources",
+      "Feedback"
+    ]
+  },
+  "dashboard_features": {
+    "approved_next_features": [
+      "source_drilldowns",
+      "holdings_allocation_chart",
+      "historical_score_trend",
+      "short_term_trade_queue"
+    ],
+    "implementation_order": [
+      "holdings_allocation_chart",
+      "short_term_trade_queue",
+      "source_drilldowns",
+      "historical_score_trend"
+    ]
+  },
+  "feedback_workflow": {
+    "target": "dashboard_buttons_with_text",
+    "buttons": ["agree", "disagree", "too_risky", "useful_source", "noisy_source"],
+    "storage": "sqlite",
+    "static_dashboard_mode": "generate_local_command"
+  },
+  "etrade_sync": {
+    "default_production_account_type": "IRA_ROLLOVER",
+    "allow_future_accounts": true,
+    "selection_mode": "auto_match_default_then_prompt"
+  },
+  "speculative_ai": {
+    "watchlist_only_days": 21,
+    "allow_buy_recommendations": false,
+    "symbols": ["SOUN", "AEHR", "BBAI", "ALAB", "PLAB"]
+  },
+  "provider_decisions": {
+    "selected_second_analyst_estimate_provider": "finnhub",
+    "finnhub_status": "free_key_verified_2026-05-27",
+    "finnhub_free_key_available_endpoints": [
+      "quote",
+      "company_profile",
+      "company_news",
+      "recommendation_trends",
+      "earnings_calendar"
+    ],
+    "finnhub_free_key_blocked_endpoints": [
+      "news_sentiment",
+      "price_target",
+      "eps_estimates",
+      "revenue_estimates",
+      "upgrade_downgrade",
+      "transcripts_list"
+    ],
+    "paid_analyst_target_decision": "defer",
+    "minimum_gap_tracking_runs": 10,
+    "minimum_observation_days": 14
+  },
+  "research_depth": {
+    "version": "v1_4_explanatory_research_briefs",
+    "status": "v1_4_implementation",
+    "score_impact": "explanatory_only",
+    "evidence_limits": {
+      "max_news_per_symbol": 5,
+      "max_transcripts_per_symbol": 2,
+      "fresh_evidence_days": 14,
+      "alpha_vantage_daily_symbol_budget": 8,
+      "alpha_vantage_min_refresh_hours": 72
+    },
+    "brief_sections": [
+      "bull_signals",
+      "bear_risk_signals",
+      "recent_catalysts",
+      "filing_transcript_news_evidence",
+      "source_confidence_freshness",
+      "what_would_change_the_view"
+    ]
+  },
+  "fundamental_target_model": {
+    "version": "v1_straightforward_adjustable",
+    "status": "v1_2_first_pass_implemented",
+    "principles": {
+      "store_defaults_in_config": true,
+      "prefer_ranges_when_inputs_are_weak": true,
+      "fundamental_target_alone_cannot_create_high_confidence_add": true
+    },
+    "growth_adjustment": {
+      "pe_points_per_growth_point_above_peer_median": 0.5,
+      "max_pe_adjustment": 8,
+      "cyclical_margin_haircut": 0.15,
+      "thin_coverage_confidence_haircut": 0.25
+    },
+    "target_return_defaults": {
+      "mega_cap_ai_platform": {
+        "base_upside_pct": 18,
+        "min_upside_pct": -8,
+        "max_upside_pct": 35
+      },
+      "semiconductors": {
+        "base_upside_pct": 16,
+        "min_upside_pct": -12,
+        "max_upside_pct": 32
+      },
+      "cloud_software_cybersecurity": {
+        "base_upside_pct": 22,
+        "min_upside_pct": -15,
+        "max_upside_pct": 40
+      },
+      "etf_ballast": {
+        "base_upside_pct": 8,
+        "min_upside_pct": -5,
+        "max_upside_pct": 15
+      },
+      "speculative_ai": {
+        "base_upside_pct": 25,
+        "min_upside_pct": -25,
+        "max_upside_pct": 45
+      }
+    },
+    "quality_adjustment": {
+      "basis_score": 80,
+      "pct_per_score_point": 0.2,
+      "max_adjustment_pct": 6
+    },
+    "catalyst_adjustment": {
+      "basis_score": 75,
+      "pct_per_score_point": 0.15,
+      "max_adjustment_pct": 6
+    },
+    "risk_adjustment": {
+      "basis_score": 75,
+      "pct_per_score_point_below_basis": 0.2,
+      "max_penalty_pct": 8
+    },
+    "margin_adjustment": {
+      "strong_operating_margin": 0.25,
+      "strong_cash_flow_margin": 0.20,
+      "strong_margin_bonus_pct": 4,
+      "negative_margin_penalty_pct": 8
+    },
+    "range_width_pct": {
+      "high": 0.08,
+      "medium": 0.12,
+      "low": 0.18
+    },
+    "peer_groups": {
+      "mega_cap_ai_platform": {
+        "symbols": ["MSFT", "NVDA", "GOOGL", "AMZN", "META", "AVGO"],
+        "primary_multiple": "forward_pe_or_ev_revenue",
+        "default_forward_pe": 30,
+        "default_ev_revenue": 8,
+        "notes": "Reward durable growth, margins, and platform strength; cap growth multiple expansion."
+      },
+      "semiconductors": {
+        "symbols": ["AMD", "ARM", "MU", "TSM", "ASML", "SMH"],
+        "primary_multiple": "forward_pe_or_ev_revenue",
+        "default_forward_pe": 28,
+        "default_ev_revenue": 7,
+        "cyclicality_haircut": 0.15,
+        "notes": "Apply cyclical haircut when earnings or margins are volatile."
+      },
+      "cloud_software_cybersecurity": {
+        "symbols": ["CRWD", "PANW", "NET", "DDOG", "SNOW", "MDB"],
+        "primary_multiple": "ev_revenue_and_fcf_margin",
+        "default_ev_revenue": 9,
+        "notes": "Reward durable growth plus improving free cash flow margin; penalize deceleration."
+      },
+      "etf_ballast": {
+        "symbols": ["QQQM", "VGT", "SMH"],
+        "primary_multiple": "sector_basket_proxy",
+        "default_target_method": "current_price_plus_model_trend_range",
+        "notes": "Use conservative sector/basket proxy rather than single-company fair value."
+      },
+      "speculative_ai": {
+        "symbols": ["SOUN", "AEHR", "BBAI", "ALAB", "PLAB"],
+        "primary_multiple": "ev_revenue_or_manual_range",
+        "default_ev_revenue": 4,
+        "confidence_haircut": 0.35,
+        "notes": "Watchlist-only until observation period and source confidence improve."
+      }
+    }
+  },
+  "blended_target_model": {
+    "version": "v1_3_analyst_fundamental_technical",
+    "status": "v1_3_implementation",
+    "long_term_weights": {
+      "analyst": 0.45,
+      "fundamental": 0.45,
+      "technical": 0.10
+    },
+    "short_term_weights": {
+      "analyst": 0.20,
+      "fundamental": 0.20,
+      "technical": 0.60
+    },
+    "fallback_weights": {
+      "analyst": 0.55,
+      "fundamental": 0.45,
+      "technical": 0.00
+    },
+    "confidence_rules": {
+      "two_source_minimum_for_medium": true,
+      "technical_target_needed_for_high": true,
+      "wide_range_downgrades_confidence": true
+    }
+  },
+  "technical_target_model": {
+    "version": "v1_simple_adjustable",
+    "status": "v1_3_first_pass_implemented",
+    "principles": {
+      "store_defaults_in_config": true,
+      "prefer_ranges_when_signals_are_mixed": true,
+      "technical_target_alone_cannot_create_high_confidence_add": true,
+      "defer_advanced_ta_library_until_v1_is_useful": true
+    },
+    "windows": {
+      "short_trend_days": 20,
+      "medium_trend_days": 50,
+      "long_trend_days": 200,
+      "support_lookback_days": 60,
+      "resistance_lookback_days": 60
+    },
+    "buffers": {
+      "breakout_buffer_pct": 0.03,
+      "stop_review_buffer_below_support_pct": 0.05,
+      "high_volatility_confidence_haircut": 0.20,
+      "thin_history_confidence_haircut": 0.25
+    },
+    "blended_target_caps": {
+      "long_term_max_technical_contribution": 0.10,
+      "short_term_max_technical_contribution": 0.45
+    },
+    "outputs": [
+      "technical_target_low",
+      "technical_target_high",
+      "support_level",
+      "resistance_level",
+      "trend_state",
+      "entry_zone",
+      "stop_review_level",
+      "confidence"
+    ]
+  },
+  "evidence_ingestion": {
+    "version": "v1_source_attributed_capture",
+    "status": "v1_1_storage_and_ingestion_scripts_added",
+    "scoring_impact": "store_and_display_first_score_later",
+    "principles": {
+      "sqlite_is_system_of_record": true,
+      "deduplicate_by_source_identifier": true,
+      "corroboration_required_for_news_opinion_social_options": true,
+      "primary_sources_have_higher_reliability": true
+    },
+    "source_priority": [
+      {
+        "name": "SEC EDGAR submissions",
+        "source_type": "sec_filing",
+        "priority": 1,
+        "pull_method": "data.sec.gov/submissions/CIK##########.json",
+        "inputs": ["ticker_to_cik_mapping"],
+        "captures": ["filing_metadata", "filing_urls", "10-K", "10-Q", "8-K", "20-F", "6-K"],
+        "initial_use": "filing_event_timeline_and_risk_catalyst_prompts"
+      },
+      {
+        "name": "SEC EDGAR companyfacts",
+        "source_type": "sec_xbrl_facts",
+        "priority": 1,
+        "pull_method": "data.sec.gov/api/xbrl/companyfacts/CIK##########.json",
+        "inputs": ["ticker_to_cik_mapping"],
+        "captures": ["revenue", "eps", "cash_flow", "margins", "balance_sheet_facts"],
+        "initial_use": "fundamental_target_inputs_and_primary_source_validation"
+      },
+      {
+        "name": "Company investor relations",
+        "source_type": "company_release",
+        "priority": 2,
+        "pull_method": "configured_symbol_urls_or_manual_links",
+        "captures": ["earnings_releases", "presentations", "guidance", "company_events"],
+        "initial_use": "corroborate_filings_and_transcripts"
+      },
+      {
+        "name": "FMP earnings transcripts",
+        "source_type": "earnings_transcript",
+        "priority": 2,
+        "pull_method": "fmp_transcript_endpoint_if_key_supports_it",
+        "captures": ["management_commentary", "qa", "guidance_tone", "risk_language"],
+        "initial_use": "deep_research_notes_and_catalyst_confidence"
+      },
+      {
+        "name": "Finnhub transcripts",
+        "source_type": "earnings_transcript",
+        "priority": 2,
+        "pull_method": "finnhub_transcript_endpoints_if_key_supports_them",
+        "captures": ["management_commentary", "qa", "participant_metadata"],
+        "initial_use": "transcript_fallback_or_enrichment"
+      },
+      {
+        "name": "Alpha Vantage news sentiment",
+        "source_type": "news_sentiment",
+        "priority": 3,
+        "pull_method": "NEWS_SENTIMENT_BY_TICKER",
+        "captures": ["headline", "url", "publisher", "published_at", "sentiment"],
+        "initial_use": "news_catalyst_queue_and_sentiment_context"
+      },
+      {
+        "name": "Finnhub company news sentiment",
+        "source_type": "news_sentiment",
+        "priority": 3,
+        "pull_method": "company_news_and_news_sentiment_if_key_supports_them",
+        "captures": ["headline", "url", "publisher", "published_at", "sentiment"],
+        "initial_use": "news_corroboration"
+      },
+      {
+        "name": "FMP stock news",
+        "source_type": "news",
+        "priority": 4,
+        "pull_method": "fmp_news_endpoint_if_key_supports_it",
+        "captures": ["headline", "url", "publisher", "published_at"],
+        "initial_use": "news_fallback"
+      },
+      {
+        "name": "Benzinga news",
+        "source_type": "paid_news_candidate",
+        "priority": 5,
+        "pull_method": "evaluate_later_if_needed",
+        "captures": ["market_moving_headlines", "analyst_rating_news"],
+        "initial_use": "optional_short_term_catalyst_upgrade"
+      }
+    ],
+    "storage_fields": [
+      "symbol",
+      "evidence_type",
+      "source_name",
+      "source_url_or_endpoint",
+      "source_timestamp",
+      "fetched_at",
+      "title",
+      "summary",
+      "raw_text_ref",
+      "confidence",
+      "corroboration_status",
+      "user_feedback"
+    ]
+  },
+  "sleeves": {
+    "long_term": {
+      "target_pct": 0.75,
+      "max_single_stock_pct": 0.10
+    },
+    "short_term": {
+      "target_pct": 0.25,
+      "max_single_stock_pct": 0.05
+    },
+    "etf": {
+      "target_pct": 0.25,
+      "max_single_etf_pct": 0.20
+    }
+  },
+  "manual_positions": [
+    {
+      "symbol": "NVDA",
+      "quantity": 10,
+      "source": "manual",
+      "notes": "User reported purchase of 10 NVDA shares."
+    }
+  ]
+}

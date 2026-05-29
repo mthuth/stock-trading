@@ -1,0 +1,44 @@
+{
+  "metadata": {
+    "report_date": "2026-05-28",
+    "generated_at": "2026-05-28T18:00:00",
+    "model_version": "fixture-rules-v1",
+    "recommendation_run_id": 101,
+    "analysis_run_id": 202,
+    "recommendation_only": true
+  },
+  "summary": {
+    "top_symbol": "NVDA",
+    "top_action": "Add",
+    "top_score": 84.2
+  },
+  "reliability": {
+    "mode": "Fresh provider data",
+    "price_counts": {
+      "fresh": 2,
+      "fallback": 0,
+      "stale": 0,
+      "manual": 0,
+      "missing": 0
+    },
+    "latest_provider_refresh": "multi-provider at 2026-05-28 18:00:00"
+  },
+  "recommendations": [
+    {
+      "rank": 1,
+      "symbol": "NVDA",
+      "company": "NVIDIA Corp.",
+      "sleeve": "long_term",
+      "trade_type": "long_term",
+      "action": "Add",
+      "score": 84.2,
+      "current_price": 100.0,
+      "target_price": 140.0,
+      "upside_pct": 40.0,
+      "confidence": "Medium",
+      "data_status": "Blended",
+      "rationale": "Score is high enough to add and the proposed buy stays within position caps.",
+      "notes": "Fixture recommendation."
+    }
+  ]
+}
