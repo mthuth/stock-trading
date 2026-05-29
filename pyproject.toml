@@ -1,0 +1,11 @@
+[project]
+name = "stock-trading-research-engine"
+version = "0.1.0"
+description = "Local batch stock research, ingestion, analysis, and presentation engine."
+requires-python = ">=3.9"
+
+[tool.stock-trading.commands]
+test = "python3 -m unittest discover -s tests"
+analysis = "python3 scripts/run_analysis.py --no-persist --no-context"
+render-fixture = "python3 scripts/render_report_context.py --fixture tests/fixtures/report_context.json --output-dir /private/tmp/stock-report-context-render"
+

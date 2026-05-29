@@ -3,17 +3,12 @@
 
 from __future__ import annotations
 
-import sys
 import unittest
-from pathlib import Path
 from unittest.mock import patch
 from urllib.error import URLError
 
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
-
-import provider_client as subject  # noqa: E402
+from stock_trading import provider_client as subject
 
 
 class FakeResponse:
@@ -58,4 +53,3 @@ class ProviderClientTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -3,16 +3,11 @@
 
 from __future__ import annotations
 
-import sys
 import unittest
-from pathlib import Path
 from unittest.mock import patch
 
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
-
-import ingestion as subject  # noqa: E402
+from stock_trading import ingestion as subject
 
 
 class IngestionBoundaryTests(unittest.TestCase):
@@ -60,4 +55,3 @@ class IngestionBoundaryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

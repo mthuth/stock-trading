@@ -3,16 +3,11 @@
 
 from __future__ import annotations
 
-import sys
 import unittest
-from pathlib import Path
 from unittest.mock import patch
 
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
-
-import generate_daily_report as subject  # noqa: E402
+from scripts import generate_daily_report as subject
 
 
 def research_input(symbol: str, target_price: float = 0, target_source: str = "") -> subject.ResearchInput:

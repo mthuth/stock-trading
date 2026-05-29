@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import sys
 import tempfile
 import unittest
 from datetime import date, timedelta
@@ -12,10 +11,9 @@ from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
 
-import curate_score_signals as subject  # noqa: E402
-import engine_common  # noqa: E402
+from scripts import curate_score_signals as subject
+from stock_trading import storage as engine_common
 
 
 class CurateScoreSignalsTests(unittest.TestCase):

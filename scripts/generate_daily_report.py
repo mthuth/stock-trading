@@ -33,6 +33,7 @@ SOURCES_FILE = CONFIG_DIR / "research_sources.csv"
 SOURCE_INTEGRATIONS_FILE = CONFIG_DIR / "research_source_integrations.csv"
 REFRESH_SCRIPT = ROOT / "scripts" / "refresh_market_data.py"
 
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from engine_common import (  # noqa: E402
@@ -128,6 +129,18 @@ class InsightSignal:
             f"{self.base_score:.1f} base "
             f"{self.total_delta:+.1f} signal overlay = {self.final_score:.1f}"
         )
+
+
+@dataclass
+class DecisionInsight:
+    symbol: str
+    headline: str
+    insight_type: str
+    why_it_matters: str
+    supporting_data: str
+    risk_or_uncertainty: str
+    next_check: str
+    what_would_change_the_view: str
 
 
 def load_research_inputs() -> List[ResearchInput]:
@@ -1381,6 +1394,68 @@ def score_history_rows(
     return rows
 
 
+def change_marker_for_row(
+    row: Dict[str, object],
+    history_by_symbol: Dict[str, List[Dict[str, object]]],
+) -> Dict[str, str]:
+    item = row["input"]
+    target = row.get("target")
+    history = history_by_symbol.get(item.symbol, [])
+    if len(history) < 2:
+        return {
+            "label": "New",
+            "note": "No prior stored run for comparison.",
+            "class": "change-new",
+        }
+
+    previous = history[-2]
+    previous_action = str(previous.get("action") or "")
+    current_action = str(row.get("action") or "")
+    if previous_action and previous_action != current_action:
+        return {
+            "label": "Action changed",
+            "note": f"Action changed from {previous_action} to {current_action}.",
+            "class": "change-action",
+        }
+
+    previous_score = to_float(previous.get("score"))
+    current_score = float(row.get("score") or 0)
+    score_delta = current_score - previous_score
+    if abs(score_delta) >= 1.0:
+        direction_class = "change-up" if score_delta > 0 else "change-down"
+        return {
+            "label": f"Score {score_delta:+.1f}",
+            "note": f"Score moved {score_delta:+.1f} since last run.",
+            "class": direction_class,
+        }
+
+    previous_target = to_float(previous.get("target_price"))
+    current_target = target.target_price if target else item.target_price
+    if previous_target > 0 and current_target > 0:
+        target_delta_pct = ((current_target - previous_target) / previous_target) * 100
+        if abs(target_delta_pct) >= 2.0:
+            direction_class = "change-up" if target_delta_pct > 0 else "change-down"
+            return {
+                "label": f"Target {target_delta_pct:+.1f}%",
+                "note": f"Target moved {target_delta_pct:+.1f}% since last run.",
+                "class": direction_class,
+            }
+
+    return {
+        "label": "No material change",
+        "note": "No action, score, or target movement crossed the display threshold.",
+        "class": "change-none",
+    }
+
+
+def change_marker_html(marker: Dict[str, str]) -> str:
+    return (
+        f'<span class="change-badge {html.escape(marker["class"])}" '
+        f'title="{html.escape(marker["note"])}">'
+        f'{html.escape(marker["label"])}</span>'
+    )
+
+
 def latest_evidence_by_symbol(limit_per_symbol: int = 5) -> Dict[str, List[Dict[str, object]]]:
     if not DB_FILE.exists():
         return {}
@@ -2367,6 +2442,407 @@ def ranked_data_gap_queue_rows(ranked: List[Dict[str, object]], limit: int = 15)
     ]
 
 
+def row_target_counts(row: Dict[str, object], target_counts: Dict[str, Dict[str, int]]) -> Dict[str, int]:
+    item = row["input"]
+    target = row.get("target")
+    counts = dict(target_counts.get(item.symbol, {"analyst": 0, "all": 0}))
+    counts["source_count"] = target.source_count if target else counts.get("all", 0)
+    return counts
+
+
+def decision_gap_match(insight: InsightSignal, needle: str) -> bool:
+    needle = needle.lower()
+    return any(needle in str(gap.get("gap") or "").lower() for gap in insight.data_gaps)
+
+
+def top_decision_gap(insight: InsightSignal) -> Dict[str, object] | None:
+    if not insight.data_gaps:
+        return None
+    return sorted(insight.data_gaps, key=lambda gap: to_float(gap.get("impact")), reverse=True)[0]
+
+
+def concrete_next_check(
+    row: Dict[str, object],
+    insight_type: str,
+    insight: InsightSignal,
+) -> str:
+    gap = top_decision_gap(insight)
+    if gap:
+        best_pull = str(gap.get("best_pull") or "").strip()
+        next_action = str(gap.get("next_action") or "").strip()
+        return f"{best_pull}: {next_action}" if next_action else best_pull
+    if insight_type == "Momentum Watch":
+        return "scripts/ingest_price_history.py: refresh daily bars and confirm the move still holds."
+    if insight_type == "Conviction Builder":
+        return "scripts/ingest_sec.py + scripts/ingest_official_ir.py: confirm the thesis against primary-source evidence."
+    if insight_type == "Caution":
+        return "scripts/ingest_research_depth.py / scripts/ingest_finnhub.py: refresh news, earnings, and recommendation context."
+    item = row["input"]
+    if item.sleeve != "etf":
+        return "config/manual_analyst_targets.csv: add verified analyst targets if provider coverage is thin."
+    return "scripts/refresh_market_data.py: refresh price and target inputs before the next report."
+
+
+def classify_decision_insight(row: Dict[str, object], target_counts: Dict[str, Dict[str, int]]) -> str:
+    insight: InsightSignal = row["insight"]
+    item = row["input"]
+    action = str(row.get("action") or "")
+    score = to_float(row.get("score"))
+    counts = row_target_counts(row, target_counts)
+    analyst_count = counts.get("analyst", 0)
+    missing_price = decision_gap_match(insight, "missing current price")
+    missing_target = decision_gap_match(insight, "missing blended target")
+    missing_analyst = analyst_count == 0 and item.sleeve != "etf"
+    primary_gap = decision_gap_match(insight, "primary-source")
+    provider_gap = decision_gap_match(insight, "provider failure") or "blocked" in item.provider_notes.lower()
+    near_action = action in {"Add", "Buy", "Strong Buy", "Watch", "Hold"} or score >= 65
+    negative_evidence = insight.evidence_delta <= -1.0
+    negative_signal = negative_evidence or insight.trend_delta <= -2.0 or insight.target_delta <= -1.5
+    strong_trend = insight.trend_delta >= 2.0 and insight.trend_delta >= max(insight.evidence_delta, insight.target_delta)
+    supportive_signal = insight.evidence_delta >= 0.5 or insight.trend_delta >= 1.0 or insight.target_delta >= 0.5
+    major_blocker = missing_price or missing_target or provider_gap or insight.data_gap_delta <= -4
+
+    if major_blocker and score < 68:
+        return "Data Gap"
+    if near_action and (primary_gap or provider_gap or missing_price or missing_target):
+        return "Verification Needed"
+    if negative_evidence:
+        return "Caution"
+    if strong_trend and (item.sleeve == "short_term" or item.trade_type in {"day_trade", "weekly_swing", "tactical_2_4_week"}):
+        return "Momentum Watch"
+    if strong_trend and missing_analyst:
+        return "Momentum Watch"
+    if near_action and missing_analyst:
+        return "Verification Needed"
+    if negative_signal:
+        return "Caution"
+    if score >= 78 and supportive_signal and insight.data_gap_delta >= -1.5 and not major_blocker:
+        return "Conviction Builder"
+    if insight.data_gap_delta <= -2:
+        return "Data Gap" if score < 65 else "Verification Needed"
+    if strong_trend:
+        return "Momentum Watch"
+    return "Caution" if score >= 70 else "Data Gap"
+
+
+def decision_headline(row: Dict[str, object], insight_type: str) -> str:
+    item = row["input"]
+    action = str(row.get("action") or "")
+    score = to_float(row.get("score"))
+    if insight_type == "Conviction Builder":
+        return f"{item.symbol} has decision support for {action} with a {score:.1f} final score."
+    if insight_type == "Verification Needed":
+        return f"{item.symbol} is near action, but one verification pull should happen before sharing."
+    if insight_type == "Momentum Watch":
+        return f"{item.symbol} is being carried by price trend; confirm the move before upgrading conviction."
+    if insight_type == "Caution":
+        return f"{item.symbol} has enough signal to track, but the current evidence mix argues for restraint."
+    return f"{item.symbol} needs a data pull before the score can be trusted."
+
+
+def build_decision_insight(
+    row: Dict[str, object],
+    evidence_by_symbol: Dict[str, List[Dict[str, object]]],
+    target_counts: Dict[str, Dict[str, int]],
+) -> DecisionInsight:
+    item = row["input"]
+    target = row.get("target")
+    insight: InsightSignal = row["insight"]
+    insight_type = classify_decision_insight(row, target_counts)
+    counts = row_target_counts(row, target_counts)
+    evidence_rows = [e for e in evidence_by_symbol.get(item.symbol, []) if evidence_mentions_item(e, item)]
+    primary_count = sum(1 for e in evidence_rows if str(e.get("source_name") or "") in PRIMARY_SOURCE_NAMES)
+    fresh_count = sum(
+        1
+        for e in evidence_rows
+        if (evidence_age_days(e) if evidence_age_days(e) is not None else 9999) <= 14
+    )
+    target_label = target_price_text(item, target)
+    upside_label = target_upside_text(item, target) if target or item.upside_pct else "Refresh"
+    holding_pct = to_float(row.get("portfolio_pct"))
+    top_driver = max(
+        [
+            ("evidence", insight.evidence_delta),
+            ("price trend", insight.trend_delta),
+            ("target confidence", insight.target_delta),
+            ("data gaps", insight.data_gap_delta),
+        ],
+        key=lambda part: abs(part[1]),
+    )
+    top_gap = top_decision_gap(insight)
+    risk = (
+        f"{top_gap.get('gap')}: {top_gap.get('next_action')}"
+        if top_gap
+        else "No major confidence blocker in the current data; keep provider freshness watched."
+    )
+    if insight.evidence_delta < 0:
+        risk = f"Risk evidence is pulling the score down ({insight.evidence_delta:+.1f}); {risk}"
+    elif insight.trend_delta < 0:
+        risk = f"Weak price trend is pulling the score down ({insight.trend_delta:+.1f}); {risk}"
+    why = (
+        f"Final score is {insight.final_score:.1f} after a {insight.total_delta:+.1f} overlay; "
+        f"action is {row.get('action')} and current holding is {holding_pct:.1f}% of portfolio."
+    )
+    supporting = (
+        f"{insight.score_movement}; top driver is {top_driver[0]} {top_driver[1]:+.1f}. "
+        f"Targets: {target_label}, upside {upside_label}, {counts.get('analyst', 0)} analyst source(s), "
+        f"{counts.get('all', 0)} total target source(s). Evidence: {fresh_count} fresh, {primary_count} primary."
+    )
+    if insight_type == "Conviction Builder":
+        change_view = "The view weakens if fresh primary evidence turns negative, target breadth falls, or price trend rolls over."
+    elif insight_type == "Momentum Watch":
+        change_view = "The view improves if target breadth and evidence catch up; it weakens if the price trend loses support."
+    elif insight_type == "Verification Needed":
+        change_view = "The view improves when the named data pull closes the gap; it weakens if the gap persists into the next run."
+    elif insight_type == "Caution":
+        change_view = "The view improves with positive corroborated evidence and cleaner trend/target support; it weakens with new risk evidence."
+    else:
+        change_view = "The view changes only after the missing price, target, evidence, or provider data is refreshed."
+    return DecisionInsight(
+        symbol=item.symbol,
+        headline=decision_headline(row, insight_type),
+        insight_type=insight_type,
+        why_it_matters=why,
+        supporting_data=supporting,
+        risk_or_uncertainty=risk,
+        next_check=concrete_next_check(row, insight_type, insight),
+        what_would_change_the_view=change_view,
+    )
+
+
+def decision_insights_by_symbol(
+    ranked: List[Dict[str, object]],
+    evidence_by_symbol: Dict[str, List[Dict[str, object]]],
+    target_counts: Dict[str, Dict[str, int]],
+) -> Dict[str, DecisionInsight]:
+    return {
+        row["input"].symbol: build_decision_insight(row, evidence_by_symbol, target_counts)
+        for row in ranked
+    }
+
+
+def decision_priority(row: Dict[str, object], insight: DecisionInsight) -> float:
+    type_weight = {
+        "Conviction Builder": 7,
+        "Verification Needed": 6,
+        "Momentum Watch": 5,
+        "Caution": 4,
+        "Data Gap": 3,
+    }.get(insight.insight_type, 3)
+    action_weight = 2 if str(row.get("action") or "") in {"Add", "Buy", "Strong Buy"} else 1
+    return to_float(row.get("score")) + type_weight + action_weight
+
+
+def decision_brief_rows(
+    ranked: List[Dict[str, object]],
+    decision_insights: Dict[str, DecisionInsight],
+    limit: int = 8,
+) -> List[List[object]]:
+    candidates = sorted(
+        ranked,
+        key=lambda row: decision_priority(row, decision_insights[row["input"].symbol]),
+        reverse=True,
+    )
+    rows = []
+    for row in candidates[:limit]:
+        item = row["input"]
+        insight = decision_insights[item.symbol]
+        rows.append(
+            [
+                item.symbol,
+                insight.insight_type,
+                insight.headline,
+                insight.why_it_matters,
+                insight.next_check,
+            ]
+        )
+    return rows
+
+
+def what_to_verify_rows(
+    ranked: List[Dict[str, object]],
+    decision_insights: Dict[str, DecisionInsight],
+    limit: int = 10,
+) -> List[List[object]]:
+    candidates = [
+        row
+        for row in ranked
+        if decision_insights[row["input"].symbol].insight_type
+        in {"Verification Needed", "Caution", "Data Gap", "Momentum Watch"}
+    ]
+    candidates.sort(
+        key=lambda row: (
+            decision_priority(row, decision_insights[row["input"].symbol]),
+            abs(row["insight"].data_gap_delta),
+        ),
+        reverse=True,
+    )
+    rows = []
+    for row in candidates[:limit]:
+        item = row["input"]
+        insight = decision_insights[item.symbol]
+        rows.append(
+            [
+                item.symbol,
+                insight.insight_type,
+                insight.risk_or_uncertainty,
+                insight.next_check,
+                insight.what_would_change_the_view,
+            ]
+        )
+    return rows
+
+
+def decision_insight_html(insight: DecisionInsight) -> str:
+    return f"""
+      <div class="decision-insight-block">
+        <h4>Decision Insight</h4>
+        <div class="decision-insight-head">
+          <span class="insight-badge">{html.escape(insight.insight_type)}</span>
+          <strong>{html.escape(insight.headline)}</strong>
+        </div>
+        <div class="decision-insight-grid">
+          <div><span>Why it matters</span>{html.escape(insight.why_it_matters)}</div>
+          <div><span>Supporting data</span>{html.escape(insight.supporting_data)}</div>
+          <div><span>Risk or uncertainty</span>{html.escape(insight.risk_or_uncertainty)}</div>
+          <div><span>Next check</span>{html.escape(insight.next_check)}</div>
+          <div><span>What would change the view</span>{html.escape(insight.what_would_change_the_view)}</div>
+        </div>
+      </div>
+    """
+
+
+def decision_brief_cards_html(
+    ranked: List[Dict[str, object]],
+    decision_insights: Dict[str, DecisionInsight],
+    limit: int = 5,
+) -> str:
+    rows = sorted(
+        ranked,
+        key=lambda row: decision_priority(row, decision_insights[row["input"].symbol]),
+        reverse=True,
+    )[:limit]
+    cards = []
+    for row in rows:
+        item = row["input"]
+        insight = decision_insights[item.symbol]
+        cards.append(
+            f"""
+            <article class="decision-brief-card">
+              <div class="decision-brief-top">
+                <strong>{html.escape(item.symbol)}</strong>
+                <span class="insight-badge">{html.escape(insight.insight_type)}</span>
+              </div>
+              <h3>{html.escape(insight.headline)}</h3>
+              <p>{html.escape(insight.why_it_matters)}</p>
+              <p><strong>Next:</strong> {html.escape(insight.next_check)}</p>
+            </article>
+            """
+        )
+    return f"""
+      <section class="decision-briefs">
+        <div class="section-title">
+          <h2>Decision Briefs</h2>
+          <span class="section-note">Concise deterministic summaries from current data</span>
+        </div>
+        <div class="decision-brief-grid">
+          {''.join(cards) if cards else '<p>No decision briefs available.</p>'}
+        </div>
+      </section>
+    """
+
+
+def add_insight_theme(
+    themes: Dict[str, Dict[str, object]],
+    name: str,
+    symbol: str,
+    why: str,
+    next_check: str,
+) -> None:
+    entry = themes.setdefault(name, {"symbols": [], "why": why, "next_check": next_check})
+    if symbol not in entry["symbols"]:
+        entry["symbols"].append(symbol)
+
+
+def insight_theme_rows(
+    ranked: List[Dict[str, object]],
+    decision_insights: Dict[str, DecisionInsight],
+) -> List[List[object]]:
+    themes: Dict[str, Dict[str, object]] = {}
+    for row in ranked:
+        item = row["input"]
+        signal: InsightSignal = row["insight"]
+        insight = decision_insights[item.symbol]
+        if insight.insight_type == "Conviction Builder":
+            add_insight_theme(
+                themes,
+                "Conviction builders",
+                item.symbol,
+                "High scores with supportive signals and no major confidence blocker.",
+                "scripts/ingest_sec.py + scripts/ingest_official_ir.py",
+            )
+        if insight.insight_type == "Momentum Watch" or signal.trend_delta >= 2:
+            add_insight_theme(
+                themes,
+                "Trend-led candidates",
+                item.symbol,
+                "Constructive price action is one of the strongest current drivers.",
+                "scripts/ingest_price_history.py",
+            )
+        if decision_gap_match(signal, "No analyst target breadth"):
+            add_insight_theme(
+                themes,
+                "Missing analyst breadth",
+                item.symbol,
+                "Target confidence is limited by thin analyst coverage.",
+                "scripts/ingest_benzinga_analyst_targets.py or config/manual_analyst_targets.csv",
+            )
+        if decision_gap_match(signal, "primary-source"):
+            add_insight_theme(
+                themes,
+                "Primary-source verification",
+                item.symbol,
+                "Top or near-action names need SEC/IR support before sharing as conviction.",
+                "scripts/ingest_sec.py + scripts/ingest_official_ir.py",
+            )
+        if signal.evidence_delta < 0:
+            add_insight_theme(
+                themes,
+                "Risk evidence",
+                item.symbol,
+                "Negative evidence is subtracting from the overlay.",
+                "scripts/ingest_research_depth.py / scripts/ingest_finnhub.py",
+            )
+        if decision_gap_match(signal, "Provider failure") or "blocked" in item.provider_notes.lower():
+            add_insight_theme(
+                themes,
+                "Source blockers",
+                item.symbol,
+                "Provider access or endpoint failures are blocking confidence fields.",
+                "scripts/show_provider_gaps.py",
+            )
+        if signal.data_gap_delta <= -4:
+            add_insight_theme(
+                themes,
+                "Scores held down by data gaps",
+                item.symbol,
+                "Missing data is materially lowering final score and confidence.",
+                insight.next_check,
+            )
+    rows = []
+    for name, entry in sorted(themes.items(), key=lambda part: len(part[1]["symbols"]), reverse=True):
+        symbols = entry["symbols"]
+        rows.append(
+            [
+                name,
+                ", ".join(symbols[:10]) + (f" +{len(symbols) - 10} more" if len(symbols) > 10 else ""),
+                entry["why"],
+                entry["next_check"],
+            ]
+        )
+    return rows
+
+
 def source_quality(row: Dict[str, str]) -> float:
     reliability = to_float(row.get("reliability_rating")) / 5
     timeliness = to_float(row.get("timeliness_rating")) / 5
@@ -2463,6 +2939,28 @@ PUBLIC_FEED_SOURCE_NAMES = {
     "TLDR AI newsletter",
     "Platformer newsletter",
 }
+PUBLIC_SOURCE_CATEGORIES = {
+    "ai_research",
+    "company_blog",
+    "company_newsroom",
+    "newsletter",
+    "podcast",
+    "press_wire",
+    "semiconductor_news",
+    "tech_news",
+}
+
+
+def public_feed_source_names() -> set[str]:
+    names = set(PUBLIC_FEED_SOURCE_NAMES)
+    for source_name, integration in load_source_integrations().items():
+        if str(integration.get("source_category", "")).strip() in PUBLIC_SOURCE_CATEGORIES:
+            names.add(source_name)
+    return names
+
+
+def is_public_feed_source(source_name: str) -> bool:
+    return source_name in public_feed_source_names()
 
 
 def source_aliases(source_name: str) -> List[str]:
@@ -2664,7 +3162,7 @@ def source_operations_by_name() -> Dict[str, Dict[str, object]]:
             update("SEC EDGAR submissions API", int(row["count"] or 0), row["latest"], issue, int(row["issue_count"] or 0), endpoint)
         if provider == "SEC EDGAR" and endpoint == "companyfacts":
             update("SEC EDGAR companyfacts API", int(row["count"] or 0), row["latest"], issue, int(row["issue_count"] or 0), endpoint)
-        if endpoint == "public_feed" and provider in PUBLIC_FEED_SOURCE_NAMES:
+        if endpoint == "public_feed" and is_public_feed_source(provider):
             update(provider, int(row["count"] or 0), row["latest"], issue, int(row["issue_count"] or 0), endpoint)
     for row in raw_rows:
         provider = str(row["provider"] or "")
@@ -2678,7 +3176,7 @@ def source_operations_by_name() -> Dict[str, Dict[str, object]]:
             update_raw("SEC EDGAR submissions API", int(row["count"] or 0), int(row["payload_bytes"] or 0), row["latest"], endpoint)
         if provider == "SEC EDGAR" and endpoint == "companyfacts":
             update_raw("SEC EDGAR companyfacts API", int(row["count"] or 0), int(row["payload_bytes"] or 0), row["latest"], endpoint)
-        if endpoint == "public_feed" and provider in PUBLIC_FEED_SOURCE_NAMES:
+        if endpoint in {"public_feed", "public_feed_body"} and is_public_feed_source(provider):
             update_raw(provider, int(row["count"] or 0), int(row["payload_bytes"] or 0), row["latest"], endpoint)
     for row in run_rows:
         message = str(row["message"] or "")
@@ -2710,7 +3208,7 @@ def source_operations_by_name() -> Dict[str, Dict[str, object]]:
             update("SEC EDGAR submissions API", 0, row["latest"], issue, current_issues, field, current_issues)
         if provider == "SEC EDGAR" and field == "companyfacts":
             update("SEC EDGAR companyfacts API", 0, row["latest"], issue, current_issues, field, current_issues)
-        if field == "public_feed" and provider in PUBLIC_FEED_SOURCE_NAMES:
+        if field == "public_feed" and is_public_feed_source(provider):
             update(provider, 0, row["latest"], issue, current_issues, field, current_issues)
     if etrade_row and int(etrade_row["count"] or 0):
         update("E*TRADE account data", int(etrade_row["count"] or 0), etrade_row["latest"], endpoint="etrade_positions")
@@ -2758,7 +3256,12 @@ def operations_for_source(source_name: str, operations: Dict[str, Dict[str, obje
         int(merged.get("records") or 0),
         source_name,
     )
-    merged["next_action"] = SOURCE_IMPLEMENTATION_PLAN.get(source_name, "Define provider, access method, cost, and evidence format.")
+    integration = load_source_integrations().get(source_name, {})
+    merged["next_action"] = (
+        SOURCE_IMPLEMENTATION_PLAN.get(source_name)
+        or integration.get("next_step")
+        or "Define provider, access method, cost, and evidence format."
+    )
     return merged
 
 
@@ -2784,8 +3287,8 @@ def provider_filters_for_source(source_name: str) -> List[tuple[str, str | None]
         "Market news feeds": [("Alpha Vantage", "NEWS_SENTIMENT"), ("Finnhub", "company-news")],
         "E*TRADE account data": [("E*TRADE", None)],
     }
-    for source in PUBLIC_FEED_SOURCE_NAMES:
-        filters[source] = [(source, "public_feed")]
+    for source in public_feed_source_names():
+        filters[source] = [(source, "public_feed"), (source, "public_feed_body")]
     return filters.get(source_name, [])
 
 
@@ -3016,7 +3519,10 @@ def source_record_detail_html(
           <div class="source-integration-plan">
             <h4>Integration Plan</h4>
             <p><strong>Status:</strong> {html.escape(integration.get("implementation_status", "unknown"))}</p>
+            <p><strong>Tier:</strong> {html.escape(str(integration.get("source_tier") or "core"))}</p>
             <p><strong>Access model:</strong> {html.escape(integration.get("access_model", "unknown"))}</p>
+            <p><strong>Ingestion method:</strong> {html.escape(str(integration.get("ingestion_method") or "not defined"))}</p>
+            <p><strong>Content policy:</strong> {html.escape(str(integration.get("content_policy") or "not defined"))}</p>
             <p><strong>Official URL:</strong> {official_link}</p>
             <p><strong>Planned use:</strong> {html.escape(integration.get("planned_use", ""))}</p>
             <p><strong>Next step:</strong> {html.escape(integration.get("next_step", ""))}</p>
@@ -3376,6 +3882,8 @@ def pre_market_readiness_html(items: List[Dict[str, str]]) -> str:
 def expandable_source_table(source_rows: List[Dict[str, object]]) -> str:
     headers = [
         "Source",
+        "Tier",
+        "Category",
         "Status",
         "Records",
         "Raw",
@@ -3399,6 +3907,8 @@ def expandable_source_table(source_rows: List[Dict[str, object]]) -> str:
             f"""
             <tr class="expandable-source-row" tabindex="0" role="button" aria-expanded="false" aria-controls="{detail_id}">
               <td>{html.escape(source_name)}</td>
+              <td>{html.escape(str(integration.get("source_tier") or "core"))}</td>
+              <td>{html.escape(str(integration.get("source_category") or row["source_type"]))}</td>
               <td>{html.escape(str(operations.get("status") or ""))}</td>
               <td>{int(operations.get("records") or 0)}</td>
               <td>{int(operations.get("raw_records") or 0)}</td>
@@ -3572,6 +4082,11 @@ def generate_report() -> List[Path]:
         )
     stored_scores = record_recommendation_scores(db_run_id, score_db_rows)
     score_history_by_symbol = latest_score_history_by_symbol()
+    decision_insights = decision_insights_by_symbol(
+        ranked,
+        stored_evidence_by_symbol,
+        target_counts,
+    )
     score_trend_table = html_table(
         ["Symbol", "Company/Fund", "Latest", "Change", "Action", "Trend", "Data Status"],
         score_history_rows(ranked, score_history_by_symbol),
@@ -3696,6 +4211,7 @@ def generate_report() -> List[Path]:
         action = str(row["action"])
         target_confidence = target_confidence_text(item, target)
         target_status = data_status_for_target(item, target)
+        change_marker = change_marker_for_row(row, score_history_by_symbol)
         rationale = action_rationale(
             item,
             action,
@@ -3708,6 +4224,7 @@ def generate_report() -> List[Path]:
             item.symbol,
             action_hover_html(action, rationale, item, row["breakdown"], target),
             f"{float(row['score']):.1f}",
+            change_marker_html(change_marker),
             fmt_money(item.current_price) if item.current_price else "Needs refresh",
             target_price_text(item, target),
             target_upside_text(item, target) if target or item.upside_pct else "Refresh",
@@ -3727,8 +4244,10 @@ def generate_report() -> List[Path]:
             item = row["input"]
             target = row.get("target")
             action = str(row["action"])
+            decision_insight = decision_insights[item.symbol]
             target_confidence = target_confidence_text(item, target)
             target_status = data_status_for_target(item, target)
+            change_marker = change_marker_for_row(row, score_history_by_symbol)
             detail_id = f"action-detail-{html.escape(item.symbol.lower())}"
             rationale = action_rationale(
                 item,
@@ -3744,6 +4263,7 @@ def generate_report() -> List[Path]:
                   <td>{html.escape(item.symbol)}</td>
                   <td>{action_hover_html(action, rationale, item, row["breakdown"], target)}</td>
                   <td>{float(row['score']):.1f}</td>
+                  <td>{change_marker_html(change_marker)}</td>
                   <td>{html.escape(fmt_money(item.current_price) if item.current_price else "Needs refresh")}</td>
                   <td>{html.escape(target_price_text(item, target))}</td>
                   <td>{target_upside_text(item, target) if target or item.upside_pct else "Refresh"}</td>
@@ -3763,6 +4283,7 @@ def generate_report() -> List[Path]:
                       <p><strong>Blended target:</strong> {html.escape(target_price_text(item, target))}; upside {html.escape(target_upside_text(item, target))}; confidence {html.escape(target_confidence_text(item, target))}</p>
                       <p><strong>Score movement:</strong> {html.escape(row["insight"].score_movement)}</p>
                       <p><strong>Score breakdown:</strong> {html.escape(score_summary_with_insight(row["breakdown"], row["insight"]))}</p>
+                      {decision_insight_html(decision_insight)}
                       {score_explanation_html(item, row["breakdown"], target, row["insight"])}
                       {score_signal_shadow_html(item.symbol, stored_score_signals_by_symbol)}
                       <p><strong>Research note:</strong> {html.escape(item.notes)}</p>
@@ -3804,6 +4325,10 @@ def generate_report() -> List[Path]:
     ]
     data_gap_rows = ranked_data_gap_queue_rows(ranked, limit=25)
     visible_data_gap_rows = data_gap_rows[:12]
+    top_decision_brief_rows = decision_brief_rows(ranked, decision_insights, limit=8)
+    verify_next_rows = what_to_verify_rows(ranked, decision_insights, limit=10)
+    insight_theme_table_rows = insight_theme_rows(ranked, decision_insights)
+    decision_brief_cards = decision_brief_cards_html(action_queue_items or ranked, decision_insights, limit=5)
     data_gap_note = (
         f"{len(data_gap_rows) - len(visible_data_gap_rows)} more ranked data gaps are in the full universe."
         if len(data_gap_rows) > len(visible_data_gap_rows)
@@ -3815,6 +4340,7 @@ def generate_report() -> List[Path]:
         "Symbol",
         "Action",
         "Score",
+        "Change",
         "Today",
         "Target",
         "Upside",
@@ -3828,19 +4354,19 @@ def generate_report() -> List[Path]:
         decision_headers,
         long_term_rows,
         "decision-table",
-        raw_columns={2},
+        raw_columns={2, 4},
     )
     short_term_decision_table = html_table(
         decision_headers,
         short_term_decision_rows,
         "decision-table",
-        raw_columns={2},
+        raw_columns={2, 4},
     )
     speculative_table = html_table(
         decision_headers,
         speculative_rows,
         "decision-table",
-        raw_columns={2},
+        raw_columns={2, 4},
     )
     data_gap_table = html_table(
         ["Rank", "Symbol", "Data Gap", "Impact", "Best Pull", "Next Action"],
@@ -3855,6 +4381,11 @@ def generate_report() -> List[Path]:
     trend_insight_table = html_table(
         ["Symbol", "Overlay", "Trend Insight", "Score Movement"],
         trend_insight_rows(ranked),
+        "compact-table",
+    )
+    insight_theme_table = html_table(
+        ["Theme", "Symbols", "Why It Matters", "Next Check"],
+        insight_theme_table_rows,
         "compact-table",
     )
     source_drilldown_rows = []
@@ -3916,6 +4447,8 @@ def generate_report() -> List[Path]:
         data_ingestion_rows.append(
             [
                 row["source_name"],
+                str(row.get("integration", {}).get("source_tier") or "core"),
+                str(row.get("integration", {}).get("source_category") or row.get("source_type") or ""),
                 free_paid,
                 operations.get("status") or "",
                 int(operations.get("raw_records") or 0),
@@ -3980,15 +4513,31 @@ def generate_report() -> List[Path]:
     )
     signal_health_rows = score_signal_health_rows()
     next_day_watchlist_rows = []
+    next_day_watchlist_html_rows = []
     for rank, row in enumerate(action_queue_items[:8], start=1):
         item = row["input"]
         target = row.get("target")
+        change_marker = change_marker_for_row(row, score_history_by_symbol)
         next_day_watchlist_rows.append(
             [
                 rank,
                 item.symbol,
                 row["action"],
                 f"{float(row['score']):.1f}",
+                fmt_money(item.current_price) if item.current_price else "Needs refresh",
+                target_price_text(item, target),
+                target_upside_text(item, target),
+                data_status_for_target(item, target),
+                action_rationale(item, row["action"], row["breakdown"], row["position_after_buy_pct"], target),
+            ]
+        )
+        next_day_watchlist_html_rows.append(
+            [
+                rank,
+                item.symbol,
+                row["action"],
+                f"{float(row['score']):.1f}",
+                change_marker_html(change_marker),
                 fmt_money(item.current_price) if item.current_price else "Needs refresh",
                 target_price_text(item, target),
                 target_upside_text(item, target),
@@ -4125,6 +4674,10 @@ Reason: {next_item.notes}
 
 {markdown_table(['Rank', 'Symbol', 'Action', 'Score', 'Current', 'Target', 'Upside', 'Data Status', 'Why'], next_day_watchlist_rows) if next_day_watchlist_rows else 'No watchlist candidates available.'}
 
+## Top Decision Briefs
+
+{markdown_table(['Symbol', 'Type', 'Headline', 'Why It Matters', 'Next Check'], top_decision_brief_rows) if top_decision_brief_rows else 'No decision briefs available.'}
+
 ## Source Health Alerts
 
 {markdown_table(['Severity', 'Source', 'Status', 'Records', 'Last Run', 'Latest Issue', 'Next Action'], health_alert_rows) if health_alert_rows else 'No source health alerts.'}
@@ -4136,9 +4689,17 @@ Reason: {next_item.notes}
 - Implemented but stale: **{health_summary['stale']}**
 - Not implemented yet: **{health_summary['not_implemented']}**
 
+## Insight Themes
+
+{markdown_table(['Theme', 'Symbols', 'Why It Matters', 'Next Check'], insight_theme_table_rows) if insight_theme_table_rows else 'No insight themes found.'}
+
 ## Insight Drivers
 
 {markdown_table(['Symbol', 'Base', 'Evidence', 'Trend', 'Targets', 'Gaps', 'Final', 'Action', 'Top Driver'], score_movement_rows(ranked, limit=12))}
+
+## What To Verify Next
+
+{markdown_table(['Symbol', 'Type', 'Risk Or Uncertainty', 'Next Check', 'What Would Change The View'], verify_next_rows) if verify_next_rows else 'No high-priority verification checks found.'}
 
 ## Ranked Data Gap Queue
 
@@ -4236,9 +4797,21 @@ Generated: {now:%Y-%m-%d %H:%M}
 
 {markdown_table(['Symbol', 'Previous', 'Latest', 'Change', 'Previous Action', 'Latest Action', 'Data Status'], score_change_rows[:12]) if score_change_rows else 'No score changes of 1 point or more since the previous stored run.'}
 
+## Top Decision Briefs
+
+{markdown_table(['Symbol', 'Type', 'Headline', 'Why It Matters', 'Next Check'], top_decision_brief_rows[:5]) if top_decision_brief_rows else 'No decision briefs available.'}
+
+## What To Verify Next
+
+{markdown_table(['Symbol', 'Type', 'Risk Or Uncertainty', 'Next Check', 'What Would Change The View'], verify_next_rows[:6]) if verify_next_rows else 'No high-priority verification checks found.'}
+
 ## Insight Drivers
 
 {markdown_table(['Symbol', 'Base', 'Evidence', 'Trend', 'Targets', 'Gaps', 'Final', 'Action', 'Top Driver'], score_movement_rows(ranked, limit=8))}
+
+## Insight Themes
+
+{markdown_table(['Theme', 'Symbols', 'Why It Matters', 'Next Check'], insight_theme_table_rows) if insight_theme_table_rows else 'No insight themes found.'}
 
 ## Source Health Alerts
 
@@ -4258,9 +4831,21 @@ Review these before the next market session. This is recommendation support only
 
 {markdown_table(['Rank', 'Symbol', 'Action', 'Score', 'Current', 'Target', 'Upside', 'Data Status', 'Why'], next_day_watchlist_rows) if next_day_watchlist_rows else 'No watchlist candidates available.'}
 
+## Top Decision Briefs
+
+{markdown_table(['Symbol', 'Type', 'Headline', 'Why It Matters', 'Next Check'], top_decision_brief_rows[:5]) if top_decision_brief_rows else 'No decision briefs available.'}
+
 ## Trend Insights
 
 {markdown_table(['Symbol', 'Overlay', 'Trend Insight', 'Score Movement'], trend_insight_rows(ranked, limit=8))}
+
+## Insight Themes
+
+{markdown_table(['Theme', 'Symbols', 'Why It Matters', 'Next Check'], insight_theme_table_rows) if insight_theme_table_rows else 'No insight themes found.'}
+
+## What To Verify Next
+
+{markdown_table(['Symbol', 'Type', 'Risk Or Uncertainty', 'Next Check', 'What Would Change The View'], verify_next_rows[:6]) if verify_next_rows else 'No high-priority verification checks found.'}
 
 ## Ranked Data Gap Queue
 
@@ -4445,16 +5030,51 @@ Review these before the next market session. This is recommendation support only
     .decision-table th:nth-child(2), .decision-table td:nth-child(2) {{ width: 60px; }}
     .decision-table th:nth-child(3), .decision-table td:nth-child(3) {{ width: 72px; }}
     .decision-table th:nth-child(4), .decision-table td:nth-child(4) {{ width: 52px; }}
-    .decision-table th:nth-child(5), .decision-table td:nth-child(5) {{ width: 82px; }}
+    .decision-table th:nth-child(5), .decision-table td:nth-child(5) {{ width: 112px; }}
     .decision-table th:nth-child(6), .decision-table td:nth-child(6) {{ width: 82px; }}
-    .decision-table th:nth-child(7), .decision-table td:nth-child(7) {{ width: 66px; }}
-    .decision-table th:nth-child(8), .decision-table td:nth-child(8) {{ width: 78px; }}
-    .decision-table th:nth-child(9), .decision-table td:nth-child(9) {{ width: 96px; }}
-    .decision-table th:nth-child(10), .decision-table td:nth-child(10) {{ width: 104px; }}
+    .decision-table th:nth-child(7), .decision-table td:nth-child(7) {{ width: 82px; }}
+    .decision-table th:nth-child(8), .decision-table td:nth-child(8) {{ width: 66px; }}
+    .decision-table th:nth-child(9), .decision-table td:nth-child(9) {{ width: 78px; }}
+    .decision-table th:nth-child(10), .decision-table td:nth-child(10) {{ width: 96px; }}
+    .decision-table th:nth-child(11), .decision-table td:nth-child(11) {{ width: 104px; }}
     .decision-table td:last-child {{
       white-space: normal;
       color: var(--muted);
       line-height: 1.35;
+    }}
+    .change-badge {{
+      display: inline-block;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      padding: 3px 8px;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.15;
+      white-space: normal;
+    }}
+    .change-new {{
+      background: #eef4ff;
+      border-color: #b7cdf8;
+      color: var(--blue);
+    }}
+    .change-action {{
+      background: #fff2cf;
+      border-color: #e6c76f;
+      color: var(--amber);
+    }}
+    .change-up {{
+      background: #dff7ea;
+      border-color: #a8dfbd;
+      color: var(--green);
+    }}
+    .change-down {{
+      background: #fde3df;
+      border-color: #f4b4aa;
+      color: var(--red);
+    }}
+    .change-none {{
+      background: #f8fafc;
+      color: var(--muted);
     }}
     .expandable-action-row {{
       cursor: pointer;
@@ -4730,6 +5350,85 @@ Review these before the next market session. This is recommendation support only
       margin-bottom: 5px;
       line-height: 1.35;
     }}
+    .decision-briefs {{
+      margin-bottom: 14px;
+    }}
+    .decision-brief-grid {{
+      display: grid;
+      grid-template-columns: repeat(5, minmax(180px, 1fr));
+      gap: 10px;
+    }}
+    .decision-brief-card {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      padding: 12px;
+      min-height: 190px;
+    }}
+    .decision-brief-top {{
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }}
+    .decision-brief-card h3 {{
+      margin: 0 0 8px;
+      font-size: 15px;
+      line-height: 1.25;
+    }}
+    .decision-brief-card p {{
+      margin: 0 0 8px;
+      color: var(--muted);
+      line-height: 1.35;
+    }}
+    .insight-badge {{
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: #eef4ff;
+      color: var(--blue);
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }}
+    .decision-insight-block {{
+      border-top: 1px solid var(--line);
+      margin-top: 12px;
+      padding-top: 10px;
+    }}
+    .decision-insight-block h4 {{
+      margin: 0 0 8px;
+      font-size: 13px;
+    }}
+    .decision-insight-head {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 10px;
+    }}
+    .decision-insight-grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }}
+    .decision-insight-grid div {{
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px;
+      background: #fbfcfe;
+      color: var(--muted);
+      line-height: 1.35;
+    }}
+    .decision-insight-grid span {{
+      display: block;
+      color: var(--text);
+      font-weight: 800;
+      margin-bottom: 4px;
+    }}
     .source-drilldown {{
       border-top: 1px solid var(--line);
       margin-top: 12px;
@@ -4912,12 +5611,13 @@ Review these before the next market session. This is recommendation support only
       .two-column, .table-pair {{ grid-template-columns: 1fr; }}
       .readiness-grid {{ grid-template-columns: 1fr; }}
       .brief-grid {{ grid-template-columns: 1fr; }}
-      .decision-table th:nth-child(10), .decision-table td:nth-child(10) {{ display: none; }}
+      .decision-table th:nth-child(11), .decision-table td:nth-child(11) {{ display: none; }}
       .tab-nav {{ overflow-x: auto; }}
       .tab-button {{ white-space: nowrap; }}
       .subtab-nav {{ flex-wrap: nowrap; overflow-x: auto; }}
       .subtab-button {{ white-space: nowrap; }}
       .feedback-grid {{ grid-template-columns: 1fr; }}
+      .decision-brief-grid, .decision-insight-grid {{ grid-template-columns: 1fr; }}
     }}
   </style>
 </head>
@@ -4963,6 +5663,7 @@ Review these before the next market session. This is recommendation support only
 
     <div id="actionQueueSubtab" class="recommendation-subtab" role="tabpanel" aria-labelledby="actionQueueSubtabButton">
       {pre_market_readiness}
+      {decision_brief_cards}
       <section>
         <div class="section-title">
           <h2>Action Queue</h2>
@@ -4998,7 +5699,7 @@ Review these before the next market session. This is recommendation support only
           <h2>Next-Day Watchlist</h2>
           <span class="section-note">Top candidates to review before the next session</span>
         </div>
-        {html_table(['Rank', 'Symbol', 'Action', 'Score', 'Current', 'Target', 'Upside', 'Data Status', 'Why'], next_day_watchlist_rows, 'decision-table') if next_day_watchlist_rows else '<p>No next-day watchlist candidates available.</p>'}
+        {html_table(['Rank', 'Symbol', 'Action', 'Score', 'Change', 'Current', 'Target', 'Upside', 'Data Status', 'Why'], next_day_watchlist_html_rows, 'decision-table', raw_columns={4}) if next_day_watchlist_html_rows else '<p>No next-day watchlist candidates available.</p>'}
       </section>
     </div>
 
@@ -5100,6 +5801,13 @@ Review these before the next market session. This is recommendation support only
         </div>
         {source_issue_group_table if health_alert_rows else '<p>No source issue groups.</p>'}
       </section>
+      <section>
+        <div class="section-title">
+          <h2>Insight Themes</h2>
+          <span class="section-note">Common decision patterns across the ranked universe</span>
+        </div>
+        {insight_theme_table if insight_theme_table_rows else '<p>No insight themes found.</p>'}
+      </section>
       <div class="table-pair">
         <section>
           <div class="section-title">
@@ -5148,7 +5856,7 @@ Review these before the next market session. This is recommendation support only
           <span class="section-note">Free-first raw + curated ingestion status</span>
         </div>
         <p class="section-note">Raw payload rows are retained for audit and future synthesis. Curated records are normalized into evidence, targets, prices, and active insight signals.</p>
-        {html_table(['Source', 'Free/Paid', 'Status', 'Raw Payloads', 'Curated Records', 'Last Run', 'Latest Issue', 'Next Action'], data_ingestion_rows, 'source-status-table')}
+        {html_table(['Source', 'Tier', 'Category', 'Free/Paid', 'Status', 'Raw Payloads', 'Curated Records', 'Last Run', 'Latest Issue', 'Next Action'], data_ingestion_rows, 'source-status-table')}
       </section>
       <section>
         <div class="section-title">

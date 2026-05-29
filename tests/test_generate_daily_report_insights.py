@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import sqlite3
-import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -12,10 +11,9 @@ from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
 
-import engine_common  # noqa: E402
-import generate_daily_report as subject  # noqa: E402
+from scripts import generate_daily_report as subject
+from stock_trading import storage as engine_common
 
 
 def research_input(symbol: str, sleeve: str = "long_term", current_price: float = 100.0) -> subject.ResearchInput:
@@ -73,6 +71,59 @@ def breakdown(total: float = 70.0) -> subject.ScoreBreakdown:
         speculative_penalty=0.0,
         model="Long-term",
     )
+
+
+def insight_signal(
+    symbol: str = "NVDA",
+    base_score: float = 76.0,
+    final_score: float = 80.0,
+    evidence_delta: float = 1.5,
+    trend_delta: float = 1.0,
+    target_delta: float = 1.0,
+    data_gap_delta: float = 0.0,
+    data_gaps: list[dict[str, object]] | None = None,
+) -> subject.InsightSignal:
+    return subject.InsightSignal(
+        symbol=symbol,
+        base_score=base_score,
+        final_score=final_score,
+        evidence_delta=evidence_delta,
+        trend_delta=trend_delta,
+        target_delta=target_delta,
+        data_gap_delta=data_gap_delta,
+        drivers=[
+            f"Evidence {evidence_delta:+.1f}",
+            f"Trend {trend_delta:+.1f}",
+            f"Target confidence {target_delta:+.1f}",
+            f"Data gaps {data_gap_delta:+.1f}",
+        ],
+        data_gaps=data_gaps or [],
+        trend_insight="Constructive price trend; score changed +1.0 from prior run; 0 ranked data gap(s).",
+    )
+
+
+def decision_row(
+    symbol: str = "NVDA",
+    sleeve: str = "long_term",
+    action: str = "Add",
+    score: float = 80.0,
+    insight: subject.InsightSignal | None = None,
+    current_price: float = 100.0,
+) -> dict[str, object]:
+    item = research_input(symbol, sleeve=sleeve, current_price=current_price)
+    row_insight = insight or insight_signal(symbol=symbol, final_score=score)
+    return {
+        "input": item,
+        "target": blended_target(symbol) if current_price > 0 else None,
+        "base_score": row_insight.base_score,
+        "score": score,
+        "breakdown": breakdown(row_insight.base_score),
+        "insight": row_insight,
+        "action": action,
+        "market_value": 0.0,
+        "portfolio_pct": 0.0,
+        "position_after_buy_pct": 2.0,
+    }
 
 
 def rising_history(days: int = 60) -> list[dict[str, float]]:
@@ -226,8 +277,121 @@ class GenerateDailyReportInsightTests(unittest.TestCase):
     def test_report_section_labels_are_present_in_template(self) -> None:
         source = Path(subject.__file__).read_text()
 
-        for label in ("Insight Drivers", "Score Movement", "Trend Insights", "Ranked Data Gap Queue"):
+        for label in (
+            "Insight Drivers",
+            "Score Movement",
+            "Trend Insights",
+            "Ranked Data Gap Queue",
+            "Decision Briefs",
+            "Decision Insight",
+            "Insight Themes",
+            "What To Verify Next",
+        ):
             self.assertIn(label, source)
+
+    def test_decision_insight_high_score_supportive_evidence_is_conviction_builder(self) -> None:
+        row = decision_row("NVDA", score=84.0)
+        evidence = {
+            "NVDA": [
+                {
+                    "symbol": "NVDA",
+                    "source_name": "SEC EDGAR submissions API",
+                    "source_timestamp": "2026-05-28",
+                    "title": "Strong growth",
+                    "summary": "Raised guidance.",
+                }
+            ]
+        }
+
+        insight = subject.build_decision_insight(row, evidence, {"NVDA": {"analyst": 2, "all": 3}})
+
+        self.assertEqual(insight.insight_type, "Conviction Builder")
+        self.assertIn("scripts/ingest_sec.py", insight.next_check)
+
+    def test_decision_insight_missing_primary_source_is_verification_needed(self) -> None:
+        signal = insight_signal(
+            "MSFT",
+            final_score=78.0,
+            data_gap_delta=-1.75,
+            data_gaps=[
+                subject.gap_row(
+                    "MSFT",
+                    "Top candidate lacks primary-source evidence",
+                    1.75,
+                    "scripts/ingest_sec.py + scripts/ingest_official_ir.py",
+                    "Pull filings/company IR before sharing as a high-conviction insight.",
+                )
+            ],
+        )
+        row = decision_row("MSFT", score=78.0, insight=signal)
+
+        insight = subject.build_decision_insight(row, {}, {"MSFT": {"analyst": 2, "all": 3}})
+
+        self.assertEqual(insight.insight_type, "Verification Needed")
+        self.assertIn("scripts/ingest_official_ir.py", insight.next_check)
+
+    def test_decision_insight_strong_trend_with_target_gap_is_momentum_watch(self) -> None:
+        signal = insight_signal(
+            "NET",
+            final_score=73.0,
+            evidence_delta=0.0,
+            trend_delta=3.0,
+            target_delta=-1.5,
+            data_gap_delta=-2.0,
+            data_gaps=[
+                subject.gap_row(
+                    "NET",
+                    "No analyst target breadth",
+                    2.0,
+                    "scripts/ingest_benzinga_analyst_targets.py or config/manual_analyst_targets.csv",
+                    "Add a second analyst-target source; do not invent targets.",
+                )
+            ],
+        )
+        row = decision_row("NET", sleeve="short_term", score=73.0, insight=signal)
+
+        insight = subject.build_decision_insight(row, {}, {"NET": {"analyst": 0, "all": 1}})
+
+        self.assertEqual(insight.insight_type, "Momentum Watch")
+        self.assertIn("scripts/ingest_benzinga_analyst_targets.py", insight.next_check)
+
+    def test_decision_insight_negative_evidence_is_caution(self) -> None:
+        signal = insight_signal(
+            "CRWD",
+            final_score=72.0,
+            evidence_delta=-2.0,
+            trend_delta=1.0,
+            target_delta=0.5,
+        )
+        row = decision_row("CRWD", score=72.0, insight=signal)
+
+        insight = subject.build_decision_insight(row, {}, {"CRWD": {"analyst": 2, "all": 3}})
+
+        self.assertEqual(insight.insight_type, "Caution")
+        self.assertIn("Risk evidence", insight.risk_or_uncertainty)
+
+    def test_missing_analyst_breadth_recommends_concrete_next_check(self) -> None:
+        signal = insight_signal(
+            "SNOW",
+            final_score=69.0,
+            target_delta=-1.5,
+            data_gap_delta=-2.0,
+            data_gaps=[
+                subject.gap_row(
+                    "SNOW",
+                    "No analyst target breadth",
+                    2.0,
+                    "scripts/ingest_benzinga_analyst_targets.py or config/manual_analyst_targets.csv",
+                    "Add a second analyst-target source; do not invent targets.",
+                )
+            ],
+        )
+        row = decision_row("SNOW", score=69.0, insight=signal)
+
+        insight = subject.build_decision_insight(row, {}, {"SNOW": {"analyst": 0, "all": 1}})
+
+        self.assertIn(insight.insight_type, {"Verification Needed", "Caution", "Data Gap"})
+        self.assertIn("config/manual_analyst_targets.csv", insight.next_check)
 
 
 if __name__ == "__main__":

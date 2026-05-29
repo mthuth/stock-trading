@@ -1,7 +1,22 @@
 # Release Notes
 
+## V1.7 In Progress - Decision-Grade Insights From Existing Data
+
+- Expanded V1.7 source coverage with Tier 1 official company sources, Tier 2 press-wire candidates, Tier 3 AI/semiconductor publications, and Tier 4 newsletter/podcast context sources.
+- Broadened public-source ingestion beyond podcasts/newsletters to support `company_blog`, `company_newsroom`, `press_wire`, `tech_news`, `ai_research`, and `semiconductor_news` categories.
+- Added `--ingest-public-sources` as a daily-run alias for free public RSS/archive/page-link ingestion while keeping `--ingest-public-feeds` backward compatible.
+- Added source-tier, ingestion-method, symbol-match, content-policy, confidence, and corroboration metadata to source integration tracking.
+- Updated Data Ingestion and Research Sources dashboard views to show source tier/category metadata and new source records.
+- Verified a five-source live smoke run: AWS News Blog, Cloudflare Blog, Semiconductor Engineering, and The Next Platform inserted public evidence; Google Cloud Blog remained a visible feed-discovery gap.
+- Added deterministic Decision Insight briefs for each ranked stock with headline, insight type, supporting data, uncertainty, next check, and what would change the view.
+- Added dashboard Decision Brief cards above the Action Queue plus per-symbol Decision Insight blocks in expanded action rows.
+- Added Health & Trends Insight Themes to group recurring patterns such as missing analyst breadth, primary-source verification, trend-led candidates, and source blockers.
+- Added markdown Top Decision Briefs, Insight Themes, and What To Verify Next sections to the daily, end-of-day, and next-day watchlist reports.
+- Kept the V1.6 numeric score formula intact; V1.7 adds deterministic language and verification queues on top of the active signal overlay.
+
 ## V1.6 In Progress - Free Data Ingestion + Insight Scoring
 
+- Added changed-since-last-run badges to dashboard recommendation tables so action, score, target, and new-row movement are visible before drilldown.
 - Added transparent insight scoring overlay using evidence freshness, price trend, target/source confidence, and ranked data-gap penalties.
 - Changed active report scoring to persist and display evidence/trend/target/gap/final-score signal rows from `score_signals`.
 - Added dashboard and markdown Insight Drivers, Score Movement, Trend Insights, and Ranked Data Gap Queue sections.

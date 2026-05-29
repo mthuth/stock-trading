@@ -3,15 +3,13 @@
 
 from __future__ import annotations
 
-import sys
 import unittest
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
 
-import generate_daily_report as subject  # noqa: E402
+from scripts import generate_daily_report as subject
 
 
 def research_input(current_price: float = 100.0, target_price: float = 120.0) -> subject.ResearchInput:
@@ -61,6 +59,15 @@ def blended_target(
 
 def readiness_by_label(items: list[dict[str, str]]) -> dict[str, dict[str, str]]:
     return {item["label"]: item for item in items}
+
+
+def marker_row(action: str = "Watch", score: float = 75.0, target_price: float = 125.0) -> dict[str, object]:
+    return {
+        "input": research_input(),
+        "target": blended_target(),
+        "action": action,
+        "score": score,
+    }
 
 
 class GenerateDailyReportHealthTests(unittest.TestCase):
@@ -185,6 +192,67 @@ class GenerateDailyReportHealthTests(unittest.TestCase):
             detail_rows,
             [["High", "Blocked feed", "Needs attention", 12, "2026-05-28 22:00:00", "DNS failure", "Retry provider"]],
         )
+
+    def test_change_marker_new_without_two_history_points(self) -> None:
+        marker = subject.change_marker_for_row(marker_row(), {"NVDA": [{"action": "Watch", "score": 75.0, "target_price": 125.0}]})
+
+        self.assertEqual(marker["label"], "New")
+
+    def test_change_marker_action_change_takes_priority(self) -> None:
+        marker = subject.change_marker_for_row(
+            marker_row(action="Watch", score=80.0),
+            {
+                "NVDA": [
+                    {"action": "Avoid", "score": 70.0, "target_price": 110.0},
+                    {"action": "Avoid", "score": 70.0, "target_price": 110.0},
+                ]
+            },
+        )
+
+        self.assertEqual(marker["label"], "Action changed")
+        self.assertIn("Avoid to Watch", marker["note"])
+
+    def test_change_marker_score_movement_threshold(self) -> None:
+        marker = subject.change_marker_for_row(
+            marker_row(score=76.2),
+            {
+                "NVDA": [
+                    {"action": "Watch", "score": 74.9, "target_price": 125.0},
+                    {"action": "Watch", "score": 74.9, "target_price": 125.0},
+                ]
+            },
+        )
+
+        self.assertEqual(marker["label"], "Score +1.3")
+        self.assertEqual(marker["class"], "change-up")
+
+    def test_change_marker_target_movement_threshold(self) -> None:
+        marker = subject.change_marker_for_row(
+            marker_row(score=75.1),
+            {
+                "NVDA": [
+                    {"action": "Watch", "score": 75.0, "target_price": 120.0},
+                    {"action": "Watch", "score": 75.0, "target_price": 120.0},
+                ]
+            },
+        )
+
+        self.assertEqual(marker["label"], "Target +4.2%")
+        self.assertEqual(marker["class"], "change-up")
+
+    def test_change_marker_small_movements_are_not_material(self) -> None:
+        marker = subject.change_marker_for_row(
+            marker_row(score=75.5),
+            {
+                "NVDA": [
+                    {"action": "Watch", "score": 75.0, "target_price": 124.0},
+                    {"action": "Watch", "score": 75.0, "target_price": 124.0},
+                ]
+            },
+        )
+
+        self.assertEqual(marker["label"], "No material change")
+        self.assertEqual(marker["class"], "change-none")
 
     def test_pre_market_readiness_all_checks_ready(self) -> None:
         items = readiness_by_label(

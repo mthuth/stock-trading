@@ -5,14 +5,10 @@ from __future__ import annotations
 
 import sys
 import unittest
-from pathlib import Path
 from unittest.mock import patch
 
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
-
-import run_daily as subject  # noqa: E402
+from stock_trading.cli import daily as subject
 
 
 class RunDailyTests(unittest.TestCase):
@@ -63,6 +59,26 @@ class RunDailyTests(unittest.TestCase):
         self.assertIn("scripts/tag_research_evidence.py", command_names)
         self.assertIn("scripts/curate_score_signals.py", command_names)
         self.assertNotIn("scripts/refresh_market_data.py", command_names)
+        self.assertEqual(commands[-1][1], "scripts/generate_daily_report.py")
+
+    def test_ingest_public_sources_alias_runs_public_source_ingestion(self) -> None:
+        commands: list[list[str]] = []
+
+        def fake_run(command: list[str], *_args: object, **_kwargs: object) -> int:
+            commands.append(command)
+            return 0
+
+        with (
+            patch.object(sys, "argv", ["run_daily.py", "--skip-refresh", "--ingest-public-sources"]),
+            patch.object(subject, "run", side_effect=fake_run),
+            patch.object(subject, "start_workflow_run", return_value=42),
+            patch.object(subject, "finish_workflow_run"),
+        ):
+            self.assertEqual(subject.main(), 0)
+
+        command_names = [command[1] for command in commands]
+        self.assertIn("scripts/ingest_public_research_feeds.py", command_names)
+        self.assertIn("scripts/curate_score_signals.py", command_names)
         self.assertEqual(commands[-1][1], "scripts/generate_daily_report.py")
 
     def test_plain_daily_run_keeps_report_refresh(self) -> None:

@@ -8,7 +8,6 @@ import hashlib
 import html
 import json
 import re
-import socket
 import sys
 import time
 import xml.etree.ElementTree as ET
@@ -16,12 +15,11 @@ from datetime import datetime
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Iterable
-from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlparse
-from urllib.request import Request, urlopen
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from engine_common import (  # noqa: E402
@@ -29,15 +27,32 @@ from engine_common import (  # noqa: E402
     read_csv,
     record_provider_payload,
     record_provider_run,
+    record_raw_ingestion_payload,
     record_research_evidence,
 )
+from provider_client import fetch_text_url  # noqa: E402
 
 
 INTEGRATIONS_FILE = ROOT / "config" / "research_source_integrations.csv"
 REQUEST_TIMEOUT_SECONDS = 18
 MAX_FEED_BYTES = 5_000_000
 DEFAULT_USER_AGENT = "StockTradingResearch/0.1 mthuth@gmail.com"
-INGESTIBLE_CATEGORIES = {"podcast", "newsletter"}
+INGESTIBLE_CATEGORIES = {
+    "ai_research",
+    "company_blog",
+    "company_newsroom",
+    "newsletter",
+    "podcast",
+    "press_wire",
+    "semiconductor_news",
+    "tech_news",
+}
+PAID_ONLY_ACCESS_MODELS = {
+    "paid_api_candidate",
+    "paid_news_candidate",
+    "paid_options_candidate",
+    "paid_options_flow",
+}
 RSS_CONTENT_TYPES = ("rss", "xml", "atom")
 RSS_NAMESPACES = {
     "atom": "http://www.w3.org/2005/Atom",
@@ -73,31 +88,20 @@ def clean_text(value: object, limit: int = 1200) -> str:
 
 
 def fetch_text(url: str, redirects_remaining: int = 3) -> tuple[str, str, str]:
-    request = Request(
+    result = fetch_text_url(
         url,
         headers={
             "Accept": "application/rss+xml,application/atom+xml,application/xml,text/xml,text/html,*/*;q=0.8",
             "User-Agent": DEFAULT_USER_AGENT,
         },
+        timeout=REQUEST_TIMEOUT_SECONDS,
+        retries=2,
+        max_bytes=MAX_FEED_BYTES,
     )
-    try:
-        with urlopen(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:
-            content_type = response.headers.get("Content-Type", "")
-            body = response.read(MAX_FEED_BYTES).decode("utf-8", errors="replace")
-            status = getattr(response, "status", 200)
-            if status >= 400:
-                return "blocked", "", f"HTTP {status}"
-            return "ok", body, content_type
-    except HTTPError as exc:
-        if exc.code in {301, 302, 303, 307, 308} and redirects_remaining > 0:
-            location = exc.headers.get("Location", "")
-            if location:
-                return fetch_text(urljoin(url, location), redirects_remaining - 1)
-        body = exc.read().decode(errors="replace")[:280]
-        status = "blocked" if exc.code in {401, 403, 404, 429} else "error"
-        return status, "", f"HTTP {exc.code}: {body}"
-    except (URLError, TimeoutError, socket.timeout) as exc:
-        return "error", "", str(exc)
+    message = result.message
+    if result.error_class:
+        message = f"{message}; error_class={result.error_class}; attempts={result.attempts}".strip("; ")
+    return result.status, result.text, result.content_type or message
 
 
 def integration_rows(symbol_filter: set[str] | None) -> list[dict[str, str]]:
@@ -107,7 +111,10 @@ def integration_rows(symbol_filter: set[str] | None) -> list[dict[str, str]]:
         row.pop(None, None)
         name = str(row.get("source_name", "")).strip()
         category = str(row.get("source_category", "")).strip()
+        access_model = str(row.get("access_model", "")).strip()
         if category not in INGESTIBLE_CATEGORIES:
+            continue
+        if access_model in PAID_ONLY_ACCESS_MODELS:
             continue
         if symbol_filter and name not in symbol_filter:
             continue
@@ -138,7 +145,9 @@ def discover_feed_url(home_url: str, explicit_feed_url: str = "") -> tuple[str, 
             return "ok", explicit_feed_url, body, "configured_feed"
         if status != "ok":
             return status, "", "", f"Configured feed failed: {detail}"
-        return "missing", explicit_feed_url, body, "Configured feed was not RSS/Atom"
+        configured_detail = "Configured feed was not RSS/Atom"
+    else:
+        configured_detail = ""
 
     status, body, detail = fetch_text(home_url)
     if status != "ok":
@@ -151,7 +160,10 @@ def discover_feed_url(home_url: str, explicit_feed_url: str = "") -> tuple[str, 
         status, feed_body, feed_detail = fetch_text(url)
         if status == "ok" and looks_like_feed(feed_body, feed_detail):
             return "ok", url, feed_body, "discovered_feed"
-    return "missing", "", "", "No RSS/Atom feed discovered from public page"
+    message = "No RSS/Atom feed discovered from public page"
+    if configured_detail:
+        message = f"{configured_detail}; {message}"
+    return "missing", "", "", message
 
 
 def extract_json_array_after_key(text: str, key: str) -> list[object]:
@@ -359,6 +371,8 @@ def evidence_rows(source: dict[str, str], feed_url: str, items: list[dict[str, s
     rows = []
     source_name = source["source_name"]
     category = source["source_category"]
+    confidence = source.get("confidence_default", "").strip() or default_confidence(category)
+    corroboration_status = default_corroboration_status(source, category)
     today = datetime.now().date().isoformat()
     for item in items:
         link = item.get("link", "")
@@ -379,12 +393,31 @@ def evidence_rows(source: dict[str, str], feed_url: str, items: list[dict[str, s
                 "title": item.get("title") or f"{source_name} public feed item",
                 "summary": clean_text(item.get("summary"), 1000),
                 "raw_text_ref": feed_url,
-                "confidence": "low" if category == "podcast" else "medium",
-                "corroboration_status": "opinion_context_needs_corroboration",
+                "confidence": confidence,
+                "corroboration_status": corroboration_status,
                 "user_feedback": "",
             }
         )
     return rows
+
+
+def default_confidence(category: str) -> str:
+    if category in {"company_blog", "company_newsroom"}:
+        return "medium_high"
+    if category in {"press_wire", "semiconductor_news", "tech_news", "ai_research", "newsletter"}:
+        return "medium"
+    return "low"
+
+
+def default_corroboration_status(source: dict[str, str], category: str) -> str:
+    configured = str(source.get("corroboration_required", "")).strip().lower()
+    if configured == "false":
+        return "primary_source_unconfirmed"
+    if category in {"company_blog", "company_newsroom", "press_wire"}:
+        return "company_framed_needs_corroboration"
+    if category in {"podcast", "newsletter"}:
+        return "opinion_context_needs_corroboration"
+    return "independent_source_needs_corroboration"
 
 
 def ingest_source(source: dict[str, str], item_limit: int) -> tuple[int, dict[str, object]]:
@@ -409,6 +442,16 @@ def ingest_source(source: dict[str, str], item_limit: int) -> tuple[int, dict[st
     else:
         status, feed_url, feed_body, message = discover_feed_url(home_url, feed_url)
         if status == "ok":
+            record_raw_ingestion_payload(
+                provider=source_name,
+                endpoint="public_feed_body",
+                symbol="MARKET",
+                status="ok",
+                message=message,
+                payload_text=feed_body,
+                request_hash=hashlib.sha256(feed_url.encode()).hexdigest(),
+                content_type="application/xml",
+            )
             items = feed_items(feed_body, item_limit)
             if not items:
                 status = "missing"
@@ -442,8 +485,8 @@ def ingest_source(source: dict[str, str], item_limit: int) -> tuple[int, dict[st
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Ingest approved public research RSS/archive sources.")
-    parser.add_argument("--sources", help="Comma-separated source names. Defaults to all configured public podcast/newsletter sources.")
+    parser = argparse.ArgumentParser(description="Ingest approved public RSS/archive research sources.")
+    parser.add_argument("--sources", help="Comma-separated source names. Defaults to all configured public sources.")
     parser.add_argument("--item-limit", type=int, default=5, help="Maximum feed items per source.")
     parser.add_argument("--delay", type=float, default=0.2, help="Delay between sources.")
     return parser.parse_args()

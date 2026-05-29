@@ -293,6 +293,7 @@ Already present:
 - Recommendation subtabs for Action Queue, Long-Term Queue, Short-Term Queue, Next-Day Watchlist, Speculative AI Watchlist, and Data Gaps.
 - Header summary and recommendation tables expose target confidence and data status before drilldown.
 - Pre-Market Readiness checklist exposes advisory checks for price data, target trust, source health, holdings context, and feedback review above the Action Queue.
+- Action Queue and recommendation subtabs expose changed-since-last-run badges so score, target, action, and new-row movement are visible before drilldown.
 - Expandable recommendation rows with score explanation, research brief, target sources, and recent evidence.
 - Source health alerts, score changes, and score trend sparklines.
 - Source issue groups summarize network/DNS, provider access, missing data, provider error, and other root causes above detailed source-health alerts.
@@ -306,11 +307,10 @@ Primary UX gaps:
 
 ## Near-Term UX Backlog
 
-1. Add a "changed since last run" marker directly in Action Queue rows.
-2. Convert feedback command generation into a local app save action when the dashboard becomes server-backed.
-3. Add a compact print/PDF mode for phone review of Action Queue, Data Gaps, and Next-Day Watchlist.
-4. Add source-health severity filters on the Health & Trends tab.
-5. Add target confidence to CSV and end-of-day Markdown summaries.
+1. Convert feedback command generation into a local app save action when the dashboard becomes server-backed.
+2. Add a compact print/PDF mode for phone review of Action Queue, Data Gaps, and Next-Day Watchlist.
+3. Add source-health severity filters on the Health & Trends tab.
+4. Add target confidence to CSV and end-of-day Markdown summaries.
 
 ## Acceptance Criteria
 

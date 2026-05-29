@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,9 +10,8 @@ from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
 
-import presentation as subject  # noqa: E402
+from stock_trading import presentation as subject
 
 
 class PresentationBoundaryTests(unittest.TestCase):
@@ -21,8 +19,8 @@ class PresentationBoundaryTests(unittest.TestCase):
         context = subject.load_report_context(ROOT / "tests" / "fixtures" / "report_context.json")
         with tempfile.TemporaryDirectory() as tmpdir:
             with (
-                patch("provider_client.fetch_json_url") as fetch_json_url,
-                patch("generate_daily_report.score_stock") as score_stock,
+                patch("stock_trading.provider_client.fetch_json_url") as fetch_json_url,
+                patch("scripts.generate_daily_report.score_stock") as score_stock,
             ):
                 paths = subject.render_report_context(context, Path(tmpdir))
 
@@ -41,4 +39,3 @@ class PresentationBoundaryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

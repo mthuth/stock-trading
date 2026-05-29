@@ -3,17 +3,12 @@
 
 from __future__ import annotations
 
-import sys
 import unittest
-from pathlib import Path
 from unittest.mock import patch
 
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
-
-import analysis as subject  # noqa: E402
-import generate_daily_report as report_engine  # noqa: E402
+from scripts import generate_daily_report as report_engine
+from stock_trading import analysis as subject
 
 
 def research_input() -> report_engine.ResearchInput:
@@ -70,7 +65,7 @@ class AnalysisBoundaryTests(unittest.TestCase):
             notes="fixture",
         )
 
-        with patch("provider_client.fetch_json_url") as fetch_json_url:
+        with patch("stock_trading.provider_client.fetch_json_url") as fetch_json_url:
             ranked, score_rows = subject.score_recommendations(snapshot, {"NVDA": target})
             context = subject.build_report_context(snapshot, ranked, recommendation_run_id=42)
 
@@ -83,4 +78,3 @@ class AnalysisBoundaryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

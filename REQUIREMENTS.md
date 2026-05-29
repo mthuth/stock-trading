@@ -285,6 +285,10 @@ V1 evidence ingestion should prioritize durable, source-attributed inputs that c
 | 4 | FMP news | Stock/general news endpoints if current key supports them | Headlines, publisher, timestamps, URLs | News backup/fallback source |
 | 5 | Approved podcasts | Public RSS/archive discovery first for Hard Fork and AI Daily Brief | AI platform/regulatory/thematic context and catalyst leads | Opinion/context only, corroboration required |
 | 5 | Approved newsletters | Public RSS/archive discovery first for SemiAnalysis, The Information AI, The Batch, Import AI, TLDR AI, and Platformer | AI infrastructure, platform, research, and market-context notes | Opinion/reporting context only, corroboration required |
+| 5 | Official company blogs/newsrooms | Public RSS/archive/page-link discovery for NVIDIA, AWS, Google Cloud, Azure, Meta, Cloudflare, Datadog, MongoDB, Snowflake, CrowdStrike, Palo Alto, AMD, Micron, ASML, TSMC, Arm, and related V1 names | Product launches, platform updates, customer wins, AI infrastructure claims, and official company narratives | Primary company-framed context, corroboration required before score impact |
+| 5 | Public AI/semiconductor publications | Public RSS/archive discovery for Semiconductor Engineering, IEEE Global Semiconductors, HPCwire, The Next Platform, ServeTheHome, The Register AI, TechCrunch AI, VentureBeat AI, and InfoQ AI/ML/data engineering | Independent industry context, AI infrastructure trends, semiconductor supply-chain signals, and public-company mentions | Shadow evidence and source breadth only until relevance is validated |
+| 5 | Public press-wire feeds | Business Wire and GlobeNewswire feed discovery where stable public RSS/category feeds exist | Company-framed market announcements and press releases | Timely catalyst discovery, deduped against official company sources |
+| 5 | Additional podcasts/newsletters | Public RSS/archive discovery for Latent Space, No Priors, Bens Bites, The Rundown AI, Decoder, BG2, Acquired, and NVIDIA AI Podcast | AI ecosystem context, executive interviews, business-model background, and catalyst leads | Opinion/context only, low-to-medium confidence, corroboration required |
 | 6 | Benzinga news/analyst/options APIs | Evaluate paid API access if free/low-cost feeds are too stale/noisy | Faster market-moving headlines, analyst ratings, and unusual options | Optional short-term catalyst and analyst-context upgrade |
 | 6 | Unusual Whales options flow | Evaluate paid API token and endpoint fit for short-term sleeve | Options flow, dark-pool, volatility, and tactical market data | Short-term alert context only, strict noise controls |
 
@@ -307,7 +311,8 @@ Near-term ingestion order:
 4. Add Finnhub company news/sentiment if the configured key supports it.
 5. Add source drilldowns on the dashboard.
 6. Ingest approved podcasts/newsletters through public RSS/archive discovery first.
-7. Evaluate Benzinga and Unusual Whales paid feeds only if current/free sources are insufficient or short-term options context becomes a priority.
+7. Expand free public-source ingestion across official company blogs/newsrooms, press wires, AI/semiconductor publications, and additional podcasts/newsletters before adding paid sources.
+8. Evaluate Benzinga and Unusual Whales paid feeds only if current/free sources are insufficient or short-term options context becomes a priority.
 
 The engine should allow user feedback on research quality. Feedback examples:
 
@@ -490,10 +495,13 @@ Research source implementation action plan:
 | 7 | Earnings call transcripts | Partial/blocked | Evaluate free transcript sources or provider upgrade; store transcript excerpts separately from headlines |
 | 8 | Analyst target consensus beyond FMP | Not implemented | Add second analyst-target provider if free/low-cost access is available |
 | 9 | Market news feeds | Partial | Add one broader market news provider with stronger company relevance metadata |
-| 10 | Approved podcasts/newsletters | Approved/tracked, not ingested | Add feed/email/transcript ingestion path and keep opinion sources corroboration-required |
-| 11 | Benzinga news/analyst/options | Candidate paid source | Evaluate cost, trial access, endpoints, and overlap with FMP/Finnhub gaps |
-| 12 | Unusual Whales options flow | Candidate paid source | Evaluate token cost, endpoint fit, and noise controls for short-term sleeve |
-| 13 | Social sentiment | Not implemented | Treat as lower-trust context with strong manipulation/noise controls |
+| 10 | Approved podcasts/newsletters | Implemented for public feeds/archives where available | Keep opinion sources corroboration-required and add transcript/email enrichment later |
+| 11 | Official company blogs/newsrooms | Implemented for configured public feeds and tracked for feed-discovery gaps | Keep company-framed context visible and corroborate with SEC, IR, market data, or independent sources |
+| 12 | Public AI/semiconductor publications | Implemented for configured public feeds and tracked for feed-discovery gaps | Improve relevance filtering and source-to-symbol tags before score impact |
+| 13 | Press-wire feeds | Tracked and partially implemented where stable feed discovery works | Select stable Business Wire/GlobeNewswire category feeds and dedupe against official company sources |
+| 14 | Benzinga news/analyst/options | Candidate paid source | Evaluate cost, trial access, endpoints, and overlap with FMP/Finnhub gaps |
+| 15 | Unusual Whales options flow | Candidate paid source | Evaluate token cost, endpoint fit, and noise controls for short-term sleeve |
+| 16 | Social sentiment | Not implemented | Treat as lower-trust context with strong manipulation/noise controls |
 
 User setup/action items for expanding sources:
 
@@ -501,8 +509,8 @@ User setup/action items for expanding sources:
 | ---: | --- | --- |
 | 1 | Confirm whether to keep using free-provider-only mode or approve a paid market/news/transcript source later | Determines whether FMP/Finnhub/Benzinga-style blocked endpoints should remain gaps or become paid integrations |
 | 2 | Review official-IR provider gaps after several runs and decide whether blocked company sites need alternate official URLs or manual links | Some official IR sites block automated fetches or require different release pages |
-| 3 | Subscribe or confirm access path for SemiAnalysis, The Information, The Batch, Import AI, TLDR AI, and Platformer | Determines whether ingestion should use public archives, email/Gmail, RSS, or manual notes |
-| 4 | Confirm exact AI Daily Brief feed if the configured `besuper.ai` source is not the one you mean | Avoids ingesting the wrong podcast |
+| 3 | Review public-source feed-discovery gaps such as Google Cloud Blog and company newsrooms after several runs | Determines whether to swap URLs, add source-specific parsers, or leave a source tracked-only |
+| 4 | Subscribe or confirm access path for SemiAnalysis, The Information, The Batch, Import AI, TLDR AI, Platformer, and added newsletters | Determines whether ingestion should use public archives, email/Gmail, RSS, or manual notes |
 | 5 | Decide whether Benzinga API access is worth a paid trial/API key | Needed before analyst-rating/news/options ingestion can be implemented |
 | 6 | Decide whether Unusual Whales API access is worth a paid token | Needed before options-flow ingestion can be implemented |
 | 7 | Confirm whether daily source refresh should also run pre-market in addition to after close | More frequent refresh improves freshness but may consume provider limits |
