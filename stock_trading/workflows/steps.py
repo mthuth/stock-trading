@@ -99,6 +99,8 @@ def run_callable_step(
             callback()
     except SystemExit as exc:
         status = exc.code if isinstance(exc.code, int) else 1
+        if status != 0:
+            print(f"{step_name} failed: {exc}", file=sys.stderr)
         finish_workflow_step(
             step_run_id,
             "ok" if status == 0 else "failed",
@@ -107,6 +109,7 @@ def run_callable_step(
         )
         return status
     except Exception as exc:  # noqa: BLE001 - match script subprocess failure behavior.
+        print(f"{step_name} failed: {exc}", file=sys.stderr)
         finish_workflow_step(
             step_run_id,
             "failed",

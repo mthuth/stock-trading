@@ -18,7 +18,7 @@ RESEARCH_FILE = CONFIG_DIR / "research_inputs.csv"
 TARGETS_FILE = CONFIG_DIR / "portfolio_targets.json"
 SOURCES_FILE = CONFIG_DIR / "research_sources.csv"
 SYMBOL_ALIASES_FILE = CONFIG_DIR / "symbol_aliases.csv"
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 RAW_INLINE_LIMIT_BYTES = 128_000
 
 def utc_now_text() -> str:
