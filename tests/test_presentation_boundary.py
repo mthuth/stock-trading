@@ -146,6 +146,49 @@ class PresentationBoundaryTests(unittest.TestCase):
         self.assertIn("Info <span>1</span>", dashboard_text)
         self.assertIn("applySourceHealthFilter", dashboard_text)
 
+    def test_2026_05_29_nvda_context_is_not_rendered_as_recommended_next_buy(self) -> None:
+        context = {section: {} for section in subject.REQUIRED_CONTEXT_SECTIONS}
+        context["metadata"] = {"report_date": "2026-05-29", "generated_at": "2026-05-29T20:05:23"}
+        context["summary"] = {
+            "top_symbol": "NVDA",
+            "top_company": "NVIDIA",
+            "top_action": "Add",
+            "top_score": 80.03,
+            "recommendation_label": "Recommended next buy",
+            "amount_label": "Suggested buy amount",
+            "suggested_amount_text": "$2,500.00",
+            "confidence": "Low",
+            "data_status": "Wide range",
+        }
+        context["reliability"] = {"mode": "Fallback: price history", "price_counts": {"fresh": 22, "fallback": 3, "missing": 0}}
+        context["decision_briefs"] = {
+            "headers": ["Symbol", "Type", "Headline", "Why It Matters", "Next Check"],
+            "rows": [["NVDA", "Verification Needed", "NVDA is near action, but one verification pull should happen before sharing.", "Final score is 80.0.", "scripts/show_provider_gaps.py"]],
+        }
+        context["queues"] = {
+            "verification": {
+                "headers": ["Rank", "Symbol", "Type", "Status", "Impact", "Reason", "Command/Next Check", "Result"],
+                "rows": [[1, "NVDA", "Verification Needed", "queued", "1.0", "Provider failure/blocked endpoint in latest notes", "scripts/show_provider_gaps.py", ""]],
+            },
+            "action_queue": {"headers": ["Rank", "Symbol"], "rows": []},
+            "data_gaps": {"headers": ["Rank", "Symbol"], "rows": []},
+            "next_day": {"headers": ["Rank", "Symbol"], "rows": []},
+        }
+        context["source_health"] = {"summary": {"needs_attention": 0, "healthy": 0, "stale": 0, "not_implemented": 0}}
+
+        markdown = subject.render_markdown(context)
+        dashboard = subject.render_dashboard_html(context)
+
+        self.assertIn("No decision-safe buy: **NVDA - NVIDIA**", markdown)
+        self.assertIn("- Decision safety gate: **Blocked**", markdown)
+        self.assertIn("Low target confidence", markdown)
+        self.assertIn("Wide target range", markdown)
+        self.assertNotIn("Recommended next buy: **NVDA - NVIDIA**", markdown)
+        self.assertIn("No decision-safe buy", dashboard)
+        self.assertIn("Decision Gate", dashboard)
+        self.assertIn("Add blocked", dashboard)
+        self.assertNotIn(">Recommended next buy<", dashboard)
+
 
 if __name__ == "__main__":
     unittest.main()
