@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import ast
 import importlib
 import unittest
 from pathlib import Path
@@ -13,6 +14,27 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def module_source(module_path: str) -> str:
     return (ROOT / module_path).read_text()
+
+
+def imported_modules(module_path: str) -> set[str]:
+    tree = ast.parse(module_source(module_path), filename=module_path)
+    imports: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imports.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imports.add(node.module)
+    return imports
+
+
+def assert_no_imports(testcase: unittest.TestCase, module_path: str, banned_roots: tuple[str, ...]) -> None:
+    imports = imported_modules(module_path)
+    for imported in imports:
+        for banned in banned_roots:
+            testcase.assertFalse(
+                imported == banned or imported.startswith(f"{banned}."),
+                f"{module_path} must not import {banned}; found {imported}",
+            )
 
 
 class PackageBoundaryTests(unittest.TestCase):
@@ -30,6 +52,16 @@ class PackageBoundaryTests(unittest.TestCase):
             "stock_trading.presentation",
             "stock_trading.reporting.renderers",
             "stock_trading.storage",
+            "stock_trading.storage.connection",
+            "stock_trading.storage.schema",
+            "stock_trading.storage.csv_files",
+            "stock_trading.storage.workflow_repository",
+            "stock_trading.storage.provider_repository",
+            "stock_trading.storage.recommendation_repository",
+            "stock_trading.storage.evidence_repository",
+            "stock_trading.storage.source_quality_repository",
+            "stock_trading.storage.ingestion_plan_repository",
+            "stock_trading.storage.synthesis_repository",
             "stock_trading.config",
             "stock_trading.provider_repository",
             "stock_trading.recommendation_repository",
@@ -42,22 +74,29 @@ class PackageBoundaryTests(unittest.TestCase):
 
     def test_presentation_does_not_import_provider_or_scoring_internals(self) -> None:
         for module_path in ("stock_trading/presentation.py", "stock_trading/reporting/renderers.py"):
-            source = module_source(module_path)
-            for banned in (
-                "provider_client",
-                "fetch_json",
-                "generate_daily_report",
-                "score_stock",
-                "stock_trading.storage",
-                "record_recommendation",
-                "init_db",
-            ):
-                self.assertNotIn(banned, source)
+            assert_no_imports(
+                self,
+                module_path,
+                (
+                    "stock_trading.provider_client",
+                    "stock_trading.analysis_engine",
+                    "stock_trading.storage",
+                    "scripts.generate_daily_report",
+                ),
+            )
 
     def test_ingestion_does_not_render_reports(self) -> None:
-        source = module_source("stock_trading/ingestion.py")
-        for banned in ("render_report_context", "presentation", "generate_daily_report.py"):
-            self.assertNotIn(banned, source)
+        assert_no_imports(
+            self,
+            "stock_trading/ingestion.py",
+            (
+                "stock_trading.presentation",
+                "stock_trading.reporting",
+                "stock_trading.analysis_scoring",
+                "stock_trading.analysis_context",
+                "stock_trading.analysis_engine",
+            ),
+        )
 
     def test_analysis_does_not_import_provider_client(self) -> None:
         for module_path in (
@@ -70,9 +109,16 @@ class PackageBoundaryTests(unittest.TestCase):
             "stock_trading/analysis_snapshot.py",
             "stock_trading/analysis_targets.py",
         ):
-            source = module_source(module_path)
-            for banned in ("provider_client", "fetch_json", "scripts.generate_daily_report", "from scripts"):
-                self.assertNotIn(banned, source)
+            assert_no_imports(
+                self,
+                module_path,
+                (
+                    "stock_trading.provider_client",
+                    "stock_trading.cli",
+                    "stock_trading.presentation",
+                    "scripts",
+                ),
+            )
 
 
 if __name__ == "__main__":
