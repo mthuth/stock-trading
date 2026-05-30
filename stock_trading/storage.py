@@ -24,7 +24,8 @@ DB_FILE = DATA_DIR / "stock_trading.sqlite"
 RESEARCH_FILE = CONFIG_DIR / "research_inputs.csv"
 TARGETS_FILE = CONFIG_DIR / "portfolio_targets.json"
 SOURCES_FILE = CONFIG_DIR / "research_sources.csv"
-SCHEMA_VERSION = 4
+SYMBOL_ALIASES_FILE = CONFIG_DIR / "symbol_aliases.csv"
+SCHEMA_VERSION = 10
 RAW_INLINE_LIMIT_BYTES = 128_000
 
 
@@ -341,11 +342,15 @@ def apply_schema_migrations(conn: sqlite3.Connection) -> None:
             match_type TEXT NOT NULL,
             matched_text TEXT NOT NULL,
             confidence REAL NOT NULL DEFAULT 0.0,
+            confidence_bucket TEXT NOT NULL DEFAULT 'low',
+            match_reason TEXT,
             UNIQUE(evidence_id, symbol, matched_text),
             FOREIGN KEY (evidence_id) REFERENCES research_evidence(id)
         )
         """
     )
+    ensure_column(conn, "evidence_symbol_tags", "confidence_bucket", "TEXT NOT NULL DEFAULT 'low'")
+    ensure_column(conn, "evidence_symbol_tags", "match_reason", "TEXT")
     conn.execute(
         """
         CREATE INDEX IF NOT EXISTS idx_evidence_symbol_tags_symbol_created
@@ -440,6 +445,214 @@ def apply_schema_migrations(conn: sqlite3.Connection) -> None:
     )
     conn.execute(
         """
+        CREATE TABLE IF NOT EXISTS source_quality_metrics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            metric_date TEXT NOT NULL,
+            source_name TEXT NOT NULL,
+            source_category TEXT,
+            records_seen INTEGER NOT NULL DEFAULT 0,
+            records_inserted INTEGER NOT NULL DEFAULT 0,
+            duplicate_records INTEGER NOT NULL DEFAULT 0,
+            raw_payloads INTEGER NOT NULL DEFAULT 0,
+            ok_runs INTEGER NOT NULL DEFAULT 0,
+            error_runs INTEGER NOT NULL DEFAULT 0,
+            blocked_runs INTEGER NOT NULL DEFAULT 0,
+            total_evidence INTEGER NOT NULL DEFAULT 0,
+            tagged_evidence INTEGER NOT NULL DEFAULT 0,
+            tag_count INTEGER NOT NULL DEFAULT 0,
+            matched_symbol_count INTEGER NOT NULL DEFAULT 0,
+            avg_tag_confidence REAL,
+            tag_rate REAL NOT NULL DEFAULT 0,
+            latest_success TEXT,
+            latest_issue TEXT,
+            latest_evidence_at TEXT,
+            days_since_success REAL,
+            top_matched_terms TEXT,
+            match_reason_summary TEXT,
+            confidence_bucket_summary TEXT,
+            low_confidence_matches INTEGER NOT NULL DEFAULT 0,
+            feedback_delta REAL NOT NULL DEFAULT 0,
+            quality_label TEXT NOT NULL,
+            notes TEXT,
+            UNIQUE(metric_date, source_name)
+        )
+        """
+    )
+    ensure_column(conn, "source_quality_metrics", "confidence_bucket_summary", "TEXT")
+    ensure_column(conn, "source_quality_metrics", "low_confidence_matches", "INTEGER NOT NULL DEFAULT 0")
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_source_quality_metrics_source_date
+        ON source_quality_metrics(source_name, metric_date)
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_source_quality_metrics_label
+        ON source_quality_metrics(quality_label, metric_date)
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS ingestion_run_plan (
+            source_name TEXT PRIMARY KEY,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            source_category TEXT,
+            source_tier TEXT,
+            cadence_days INTEGER NOT NULL DEFAULT 1,
+            latest_attempt TEXT,
+            latest_success TEXT,
+            next_run_at TEXT,
+            cooldown_until TEXT,
+            due_status TEXT NOT NULL DEFAULT 'due',
+            priority_rank INTEGER NOT NULL DEFAULT 999,
+            records INTEGER NOT NULL DEFAULT 0,
+            raw_payloads INTEGER NOT NULL DEFAULT 0,
+            duplicate_records INTEGER NOT NULL DEFAULT 0,
+            latest_issue TEXT,
+            run_command TEXT,
+            reason TEXT,
+            UNIQUE(source_name)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_ingestion_run_plan_due
+        ON ingestion_run_plan(due_status, priority_rank, next_run_at)
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS ingestion_backfill_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            source_name TEXT NOT NULL,
+            symbol TEXT NOT NULL DEFAULT 'ALL',
+            backfill_type TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'queued',
+            priority_rank INTEGER NOT NULL DEFAULT 999,
+            desired_window_days INTEGER NOT NULL DEFAULT 30,
+            covered_since TEXT,
+            covered_until TEXT,
+            record_count INTEGER NOT NULL DEFAULT 0,
+            next_action TEXT,
+            command TEXT,
+            reason TEXT,
+            UNIQUE(source_name, symbol, backfill_type)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_ingestion_backfill_queue_status
+        ON ingestion_backfill_queue(status, priority_rank, source_name)
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS evidence_event_clusters (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            event_date TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            event_key TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            headline TEXT NOT NULL,
+            summary TEXT,
+            corroboration_label TEXT NOT NULL,
+            source_count INTEGER NOT NULL DEFAULT 0,
+            evidence_count INTEGER NOT NULL DEFAULT 0,
+            independent_source_count INTEGER NOT NULL DEFAULT 0,
+            primary_source_count INTEGER NOT NULL DEFAULT 0,
+            company_source_count INTEGER NOT NULL DEFAULT 0,
+            opinion_source_count INTEGER NOT NULL DEFAULT 0,
+            latest_evidence_at TEXT,
+            confidence TEXT NOT NULL DEFAULT 'low',
+            notes TEXT,
+            UNIQUE(symbol, event_key)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_evidence_event_clusters_symbol_date
+        ON evidence_event_clusters(symbol, event_date)
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS evidence_event_members (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cluster_id INTEGER NOT NULL,
+            evidence_id INTEGER NOT NULL,
+            source_name TEXT NOT NULL,
+            source_family TEXT NOT NULL,
+            match_reason TEXT,
+            confidence_bucket TEXT,
+            UNIQUE(cluster_id, evidence_id),
+            FOREIGN KEY (cluster_id) REFERENCES evidence_event_clusters(id),
+            FOREIGN KEY (evidence_id) REFERENCES research_evidence(id)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_evidence_event_members_evidence
+        ON evidence_event_members(evidence_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS evidence_review_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            cluster_id INTEGER NOT NULL,
+            symbol TEXT NOT NULL,
+            event_key TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            review_status TEXT NOT NULL,
+            priority_rank INTEGER NOT NULL DEFAULT 999,
+            review_reason TEXT,
+            recommended_action TEXT,
+            corroboration_label TEXT,
+            confidence TEXT,
+            source_count INTEGER NOT NULL DEFAULT 0,
+            evidence_count INTEGER NOT NULL DEFAULT 0,
+            latest_evidence_at TEXT,
+            UNIQUE(cluster_id),
+            FOREIGN KEY (cluster_id) REFERENCES evidence_event_clusters(id)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_evidence_review_queue_status
+        ON evidence_review_queue(review_status, priority_rank, symbol)
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS synthesis_readiness (
+            symbol TEXT PRIMARY KEY,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            readiness_status TEXT NOT NULL,
+            readiness_score REAL NOT NULL DEFAULT 0,
+            ready_events INTEGER NOT NULL DEFAULT 0,
+            needs_review_events INTEGER NOT NULL DEFAULT 0,
+            needs_corroboration_events INTEGER NOT NULL DEFAULT 0,
+            ignored_events INTEGER NOT NULL DEFAULT 0,
+            primary_events INTEGER NOT NULL DEFAULT 0,
+            independent_confirmed_events INTEGER NOT NULL DEFAULT 0,
+            latest_event_at TEXT,
+            packet_ref TEXT,
+            notes TEXT
+        )
+        """
+    )
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS analysis_runs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -459,6 +672,81 @@ def apply_schema_migrations(conn: sqlite3.Connection) -> None:
         """
         CREATE INDEX IF NOT EXISTS idx_analysis_runs_recommendation
         ON analysis_runs(recommendation_run_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS decision_insights (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            run_id INTEGER,
+            report_date TEXT NOT NULL,
+            rank INTEGER NOT NULL,
+            symbol TEXT NOT NULL,
+            action TEXT NOT NULL,
+            score REAL NOT NULL,
+            insight_type TEXT NOT NULL,
+            headline TEXT NOT NULL,
+            why_it_matters TEXT,
+            supporting_data TEXT,
+            risk_or_uncertainty TEXT,
+            next_check TEXT,
+            what_would_change_the_view TEXT,
+            source_ref TEXT,
+            UNIQUE(run_id, symbol),
+            FOREIGN KEY (run_id) REFERENCES recommendation_runs(id)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_decision_insights_symbol_run
+        ON decision_insights(symbol, run_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_decision_insights_type
+        ON decision_insights(insight_type, report_date)
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS verification_queue_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            run_id INTEGER,
+            report_date TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            priority_rank INTEGER NOT NULL,
+            insight_type TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            expected_score_impact REAL NOT NULL DEFAULT 0,
+            next_check TEXT NOT NULL,
+            command_mapping TEXT,
+            automation_mode TEXT NOT NULL DEFAULT 'manual',
+            status TEXT NOT NULL DEFAULT 'queued',
+            result_summary TEXT,
+            workflow_step_id INTEGER,
+            started_at TEXT,
+            completed_at TEXT,
+            UNIQUE(run_id, symbol, next_check, reason),
+            FOREIGN KEY (run_id) REFERENCES recommendation_runs(id),
+            FOREIGN KEY (workflow_step_id) REFERENCES workflow_step_runs(id)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_verification_queue_status
+        ON verification_queue_items(status, priority_rank, created_at)
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_verification_queue_symbol
+        ON verification_queue_items(symbol, run_id)
         """
     )
     conn.execute(
@@ -529,6 +817,48 @@ def apply_schema_migrations(conn: sqlite3.Connection) -> None:
         VALUES (?, ?)
         """,
         (4, "analysis run boundary"),
+    )
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO schema_migrations (version, name)
+        VALUES (?, ?)
+        """,
+        (5, "persisted decision insights and verification queue"),
+    )
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO schema_migrations (version, name)
+        VALUES (?, ?)
+        """,
+        (6, "source quality metrics"),
+    )
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO schema_migrations (version, name)
+        VALUES (?, ?)
+        """,
+        (7, "source relevance confidence buckets"),
+    )
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO schema_migrations (version, name)
+        VALUES (?, ?)
+        """,
+        (8, "ingestion freshness and backfill planning"),
+    )
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO schema_migrations (version, name)
+        VALUES (?, ?)
+        """,
+        (9, "evidence event clustering"),
+    )
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO schema_migrations (version, name)
+        VALUES (?, ?)
+        """,
+        (10, "synthesis readiness and evidence review queue"),
     )
     conn.execute(
         """
@@ -963,6 +1293,418 @@ def record_score_signals(rows: List[Mapping[str, object]], rebuild: bool = False
     return inserted
 
 
+def record_source_quality_metrics(rows: List[Mapping[str, object]], rebuild: bool = False) -> int:
+    if not rows and not rebuild:
+        return 0
+    conn = init_db()
+    inserted = 0
+    with conn:
+        if rebuild:
+            conn.execute("DELETE FROM source_quality_metrics")
+        for row in rows:
+            normalized = {
+                "confidence_bucket_summary": "",
+                "low_confidence_matches": 0,
+                **dict(row),
+            }
+            cursor = conn.execute(
+                """
+                INSERT OR REPLACE INTO source_quality_metrics (
+                    metric_date, source_name, source_category, records_seen,
+                    records_inserted, duplicate_records, raw_payloads, ok_runs,
+                    error_runs, blocked_runs, total_evidence, tagged_evidence,
+                    tag_count, matched_symbol_count, avg_tag_confidence, tag_rate,
+                    latest_success, latest_issue, latest_evidence_at,
+                    days_since_success, top_matched_terms, match_reason_summary,
+                    confidence_bucket_summary, low_confidence_matches,
+                    feedback_delta, quality_label, notes
+                )
+                VALUES (
+                    :metric_date, :source_name, :source_category, :records_seen,
+                    :records_inserted, :duplicate_records, :raw_payloads, :ok_runs,
+                    :error_runs, :blocked_runs, :total_evidence, :tagged_evidence,
+                    :tag_count, :matched_symbol_count, :avg_tag_confidence, :tag_rate,
+                    :latest_success, :latest_issue, :latest_evidence_at,
+                    :days_since_success, :top_matched_terms, :match_reason_summary,
+                    :confidence_bucket_summary, :low_confidence_matches,
+                    :feedback_delta, :quality_label, :notes
+                )
+                """,
+                normalized,
+            )
+            inserted += cursor.rowcount
+    conn.close()
+    return inserted
+
+
+def record_ingestion_run_plan(rows: List[Mapping[str, object]], rebuild: bool = False) -> int:
+    if not rows and not rebuild:
+        return 0
+    conn = init_db()
+    inserted = 0
+    with conn:
+        if rebuild:
+            conn.execute("DELETE FROM ingestion_run_plan")
+        for row in rows:
+            cursor = conn.execute(
+                """
+                INSERT OR REPLACE INTO ingestion_run_plan (
+                    source_name, updated_at, source_category, source_tier,
+                    cadence_days, latest_attempt, latest_success, next_run_at,
+                    cooldown_until, due_status, priority_rank, records, raw_payloads,
+                    duplicate_records, latest_issue, run_command, reason
+                )
+                VALUES (
+                    :source_name, CURRENT_TIMESTAMP, :source_category, :source_tier,
+                    :cadence_days, :latest_attempt, :latest_success, :next_run_at,
+                    :cooldown_until, :due_status, :priority_rank, :records, :raw_payloads,
+                    :duplicate_records, :latest_issue, :run_command, :reason
+                )
+                """,
+                row,
+            )
+            inserted += cursor.rowcount
+    conn.close()
+    return inserted
+
+
+def record_ingestion_backfill_queue(rows: List[Mapping[str, object]], rebuild: bool = False) -> int:
+    if not rows and not rebuild:
+        return 0
+    conn = init_db()
+    inserted = 0
+    with conn:
+        if rebuild:
+            conn.execute("DELETE FROM ingestion_backfill_queue")
+        for row in rows:
+            cursor = conn.execute(
+                """
+                INSERT OR REPLACE INTO ingestion_backfill_queue (
+                    source_name, symbol, backfill_type, status, priority_rank,
+                    desired_window_days, covered_since, covered_until, record_count,
+                    next_action, command, reason
+                )
+                VALUES (
+                    :source_name, :symbol, :backfill_type, :status, :priority_rank,
+                    :desired_window_days, :covered_since, :covered_until, :record_count,
+                    :next_action, :command, :reason
+                )
+                """,
+                row,
+            )
+            inserted += cursor.rowcount
+    conn.close()
+    return inserted
+
+
+def record_evidence_event_clusters(
+    clusters: List[Mapping[str, object]],
+    members_by_event_key: Mapping[str, List[Mapping[str, object]]],
+    rebuild: bool = False,
+) -> int:
+    if not clusters and not rebuild:
+        return 0
+    conn = init_db()
+    inserted = 0
+    with conn:
+        if rebuild:
+            conn.execute("DELETE FROM evidence_event_members")
+            conn.execute("DELETE FROM evidence_event_clusters")
+        for cluster in clusters:
+            cursor = conn.execute(
+                """
+                INSERT OR REPLACE INTO evidence_event_clusters (
+                    event_date, symbol, event_key, event_type, headline, summary,
+                    corroboration_label, source_count, evidence_count,
+                    independent_source_count, primary_source_count,
+                    company_source_count, opinion_source_count, latest_evidence_at,
+                    confidence, notes
+                )
+                VALUES (
+                    :event_date, :symbol, :event_key, :event_type, :headline, :summary,
+                    :corroboration_label, :source_count, :evidence_count,
+                    :independent_source_count, :primary_source_count,
+                    :company_source_count, :opinion_source_count, :latest_evidence_at,
+                    :confidence, :notes
+                )
+                """,
+                cluster,
+            )
+            inserted += cursor.rowcount
+            cluster_id = conn.execute(
+                """
+                SELECT id
+                FROM evidence_event_clusters
+                WHERE symbol = ? AND event_key = ?
+                """,
+                (cluster["symbol"], cluster["event_key"]),
+            ).fetchone()[0]
+            conn.execute(
+                "DELETE FROM evidence_event_members WHERE cluster_id = ?",
+                (cluster_id,),
+            )
+            for member in members_by_event_key.get(str(cluster["event_key"]), []):
+                values = {"cluster_id": cluster_id, **dict(member)}
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO evidence_event_members (
+                        cluster_id, evidence_id, source_name, source_family,
+                        match_reason, confidence_bucket
+                    )
+                    VALUES (
+                        :cluster_id, :evidence_id, :source_name, :source_family,
+                        :match_reason, :confidence_bucket
+                    )
+                    """,
+                    values,
+                )
+    conn.close()
+    return inserted
+
+
+def record_evidence_review_queue(rows: List[Mapping[str, object]], rebuild: bool = False) -> int:
+    if not rows and not rebuild:
+        return 0
+    conn = init_db()
+    inserted = 0
+    with conn:
+        if rebuild:
+            conn.execute("DELETE FROM evidence_review_queue")
+        for row in rows:
+            cursor = conn.execute(
+                """
+                INSERT OR REPLACE INTO evidence_review_queue (
+                    cluster_id, symbol, event_key, event_type, review_status,
+                    priority_rank, review_reason, recommended_action,
+                    corroboration_label, confidence, source_count, evidence_count,
+                    latest_evidence_at
+                )
+                VALUES (
+                    :cluster_id, :symbol, :event_key, :event_type, :review_status,
+                    :priority_rank, :review_reason, :recommended_action,
+                    :corroboration_label, :confidence, :source_count, :evidence_count,
+                    :latest_evidence_at
+                )
+                """,
+                row,
+            )
+            inserted += cursor.rowcount
+    conn.close()
+    return inserted
+
+
+def record_synthesis_readiness(rows: List[Mapping[str, object]], rebuild: bool = False) -> int:
+    if not rows and not rebuild:
+        return 0
+    conn = init_db()
+    inserted = 0
+    with conn:
+        if rebuild:
+            conn.execute("DELETE FROM synthesis_readiness")
+        for row in rows:
+            cursor = conn.execute(
+                """
+                INSERT OR REPLACE INTO synthesis_readiness (
+                    symbol, readiness_status, readiness_score, ready_events,
+                    needs_review_events, needs_corroboration_events, ignored_events,
+                    primary_events, independent_confirmed_events, latest_event_at,
+                    packet_ref, notes
+                )
+                VALUES (
+                    :symbol, :readiness_status, :readiness_score, :ready_events,
+                    :needs_review_events, :needs_corroboration_events, :ignored_events,
+                    :primary_events, :independent_confirmed_events, :latest_event_at,
+                    :packet_ref, :notes
+                )
+                """,
+                row,
+            )
+            inserted += cursor.rowcount
+    conn.close()
+    return inserted
+
+
+def record_decision_insights(rows: List[Mapping[str, object]]) -> int:
+    if not rows:
+        return 0
+    conn = init_db()
+    inserted = 0
+    with conn:
+        for row in rows:
+            cursor = conn.execute(
+                """
+                INSERT OR REPLACE INTO decision_insights (
+                    run_id, report_date, rank, symbol, action, score, insight_type,
+                    headline, why_it_matters, supporting_data, risk_or_uncertainty,
+                    next_check, what_would_change_the_view, source_ref
+                )
+                VALUES (
+                    :run_id, :report_date, :rank, :symbol, :action, :score, :insight_type,
+                    :headline, :why_it_matters, :supporting_data, :risk_or_uncertainty,
+                    :next_check, :what_would_change_the_view, :source_ref
+                )
+                """,
+                row,
+            )
+            inserted += cursor.rowcount
+    conn.close()
+    return inserted
+
+
+def record_verification_queue_items(rows: List[Mapping[str, object]]) -> int:
+    if not rows:
+        return 0
+    conn = init_db()
+    inserted = 0
+    with conn:
+        for row in rows:
+            cursor = conn.execute(
+                """
+                INSERT OR REPLACE INTO verification_queue_items (
+                    run_id, report_date, symbol, priority_rank, insight_type, reason,
+                    expected_score_impact, next_check, command_mapping, automation_mode,
+                    status, result_summary, workflow_step_id, started_at, completed_at
+                )
+                VALUES (
+                    :run_id, :report_date, :symbol, :priority_rank, :insight_type, :reason,
+                    :expected_score_impact, :next_check, :command_mapping, :automation_mode,
+                    :status, :result_summary, :workflow_step_id, :started_at, :completed_at
+                )
+                """,
+                row,
+            )
+            inserted += cursor.rowcount
+    conn.close()
+    return inserted
+
+
+def latest_decision_insights_by_symbol(limit_per_symbol: int = 2) -> Dict[str, List[sqlite3.Row]]:
+    conn = init_db()
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        """
+        SELECT id, created_at, run_id, report_date, rank, symbol, action, score,
+               insight_type, headline, why_it_matters, supporting_data,
+               risk_or_uncertainty, next_check, what_would_change_the_view,
+               source_ref
+        FROM decision_insights
+        ORDER BY run_id DESC, id DESC
+        LIMIT 2000
+        """
+    ).fetchall()
+    conn.close()
+    grouped: Dict[str, List[sqlite3.Row]] = {}
+    for row in rows:
+        symbol = str(row["symbol"] or "").upper()
+        grouped.setdefault(symbol, [])
+        if len(grouped[symbol]) < limit_per_symbol:
+            grouped[symbol].append(row)
+    return grouped
+
+
+def latest_open_verification_queue(limit: int = 50, symbol: str = "") -> List[sqlite3.Row]:
+    conn = init_db()
+    conn.row_factory = sqlite3.Row
+    params: list[object] = []
+    symbol_filter = ""
+    if symbol:
+        symbol_filter = "AND q.symbol = ?"
+        params.append(symbol.upper())
+    params.append(limit)
+    rows = conn.execute(
+        f"""
+        SELECT id, created_at, updated_at, run_id, report_date, symbol,
+               priority_rank, insight_type, reason, expected_score_impact,
+               next_check, command_mapping, automation_mode, status,
+               result_summary, workflow_step_id, started_at, completed_at
+        FROM verification_queue_items q
+        WHERE q.status != 'completed'
+          {symbol_filter}
+          AND NOT EXISTS (
+              SELECT 1
+              FROM verification_queue_items newer_q
+              WHERE newer_q.symbol = q.symbol
+                AND newer_q.next_check = q.next_check
+                AND newer_q.reason = q.reason
+                AND newer_q.id > q.id
+          )
+        ORDER BY
+          CASE status
+            WHEN 'queued' THEN 0
+            WHEN 'failed' THEN 1
+            WHEN 'running' THEN 2
+            WHEN 'manual_required' THEN 3
+            WHEN 'blocked_provider_fix_needed' THEN 4
+            ELSE 5
+          END,
+          priority_rank ASC,
+          run_id DESC,
+          id DESC
+        LIMIT ?
+        """,
+        params,
+    ).fetchall()
+    conn.close()
+    return rows
+
+
+def latest_verification_queue(limit: int = 50, symbol: str = "") -> List[sqlite3.Row]:
+    conn = init_db()
+    conn.row_factory = sqlite3.Row
+    params: list[object] = []
+    symbol_filter = ""
+    if symbol:
+        symbol_filter = "WHERE symbol = ?"
+        params.append(symbol.upper())
+    params.append(limit)
+    rows = conn.execute(
+        f"""
+        SELECT id, created_at, updated_at, run_id, report_date, symbol,
+               priority_rank, insight_type, reason, expected_score_impact,
+               next_check, command_mapping, automation_mode, status,
+               result_summary, workflow_step_id, started_at, completed_at
+        FROM verification_queue_items
+        {symbol_filter}
+        ORDER BY run_id DESC, priority_rank ASC, id DESC
+        LIMIT ?
+        """,
+        params,
+    ).fetchall()
+    conn.close()
+    return rows
+
+
+def update_verification_queue_item_status(
+    item_id: int,
+    status: str,
+    result_summary: str = "",
+    workflow_step_id: int | None = None,
+    started: bool = False,
+    completed: bool = False,
+) -> None:
+    conn = init_db()
+    assignments = [
+        "status = ?",
+        "result_summary = ?",
+        "updated_at = CURRENT_TIMESTAMP",
+    ]
+    params: list[object] = [status, result_summary]
+    if workflow_step_id is not None:
+        assignments.append("workflow_step_id = ?")
+        params.append(workflow_step_id)
+    if started:
+        assignments.append("started_at = COALESCE(started_at, CURRENT_TIMESTAMP)")
+    if completed:
+        assignments.append("completed_at = CURRENT_TIMESTAMP")
+    params.append(item_id)
+    with conn:
+        conn.execute(
+            f"UPDATE verification_queue_items SET {', '.join(assignments)} WHERE id = ?",
+            params,
+        )
+    conn.close()
+
+
 def record_analysis_run(
     recommendation_run_id: int | None,
     model_version: str,
@@ -1049,16 +1791,21 @@ def record_evidence_symbol_tags(rows: List[Mapping[str, object]]) -> int:
     inserted = 0
     with conn:
         for row in rows:
+            values = dict(row)
+            values.setdefault("confidence_bucket", "low")
+            values.setdefault("match_reason", values.get("match_type", ""))
             cursor = conn.execute(
                 """
                 INSERT OR IGNORE INTO evidence_symbol_tags (
-                    evidence_id, symbol, match_type, matched_text, confidence
+                    evidence_id, symbol, match_type, matched_text, confidence,
+                    confidence_bucket, match_reason
                 )
                 VALUES (
-                    :evidence_id, :symbol, :match_type, :matched_text, :confidence
+                    :evidence_id, :symbol, :match_type, :matched_text, :confidence,
+                    COALESCE(:confidence_bucket, 'low'), COALESCE(:match_reason, :match_type)
                 )
                 """,
-                row,
+                values,
             )
             inserted += cursor.rowcount
     conn.close()

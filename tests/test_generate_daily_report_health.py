@@ -70,6 +70,37 @@ def marker_row(action: str = "Watch", score: float = 75.0, target_price: float =
     }
 
 
+def score_breakdown() -> subject.ScoreBreakdown:
+    return subject.ScoreBreakdown(
+        total=75.0,
+        upside=10.0,
+        quality=20.0,
+        momentum=15.0,
+        catalyst=12.0,
+        risk=18.0,
+        owned_penalty=0.0,
+        speculative_penalty=0.0,
+        model="Long-term",
+    )
+
+
+def next_day_row(
+    item: subject.ResearchInput | None = None,
+    target: subject.BlendedTarget | None = None,
+    include_rationale: bool = True,
+) -> dict[str, object]:
+    row: dict[str, object] = {
+        "input": item or research_input(),
+        "target": blended_target() if target is None else target,
+        "action": "Watch",
+        "score": 75.0,
+    }
+    if include_rationale:
+        row["breakdown"] = score_breakdown()
+        row["position_after_buy_pct"] = 0.0
+    return row
+
+
 class GenerateDailyReportHealthTests(unittest.TestCase):
     def test_source_health_summary_counts_each_status_bucket(self) -> None:
         source_rows = [
@@ -193,6 +224,79 @@ class GenerateDailyReportHealthTests(unittest.TestCase):
             [["High", "Blocked feed", "Needs attention", 12, "2026-05-28 22:00:00", "DNS failure", "Retry provider"]],
         )
 
+    def test_provider_blocker_review_names_blocked_field_and_fix(self) -> None:
+        rows = subject.provider_blocker_review_rows(
+            [
+                {
+                    "symbol": "NVDA",
+                    "provider": "Official Investor Relations",
+                    "field_name": "official_ir_page",
+                    "status": "blocked",
+                    "message": "IR endpoint blocked by provider access",
+                }
+            ],
+            [
+                {
+                    "input": type("Input", (), {"symbol": "NVDA"})(),
+                    "action": "Add",
+                    "score": 80.7,
+                }
+            ],
+        )
+
+        self.assertEqual(rows[0][0], "High")
+        self.assertEqual(rows[0][1], "NVDA")
+        self.assertEqual(rows[0][4], "Primary-source evidence")
+        self.assertEqual(rows[0][5], "Provider plan/access blocker")
+        self.assertIn("Rank 1 / Add / 80.7", rows[0][6])
+        self.assertIn("scripts/ingest_official_ir.py --symbols NVDA", rows[0][8])
+
+    def test_provider_blocker_review_prioritizes_ranked_symbols(self) -> None:
+        provider_rows = [
+            {
+                "symbol": "LOWRANK",
+                "provider": "Financial Modeling Prep",
+                "field_name": "analyst_targets",
+                "status": "blocked",
+                "message": "HTTP 403 blocked by plan",
+            },
+            {
+                "symbol": "TOP",
+                "provider": "Financial Modeling Prep",
+                "field_name": "analyst_targets",
+                "status": "blocked",
+                "message": "HTTP 403 blocked by plan",
+            },
+        ]
+        ranked = [
+            {"input": type("Input", (), {"symbol": "TOP"})(), "action": "Watch", "score": 77.0},
+            {"input": type("Input", (), {"symbol": "LOWRANK"})(), "action": "Watch", "score": 65.0},
+        ]
+
+        rows = subject.provider_blocker_review_rows(provider_rows, ranked)
+
+        self.assertEqual(rows[0][1], "TOP")
+        self.assertEqual(rows[0][4], "Analyst target breadth")
+        self.assertIn("scripts/refresh_market_data.py --symbol TOP", rows[0][8])
+
+    def test_provider_blocker_review_classifies_network_retry(self) -> None:
+        rows = subject.provider_blocker_review_rows(
+            [
+                {
+                    "symbol": "META",
+                    "provider": "SEC EDGAR",
+                    "field_name": "companyfacts",
+                    "status": "failed",
+                    "message": "urlopen error nodename nor servname provided",
+                }
+            ]
+        )
+
+        self.assertEqual(rows[0][0], "Medium")
+        self.assertEqual(rows[0][4], "Primary-source evidence")
+        self.assertEqual(rows[0][5], "Network / DNS")
+        self.assertIn("scripts/show_provider_gaps.py --symbol META", rows[0][8])
+
     def test_change_marker_new_without_two_history_points(self) -> None:
         marker = subject.change_marker_for_row(marker_row(), {"NVDA": [{"action": "Watch", "score": 75.0, "target_price": 125.0}]})
 
@@ -254,7 +358,57 @@ class GenerateDailyReportHealthTests(unittest.TestCase):
         self.assertEqual(marker["label"], "No material change")
         self.assertEqual(marker["class"], "change-none")
 
+    def test_next_day_readiness_empty_watchlist_needs_attention(self) -> None:
+        status = subject.next_day_readiness([], {"stale": 0, "not_implemented": 0}, [])
+
+        self.assertEqual(status["item"]["status"], "Needs attention")
+        self.assertIsNone(status["preview"])
+
+    def test_next_day_readiness_missing_price_target_or_rationale_needs_attention(self) -> None:
+        missing_data = subject.next_day_readiness(
+            [next_day_row(research_input(current_price=0.0, target_price=0.0), None)],
+            {"stale": 0, "not_implemented": 0},
+            [],
+        )
+        missing_rationale = subject.next_day_readiness(
+            [next_day_row(include_rationale=False)],
+            {"stale": 0, "not_implemented": 0},
+            [],
+        )
+
+        self.assertEqual(missing_data["item"]["status"], "Needs attention")
+        self.assertEqual(missing_rationale["item"]["status"], "Needs attention")
+
+    def test_next_day_readiness_valid_candidate_is_ready(self) -> None:
+        status = subject.next_day_readiness([next_day_row()], {"stale": 0, "not_implemented": 0}, [])
+
+        self.assertEqual(status["item"]["status"], "Ready")
+        self.assertEqual(status["preview"]["symbol"], "NVDA")
+        self.assertEqual(status["preview"]["data_status"], "Blended")
+
+    def test_next_day_readiness_weak_target_or_source_context_requires_review(self) -> None:
+        weak_target = subject.next_day_readiness(
+            [next_day_row(target=blended_target(confidence="low", blend_status="Analyst + fundamental + technical; wide target range"))],
+            {"stale": 0, "not_implemented": 0},
+            [],
+        )
+        stale_context = subject.next_day_readiness(
+            [next_day_row()],
+            {"stale": 1, "not_implemented": 0},
+            [],
+        )
+        health_alert = subject.next_day_readiness(
+            [next_day_row()],
+            {"stale": 0, "not_implemented": 0},
+            [["Medium", "Stale feed", "Stale", 1, "old", "", "Refresh"]],
+        )
+
+        self.assertEqual(weak_target["item"]["status"], "Review")
+        self.assertEqual(stale_context["item"]["status"], "Review")
+        self.assertEqual(health_alert["item"]["status"], "Review")
+
     def test_pre_market_readiness_all_checks_ready(self) -> None:
+        next_day_status = subject.next_day_readiness([next_day_row()], {"stale": 0, "not_implemented": 0}, [])
         items = readiness_by_label(
             subject.pre_market_readiness_items(
                 {"input": research_input(), "target": blended_target()},
@@ -262,6 +416,7 @@ class GenerateDailyReportHealthTests(unittest.TestCase):
                 {"healthy": 4, "needs_attention": 0, "stale": 0, "not_implemented": 0},
                 [],
                 2,
+                next_day_status["item"],
             )
         )
 
@@ -270,6 +425,7 @@ class GenerateDailyReportHealthTests(unittest.TestCase):
         self.assertEqual(items["Source health"]["status"], "Ready")
         self.assertEqual(items["Holdings context"]["status"], "Ready")
         self.assertEqual(items["Feedback review"]["status"], "Ready")
+        self.assertEqual(items["Next-day setup"]["status"], "Ready")
 
     def test_pre_market_readiness_missing_price_and_target_need_attention(self) -> None:
         items = readiness_by_label(

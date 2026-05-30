@@ -52,6 +52,14 @@ class IngestionBoundaryTests(unittest.TestCase):
         self.assertEqual(snapshot[0]["status"], "missing")
         self.assertEqual(snapshot[0]["field_name"], "target_price")
 
+    def test_ingestion_status_normalization_uses_shared_labels(self) -> None:
+        self.assertEqual(subject.normalize_status("success"), "ok")
+        self.assertEqual(subject.normalize_status("error", "HTTP 429 rate limit"), "rate_limited")
+        self.assertEqual(subject.normalize_status("error", "HTTP 403 forbidden"), "blocked")
+        self.assertEqual(subject.normalize_status("error", "missing target"), "missing")
+        self.assertEqual(subject.normalize_status("error", "stale price"), "stale")
+        self.assertEqual(subject.status_for_exit(2), "error")
+
 
 if __name__ == "__main__":
     unittest.main()

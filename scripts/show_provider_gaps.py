@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import sys
+import argparse
 from pathlib import Path
 
 
@@ -14,7 +15,15 @@ from engine_common import latest_provider_gaps  # noqa: E402
 
 
 def main() -> int:
-    rows = latest_provider_gaps()
+    parser = argparse.ArgumentParser(description="Show recent provider coverage gaps.")
+    parser.add_argument("--symbol", help="Restrict output to one ticker.")
+    parser.add_argument("--limit", type=int, default=200, help="Maximum provider gap rows to read.")
+    args = parser.parse_args()
+
+    rows = latest_provider_gaps(args.limit)
+    if args.symbol:
+        symbol = args.symbol.upper()
+        rows = [row for row in rows if str(row["symbol"] or "").upper() == symbol]
     if not rows:
         print("No provider gaps recorded yet.")
         return 0
@@ -47,4 +56,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

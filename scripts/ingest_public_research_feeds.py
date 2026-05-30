@@ -59,6 +59,7 @@ RSS_NAMESPACES = {
     "content": "http://purl.org/rss/1.0/modules/content/",
     "itunes": "http://www.itunes.com/dtds/podcast-1.0.dtd",
 }
+VALID_MODES = {"auto", "rss", "page-links"}
 
 
 class FeedLinkParser(HTMLParser):
@@ -76,6 +77,49 @@ class FeedLinkParser(HTMLParser):
         href = attrs_dict.get("href", "")
         if href and "alternate" in rel and any(kind in type_value for kind in RSS_CONTENT_TYPES):
             self.feed_urls.append(urljoin(self.base_url, href))
+
+
+class PageLinkParser(HTMLParser):
+    def __init__(self, base_url: str) -> None:
+        super().__init__()
+        self.base_url = base_url
+        self.links: list[dict[str, str]] = []
+        self._active_href = ""
+        self._active_text: list[str] = []
+        self._active_time = ""
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attrs_dict = {key.lower(): value or "" for key, value in attrs}
+        if tag.lower() == "a":
+            href = attrs_dict.get("href", "").strip()
+            if href:
+                self._active_href = urljoin(self.base_url, href)
+                self._active_text = []
+                self._active_time = ""
+        elif tag.lower() == "time" and self._active_href:
+            self._active_time = attrs_dict.get("datetime", "").strip()
+
+    def handle_data(self, data: str) -> None:
+        if self._active_href:
+            self._active_text.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() != "a" or not self._active_href:
+            return
+        title = clean_text(" ".join(self._active_text), 260)
+        if title:
+            self.links.append(
+                {
+                    "title": title,
+                    "link": self._active_href,
+                    "published": self._active_time,
+                    "summary": "Public source page link.",
+                    "guid": self._active_href,
+                }
+            )
+        self._active_href = ""
+        self._active_text = []
+        self._active_time = ""
 
 
 def clean_text(value: object, limit: int = 1200) -> str:
@@ -104,7 +148,10 @@ def fetch_text(url: str, redirects_remaining: int = 3) -> tuple[str, str, str]:
     return result.status, result.text, result.content_type or message
 
 
-def integration_rows(symbol_filter: set[str] | None) -> list[dict[str, str]]:
+def integration_rows(
+    symbol_filter: set[str] | None,
+    category_filter: set[str] | None = None,
+) -> list[dict[str, str]]:
     rows, _ = read_csv(INTEGRATIONS_FILE)
     selected = []
     for row in rows:
@@ -114,12 +161,24 @@ def integration_rows(symbol_filter: set[str] | None) -> list[dict[str, str]]:
         access_model = str(row.get("access_model", "")).strip()
         if category not in INGESTIBLE_CATEGORIES:
             continue
+        if category_filter and category not in category_filter:
+            continue
         if access_model in PAID_ONLY_ACCESS_MODELS:
             continue
         if symbol_filter and name not in symbol_filter:
             continue
         selected.append(row)
     return selected
+
+
+def normalize_categories(value: str) -> set[str] | None:
+    if not value:
+        return None
+    categories = {category.strip() for category in value.split(",") if category.strip()}
+    invalid = categories - INGESTIBLE_CATEGORIES
+    if invalid:
+        raise ValueError(f"Unsupported categories: {', '.join(sorted(invalid))}")
+    return categories
 
 
 def candidate_feed_urls(home_url: str) -> list[str]:
@@ -164,6 +223,92 @@ def discover_feed_url(home_url: str, explicit_feed_url: str = "") -> tuple[str, 
     if configured_detail:
         message = f"{configured_detail}; {message}"
     return "missing", "", "", message
+
+
+def link_is_same_site_or_subdomain(source_url: str, link: str) -> bool:
+    source_host = urlparse(source_url).netloc.lower().removeprefix("www.")
+    link_host = urlparse(link).netloc.lower().removeprefix("www.")
+    return bool(link_host) and (link_host == source_host or link_host.endswith(f".{source_host}"))
+
+
+def link_looks_like_public_item(source: dict[str, str], link: str, title: str) -> bool:
+    title_words = [word for word in re.split(r"[^A-Za-z0-9]+", title) if word]
+    if len(title_words) < 3:
+        return False
+    lowered = f"{link} {title}".lower()
+    skip_terms = {
+        "#",
+        "javascript:",
+        "mailto:",
+        "/privacy",
+        "/terms",
+        "/cookie",
+        "/contact",
+        "/login",
+        "/subscribe",
+        "/newsletter",
+        "/careers",
+        "/events",
+        "/webinars",
+        "/about",
+        "/search",
+        "/tag/",
+        "/author/",
+    }
+    if any(term in lowered for term in skip_terms):
+        return False
+    category = source.get("source_category", "")
+    positive_terms = {
+        "company_newsroom": ("press-release", "press-releases", "news-release", "news-releases", "newsroom", "investor", "release", "financial-results"),
+        "company_blog": ("blog", "news", "ai", "cloud", "security", "platform", "engineering", "product"),
+        "press_wire": ("news-release", "press-release", "technology", "semiconductor", "artificial-intelligence", "ai"),
+        "ai_research": ("ai", "artificial-intelligence", "machine-learning", "ml", "data", "engineering"),
+        "semiconductor_news": ("semiconductor", "chip", "foundry", "lithography", "memory", "manufacturing", "news"),
+        "tech_news": ("ai", "cloud", "data", "compute", "semiconductor", "security", "news"),
+    }
+    terms = positive_terms.get(category, ())
+    return not terms or any(term in lowered for term in terms)
+
+
+def page_link_items(source: dict[str, str], page_url: str, page_body: str, limit: int) -> list[dict[str, str]]:
+    parser = PageLinkParser(page_url)
+    parser.feed(page_body)
+    seen: set[str] = set()
+    items: list[dict[str, str]] = []
+    for item in parser.links:
+        link = item["link"]
+        title = item["title"]
+        if link in seen:
+            continue
+        if not link_is_same_site_or_subdomain(page_url, link):
+            continue
+        if not link_looks_like_public_item(source, link, title):
+            continue
+        seen.add(link)
+        items.append(item)
+        if len(items) >= limit:
+            break
+    return items
+
+
+def page_link_archive_items(source: dict[str, str], home_url: str, limit: int) -> tuple[str, list[dict[str, str]], str, str]:
+    status, body, detail = fetch_text(home_url)
+    if status != "ok":
+        return status, [], detail, home_url
+    record_raw_ingestion_payload(
+        provider=source["source_name"],
+        endpoint="public_page_body",
+        symbol="MARKET",
+        status="ok",
+        message="public_page_links",
+        payload_text=body,
+        request_hash=hashlib.sha256(home_url.encode()).hexdigest(),
+        content_type="text/html",
+    )
+    items = page_link_items(source, home_url, body, limit)
+    if not items:
+        return "missing", [], "Public page loaded but no usable source links were parsed", home_url
+    return "ok", items, "page_links", home_url
 
 
 def extract_json_array_after_key(text: str, key: str) -> list[object]:
@@ -367,7 +512,13 @@ def regex_feed_items(feed_body: str, limit: int) -> list[dict[str, str]]:
     return [item for item in items if item.get("title") or item.get("summary")]
 
 
-def evidence_rows(source: dict[str, str], feed_url: str, items: list[dict[str, str]]) -> list[dict[str, object]]:
+def evidence_rows(
+    source: dict[str, str],
+    feed_url: str,
+    items: list[dict[str, str]],
+    evidence_suffix: str = "public_feed",
+    provider_endpoint: str = "public_rss_or_archive",
+) -> list[dict[str, object]]:
     rows = []
     source_name = source["source_name"]
     category = source["source_category"]
@@ -383,11 +534,11 @@ def evidence_rows(source: dict[str, str], feed_url: str, items: list[dict[str, s
             {
                 "run_id": None,
                 "symbol": "MARKET",
-                "evidence_type": f"{category}_public_feed",
+                "evidence_type": f"{category}_{evidence_suffix}",
                 "source_name": source_name,
                 "source_type": category,
                 "source_url": link or feed_url,
-                "provider_endpoint": "public_rss_or_archive",
+                "provider_endpoint": provider_endpoint,
                 "provider_id": str(provider_id)[:240],
                 "source_timestamp": item.get("published") or today,
                 "title": item.get("title") or f"{source_name} public feed item",
@@ -420,7 +571,7 @@ def default_corroboration_status(source: dict[str, str], category: str) -> str:
     return "independent_source_needs_corroboration"
 
 
-def ingest_source(source: dict[str, str], item_limit: int) -> tuple[int, dict[str, object]]:
+def ingest_source(source: dict[str, str], item_limit: int, mode: str = "auto") -> tuple[int, dict[str, object]]:
     source_name = source["source_name"]
     home_url = source.get("official_url", "")
     if not home_url:
@@ -433,15 +584,34 @@ def ingest_source(source: dict[str, str], item_limit: int) -> tuple[int, dict[st
         }
     feed_url = source.get("feed_url", "")
     items: list[dict[str, str]] = []
-    if "beehiiv.com" in urlparse(home_url).netloc and not feed_url:
+    evidence_suffix = "public_feed"
+    provider_endpoint = "public_rss_or_archive"
+    payload_endpoint = "public_feed"
+    resolved_url = feed_url or home_url
+    fallback_used = False
+    parser_name = "rss_or_archive"
+    if mode in {"auto", "rss"} and "beehiiv.com" in urlparse(home_url).netloc and not feed_url:
         status, items, message = beehiiv_archive_items(home_url, item_limit)
         feed_url = home_url
-    elif "deeplearning.ai" in urlparse(home_url).netloc and "the-batch" in home_url and not feed_url:
+        resolved_url = home_url
+        parser_name = "beehiiv_archive"
+    elif mode in {"auto", "rss"} and "deeplearning.ai" in urlparse(home_url).netloc and "the-batch" in home_url and not feed_url:
         status, items, message = batch_archive_items(home_url, item_limit)
         feed_url = home_url
+        resolved_url = home_url
+        parser_name = "the_batch_archive"
+    elif mode == "page-links":
+        status, items, message, feed_url = page_link_archive_items(source, home_url, item_limit)
+        evidence_suffix = "public_page_link"
+        provider_endpoint = "public_page_link"
+        payload_endpoint = "public_page_link"
+        resolved_url = feed_url
+        parser_name = "page_links"
     else:
         status, feed_url, feed_body, message = discover_feed_url(home_url, feed_url)
         if status == "ok":
+            resolved_url = feed_url
+            parser_name = "rss_atom"
             record_raw_ingestion_payload(
                 provider=source_name,
                 endpoint="public_feed_body",
@@ -456,30 +626,68 @@ def ingest_source(source: dict[str, str], item_limit: int) -> tuple[int, dict[st
             if not items:
                 status = "missing"
                 message = "Feed discovered but no parseable items found"
+        elif mode == "auto":
+            feed_status = status
+            feed_message = message
+            page_status, page_items, page_message, page_url = page_link_archive_items(source, home_url, item_limit)
+            if page_status == "ok":
+                status = page_status
+                items = page_items
+                message = f"RSS unavailable ({feed_status}: {feed_message}); page-link fallback used"
+                feed_url = page_url
+                evidence_suffix = "public_page_link"
+                provider_endpoint = "public_page_link"
+                payload_endpoint = "public_page_link"
+                resolved_url = page_url
+                fallback_used = True
+                parser_name = "page_links"
+            else:
+                message = f"RSS unavailable ({feed_status}: {feed_message}); page-link fallback {page_status}: {page_message}"
     payload = {
         "source_name": source_name,
         "source_category": source.get("source_category", ""),
         "home_url": home_url,
         "feed_url": feed_url,
         "discovery_message": message,
+        "ingestion_mode": mode,
+        "resolved_url": resolved_url,
+        "record_count": len(items),
+        "parser_name": parser_name,
+        "fallback_used": fallback_used,
+        "status_label": (
+            "page_links_ok"
+            if status == "ok" and provider_endpoint == "public_page_link"
+            else "rss_ok"
+            if status == "ok"
+            else "blocked"
+            if status == "blocked"
+            else "missing_feed"
+            if status == "missing"
+            else "parser_gap"
+        ),
     }
     if status == "ok":
         payload["item_count"] = len(items)
         payload["sample_titles"] = [item.get("title", "") for item in items[:5]]
     record_provider_payload(
         source_name,
-        "public_feed",
+        payload_endpoint,
         "MARKET",
         status,
         message,
         payload_json=payload,
     )
-    inserted = record_research_evidence(evidence_rows(source, feed_url, items)) if status == "ok" else 0
+    inserted = (
+        record_research_evidence(evidence_rows(source, feed_url, items, evidence_suffix, provider_endpoint))
+        if status == "ok"
+        else 0
+    )
     return inserted, {
         "symbol": "MARKET",
         "provider": source_name,
-        "field_name": "public_feed",
+        "field_name": payload_endpoint,
         "status": status,
+        "status_label": payload["status_label"],
         "message": message,
     }
 
@@ -487,6 +695,13 @@ def ingest_source(source: dict[str, str], item_limit: int) -> tuple[int, dict[st
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Ingest approved public RSS/archive research sources.")
     parser.add_argument("--sources", help="Comma-separated source names. Defaults to all configured public sources.")
+    parser.add_argument("--categories", help="Comma-separated source categories to ingest.")
+    parser.add_argument(
+        "--mode",
+        choices=sorted(VALID_MODES),
+        default="auto",
+        help="Ingestion mode: RSS only, page-links only, or RSS with page-link fallback.",
+    )
     parser.add_argument("--item-limit", type=int, default=5, help="Maximum feed items per source.")
     parser.add_argument("--delay", type=float, default=0.2, help="Delay between sources.")
     return parser.parse_args()
@@ -500,7 +715,12 @@ def main() -> int:
         if args.sources
         else None
     )
-    sources = integration_rows(source_filter)
+    try:
+        category_filter = normalize_categories(args.categories or "")
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+    sources = integration_rows(source_filter, category_filter)
     if not sources:
         print("No public podcast/newsletter sources configured for ingestion.")
         return 1
@@ -508,10 +728,14 @@ def main() -> int:
     statuses: list[dict[str, object]] = []
     total_inserted = 0
     for index, source in enumerate(sources, start=1):
-        inserted, status = ingest_source(source, max(1, args.item_limit))
+        inserted, status = ingest_source(source, max(1, args.item_limit), args.mode)
         total_inserted += inserted
         statuses.append(status)
-        print(f"{source['source_name']}: public_feed_status={status['status']} inserted={inserted}", flush=True)
+        print(
+            f"{source['source_name']}: public_feed_status={status['status']} "
+            f"label={status.get('status_label', status['status'])} inserted={inserted}",
+            flush=True,
+        )
         if index < len(sources) and args.delay > 0:
             time.sleep(args.delay)
     gaps = sum(1 for row in statuses if row.get("status") != "ok")

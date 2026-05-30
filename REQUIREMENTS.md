@@ -298,10 +298,79 @@ Evidence storage requirements:
 - Include symbol, evidence type, source name, source URL or provider endpoint, source timestamp, fetched timestamp, headline/title, summary, raw text reference, confidence, corroboration status, and user feedback.
 - Keep raw provider payloads or payload references for auditability when practical.
 - Deduplicate evidence by source URL, provider id, accession number, transcript id, or headline/time hash.
+- Public-source ingestion should run in `auto` mode by default: use RSS/Atom first, then headline/link-only page extraction for official/free public pages when RSS is unavailable.
+- Page-link extraction should store only source page links, titles, dates when available, and short generated summaries; it should not scrape full article bodies.
+- Public-source payload metadata should label each run as `rss_ok`, `page_links_ok`, `missing_feed`, `blocked`, or `parser_gap` so source-detail pages can distinguish working ingestion from access/parser gaps.
 - Treat SEC filings and company-reported financial facts as high-reliability primary evidence.
 - Treat news, podcasts, newsletters, social, and options-flow inputs as corroboration-required evidence.
 - Do not let one uncorroborated news headline or transcript quote override the score.
 - Surface evidence in the dashboard as source drilldowns before it materially changes scoring.
+
+### Source-Depth Curation
+
+The engine should create normalized, auditable source-depth records from high-value stored evidence before AI synthesis uses that evidence.
+
+Source-depth curation should:
+
+- Convert SEC companyfacts into explicit fundamental depth signals such as revenue-growth inputs, EPS-trend inputs, operating-margin inputs, cash-flow inputs, balance-sheet inputs, and dilution/share-count inputs.
+- Convert SEC submissions into filing timeline signals such as annual report, quarterly report, and current-report events.
+- Convert official company IR rows into earnings release, earnings presentation, annual report, transcript, guidance, investor-event, or IR-update signals.
+- Convert official company blogs/newsrooms into company-framed product, AI-platform, infrastructure, customer/partner, security, or official-update signals.
+- Store curated rows in SQLite with source attribution, timestamp, confidence, corroboration status, and original source URL.
+- Keep source-depth signals explanatory/shadow-only until reviewed; they must not change Buy/Watch/Avoid, numeric scores, blended targets, or trade behavior by themselves.
+- Exclude local derived source-depth rows from source-quality provider scoring so quality labels continue to measure external/source ingestion, not internal curation volume.
+- Show source-depth signals in the Data Ingestion dashboard and markdown reports so future AI synthesis can cite the normalized evidence trail.
+
+### Evidence Freshness And Backfill Control
+
+The ingestion layer should decide what to refresh next based on source value, freshness, provider limits, and cooldown status instead of blindly re-running every source every day.
+
+The engine should maintain a source refresh plan with:
+
+- Source name, category, tier, cadence, latest attempt, latest success, next run time, cooldown window, latest issue, run priority, and run command.
+- Deterministic cadence defaults by source category, with high-signal official/company/news sources refreshed more often than slower podcast/newsletter context sources.
+- Cooldown handling for blocked or repeatedly failing sources so they remain visible but do not consume every daily run.
+- A clear distinction between healthy sources with no new records and sources that are blocked, stale, missing, or not yet implemented.
+- Dashboard and report sections showing the next ingestion runs, why they are queued, and which command would run them.
+
+The engine should also maintain a backfill queue with:
+
+- Source, symbol/context, backfill type, status, priority, desired historical window, covered range, current record count, command, and next action.
+- Initial backfill windows for public source categories so official company, press-wire, AI/semiconductor, newsletter, and podcast sources can build enough history for future synthesis.
+- Queued/cooldown states so blocked sources can show required work without masking productive sources.
+- No score/action impact; freshness and backfill controls are operational visibility until enough history exists.
+
+### Event Clustering And Corroboration
+
+The ingestion layer should group related evidence into source-backed events before AI synthesis or score impact. The goal is to avoid treating duplicate headlines as separate signals and to make corroboration explicit.
+
+Event clustering should:
+
+- Group evidence by symbol, event type, date bucket, topic/title similarity, source family, and deterministic symbol tags.
+- Preserve the underlying evidence members so each event can be audited back to source rows.
+- Classify event types such as earnings/guidance, filing disclosure, product launch, AI platform update, infrastructure capacity, security risk, analyst target, market sentiment, and general context.
+- Track source-family mix across primary sources, company-framed sources, independent publications, and opinion/context sources.
+- Produce deterministic corroboration labels such as `single_source`, `company_only`, `independent_confirmed`, `multi_source_confirmed`, `multi_source_unconfirmed`, and `primary_plus_confirmed`.
+- Show source counts, evidence counts, source mix, confidence, latest evidence timestamp, and event summaries in the dashboard and markdown report.
+- Keep event clusters explanatory until validated; event corroboration must not change Buy/Watch/Avoid, numeric scores, targets, or trade behavior by itself.
+- Feed future AI synthesis from event clusters rather than raw noisy headline lists whenever possible.
+
+### AI Synthesis Readiness
+
+Before the engine generates AI-written thesis summaries, it should create deterministic review gates and synthesis packets from event clusters.
+
+AI synthesis readiness should:
+
+- Classify each event cluster as `ready_for_synthesis`, `needs_corroboration`, `needs_review`, or `ignore_for_now`.
+- Treat corroborated independent or primary-plus-confirmed events as eligible for synthesis.
+- Treat high-impact primary-source events, such as filings or earnings/guidance events, as eligible for synthesis with primary-source framing even if independent confirmation is not yet available.
+- Treat company-only events as needing corroboration before strong claims are made.
+- Treat weak opinion/context-only events as low priority or ignored for now.
+- Produce a per-symbol readiness status such as `ready_for_ai_synthesis`, `partially_ready`, `needs_review`, or `not_enough_data`.
+- Export deterministic per-symbol synthesis packets with top usable events, review status, source mix, corroboration labels, and readiness notes.
+- Mark synthesis packets as not LLM-generated until a later version explicitly calls an AI model.
+- Show Evidence Review Queue and Synthesis Readiness By Symbol in the dashboard and markdown report.
+- Keep synthesis readiness explanatory only; it must not change Buy/Watch/Avoid, scores, targets, or trade behavior by itself.
 
 Near-term ingestion order:
 
@@ -496,9 +565,9 @@ Research source implementation action plan:
 | 8 | Analyst target consensus beyond FMP | Not implemented | Add second analyst-target provider if free/low-cost access is available |
 | 9 | Market news feeds | Partial | Add one broader market news provider with stronger company relevance metadata |
 | 10 | Approved podcasts/newsletters | Implemented for public feeds/archives where available | Keep opinion sources corroboration-required and add transcript/email enrichment later |
-| 11 | Official company blogs/newsrooms | Implemented for configured public feeds and tracked for feed-discovery gaps | Keep company-framed context visible and corroborate with SEC, IR, market data, or independent sources |
-| 12 | Public AI/semiconductor publications | Implemented for configured public feeds and tracked for feed-discovery gaps | Improve relevance filtering and source-to-symbol tags before score impact |
-| 13 | Press-wire feeds | Tracked and partially implemented where stable feed discovery works | Select stable Business Wire/GlobeNewswire category feeds and dedupe against official company sources |
+| 11 | Official company blogs/newsrooms | Implemented for configured public feeds and page-link fallback where available | Keep company-framed context visible; investigate remaining blocked/missing sources such as Broadcom, Micron, TSMC, and Arm |
+| 12 | Public AI/semiconductor publications | Implemented for configured public feeds and page-link fallback where available | Improve relevance filtering and source-to-symbol tags before score impact; track VentureBeat as blocked until access changes |
+| 13 | Press-wire feeds | Tracked with feed/page-link gap handling | Select stable Business Wire/GlobeNewswire category feeds or leave them as visible gaps if public access blocks automated pulls |
 | 14 | Benzinga news/analyst/options | Candidate paid source | Evaluate cost, trial access, endpoints, and overlap with FMP/Finnhub gaps |
 | 15 | Unusual Whales options flow | Candidate paid source | Evaluate token cost, endpoint fit, and noise controls for short-term sleeve |
 | 16 | Social sentiment | Not implemented | Treat as lower-trust context with strong manipulation/noise controls |
@@ -630,5 +699,7 @@ Items still to decide:
 - Evidence ingestion implementation: V1.1 implements CIK mapping, SEC submissions/companyfacts ingestion, Finnhub free-endpoint ingestion, and source drilldowns. V1.4 implements Alpha Vantage news/sentiment ingestion and FMP stock-news/transcript access checks. Remaining ingestion candidates are richer transcript capture where provider access allows it, company investor-relations feeds, and richer Finnhub sentiment if paid access is enabled later.
 - Research-depth implementation: V1.4 adds Alpha Vantage news/sentiment ingestion, FMP stock-news/transcript access checks, deterministic research briefs, and explanatory-only dashboard evidence summaries. Next tuning should improve relevance filtering, source feedback weighting, and eventual capped scoring impact after enough review history exists.
 - Source-to-symbol relevance tagging: broad podcast/newsletter/source evidence should be stored once as raw evidence, then linked to relevant V1 symbols through deterministic `evidence_symbol_tags`. Dashboard views should show the matched term so relevance is auditable. Tagging remains explanatory only until enough review history exists.
+- Source-quality validation: V1.9 measures source reliability and relevance through `source_quality_metrics` and dashboard quality labels, but those labels must remain explanatory until we have enough review history to decide how source quality should affect AI synthesis or score confidence.
+- V2.0 relevance tuning: symbol aliases are configurable in `config/symbol_aliases.csv`; confidence buckets and match reasons are persisted for audit. Low-confidence/context matches stay review-only and must not affect recommendations until validated.
 - Feedback implementation detail: dashboard buttons plus text box are approved; decide later whether feedback should save through a local server/API or continue generating local commands from static HTML.
 - Future E*TRADE order-preview requirements: order types, short-term exit workflow, confirmation screen, and audit log.

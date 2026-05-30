@@ -119,6 +119,31 @@ def parse_args() -> argparse.Namespace:
         help="Tag broad research evidence to stock symbols before report generation.",
     )
     parser.add_argument(
+        "--score-source-quality",
+        action="store_true",
+        help="Roll up ingestion quality and source relevance metrics before report generation.",
+    )
+    parser.add_argument(
+        "--curate-source-depth",
+        action="store_true",
+        help="Curate normalized source-depth evidence from SEC, IR, and official company-source rows.",
+    )
+    parser.add_argument(
+        "--plan-ingestion",
+        action="store_true",
+        help="Refresh the source freshness, cooldown, and backfill plan before report generation.",
+    )
+    parser.add_argument(
+        "--cluster-evidence",
+        action="store_true",
+        help="Cluster related evidence rows into corroborated event groups before report generation.",
+    )
+    parser.add_argument(
+        "--prepare-synthesis",
+        action="store_true",
+        help="Prepare deterministic evidence review queue and per-symbol synthesis packets.",
+    )
+    parser.add_argument(
         "--ingest-price-history",
         action="store_true",
         help="Run daily price-history ingestion before report generation.",
@@ -132,6 +157,11 @@ def parse_args() -> argparse.Namespace:
         "--score-shadow",
         action="store_true",
         help="Show shadow score signals in the report without changing official scores.",
+    )
+    parser.add_argument(
+        "--verify-insights",
+        action="store_true",
+        help="Run the latest open V1.8 verification queue before generating the report.",
     )
     return parser.parse_args()
 
@@ -167,6 +197,36 @@ def main() -> int:
             or args.curate_score_signals
             or args.score_shadow
         )
+        should_curate_source_depth = (
+            args.ingest_evidence
+            or args.ingest_free_data
+            or args.ingest_public_sources
+            or args.curate_source_depth
+        )
+        should_score_source_quality = (
+            args.ingest_evidence
+            or args.ingest_free_data
+            or args.ingest_public_sources
+            or args.score_source_quality
+        )
+        should_plan_ingestion = (
+            args.ingest_evidence
+            or args.ingest_free_data
+            or args.ingest_public_sources
+            or args.plan_ingestion
+        )
+        should_cluster_evidence = (
+            args.ingest_evidence
+            or args.ingest_free_data
+            or args.ingest_public_sources
+            or args.cluster_evidence
+        )
+        should_prepare_synthesis = (
+            args.ingest_evidence
+            or args.ingest_free_data
+            or args.ingest_public_sources
+            or args.prepare_synthesis
+        )
         should_ingest_any_evidence = (
             should_ingest_finnhub
             or should_ingest_research_depth
@@ -174,7 +234,12 @@ def main() -> int:
             or should_ingest_ir
             or should_ingest_public_feeds
             or should_tag_evidence
+            or should_curate_source_depth
             or should_curate_score_signals
+            or should_score_source_quality
+            or should_plan_ingestion
+            or should_cluster_evidence
+            or should_prepare_synthesis
         )
 
         if args.ingest_price_history or args.ingest_free_data:
@@ -259,6 +324,51 @@ def main() -> int:
             if status != 0:
                 warnings.append("Evidence tagging failed; report will use direct symbol evidence.")
 
+        if should_curate_source_depth:
+            status = run(
+                [sys.executable, "scripts/curate_source_depth.py"],
+                workflow_run_id,
+                required=False,
+            )
+            if status != 0:
+                warnings.append("Source-depth curation failed; report will use prior curated depth rows.")
+
+        if should_cluster_evidence:
+            status = run(
+                [sys.executable, "scripts/cluster_evidence_events.py", "--rebuild"],
+                workflow_run_id,
+                required=False,
+            )
+            if status != 0:
+                warnings.append("Evidence event clustering failed; report will use prior event clusters.")
+
+        if should_prepare_synthesis:
+            status = run(
+                [sys.executable, "scripts/prepare_synthesis_packets.py", "--rebuild"],
+                workflow_run_id,
+                required=False,
+            )
+            if status != 0:
+                warnings.append("Synthesis readiness preparation failed; report will use prior synthesis packets.")
+
+        if should_score_source_quality:
+            status = run(
+                [sys.executable, "scripts/score_source_quality.py", "--rebuild"],
+                workflow_run_id,
+                required=False,
+            )
+            if status != 0:
+                warnings.append("Source-quality scoring failed; report will use prior source metrics.")
+
+        if should_plan_ingestion:
+            status = run(
+                [sys.executable, "scripts/plan_ingestion_runs.py", "--rebuild"],
+                workflow_run_id,
+                required=False,
+            )
+            if status != 0:
+                warnings.append("Ingestion planning failed; report will use prior freshness/backfill plan.")
+
         if should_curate_score_signals:
             status = run(
                 [sys.executable, "scripts/curate_score_signals.py", "--rebuild"],
@@ -267,6 +377,15 @@ def main() -> int:
             )
             if status != 0:
                 warnings.append("Score-signal curation failed; report will use stored shadow signals.")
+
+        if args.verify_insights:
+            status = run(
+                [sys.executable, "scripts/run_verification_queue.py", "--execute"],
+                workflow_run_id,
+                required=False,
+            )
+            if status != 0:
+                warnings.append("Verification queue failed or has failed items; report will show queue status.")
 
         report_cmd = [sys.executable, "scripts/generate_daily_report.py"]
         if not args.skip_refresh and not refreshed_market_data and not warnings:

@@ -1,0 +1,86 @@
+symbol,alias,match_type,confidence,source_name
+NVDA,nvidia,company_alias,0.95,
+NVDA,blackwell,product_alias,0.85,
+NVDA,rubin,product_alias,0.80,
+NVDA,cuda,product_alias,0.85,
+NVDA,h100,product_alias,0.85,
+NVDA,h200,product_alias,0.85,
+NVDA,b200,product_alias,0.85,
+NVDA,gb200,product_alias,0.85,
+NVDA,dgx,product_alias,0.85,
+NVDA,dgx cloud,product_alias,0.90,
+MSFT,microsoft,company_alias,0.95,
+MSFT,azure,product_alias,0.85,
+MSFT,microsoft copilot,product_alias,0.90,
+MSFT,copilot,product_alias,0.80,
+GOOGL,alphabet,company_alias,0.95,
+GOOGL,google,company_alias,0.95,
+GOOGL,google cloud,product_alias,0.90,
+GOOGL,gemini,product_alias,0.80,
+GOOGL,deepmind,product_alias,0.80,
+GOOGL,sundar pichai,person_alias,0.85,
+GOOGL,tpu,product_alias,0.80,
+AMZN,amazon,company_alias,0.95,
+AMZN,aws,product_alias,0.90,
+AMZN,amazon web services,product_alias,0.95,
+AMZN,trainium,product_alias,0.80,
+AMZN,inferentia,product_alias,0.80,
+AMZN,bedrock,product_alias,0.80,
+META,meta platforms,company_alias,0.95,
+META,facebook,company_alias,0.85,
+META,instagram,product_alias,0.80,
+META,llama,product_alias,0.80,
+AVGO,broadcom,company_alias,0.95,
+AVGO,vmware,product_alias,0.75,
+AMD,advanced micro devices,company_alias,0.95,
+AMD,amd instinct,product_alias,0.90,
+AMD,mi300,product_alias,0.85,
+ARM,arm holdings,company_alias,0.95,
+MU,micron,company_alias,0.95,
+MU,hbm,product_alias,0.75,
+TSM,taiwan semiconductor,company_alias,0.95,
+TSM,tsmc,company_alias,0.95,
+ASML,asml,company_alias,0.95,
+ASML,euv lithography,product_alias,0.85,
+ASML,euv,product_alias,0.80,
+CRWD,crowdstrike,company_alias,0.95,
+CRWD,falcon,product_alias,0.80,
+PANW,palo alto networks,company_alias,0.95,
+PANW,palo alto,company_alias,0.80,
+PANW,prisma,product_alias,0.80,
+PANW,cortex,product_alias,0.75,
+NET,cloudflare,company_alias,0.95,
+DDOG,datadog,company_alias,0.95,
+SNOW,snowflake,company_alias,0.95,
+SNOW,cortex ai,product_alias,0.80,
+SNOW,data cloud,product_alias,0.75,
+MDB,mongodb,company_alias,0.95,
+SOUN,soundhound,company_alias,0.95,
+SOUN,soundhound ai,company_alias,0.95,
+AEHR,aehr,company_alias,0.90,
+AEHR,aehr test systems,company_alias,0.95,
+BBAI,bigbear.ai,company_alias,0.95,
+BBAI,bigbear,company_alias,0.85,
+ALAB,astera labs,company_alias,0.95,
+PLAB,photronics,company_alias,0.95,
+QQQM,nasdaq 100,fund_alias,0.70,
+QQQM,invesco nasdaq 100,fund_alias,0.85,
+VGT,vanguard information technology,fund_alias,0.85,
+SMH,vaneck semiconductor,fund_alias,0.85,
+NVDA,,direct_symbol,1.00,NVIDIA official RSS
+AMZN,,direct_symbol,1.00,AWS News Blog
+GOOGL,,direct_symbol,1.00,Google Cloud Blog
+MSFT,,direct_symbol,1.00,Microsoft Azure Blog
+META,,direct_symbol,1.00,Meta Engineering Blog
+AMD,,direct_symbol,1.00,AMD Newsroom
+AVGO,,direct_symbol,1.00,Broadcom Newsroom
+NET,,direct_symbol,1.00,Cloudflare Blog
+DDOG,,direct_symbol,1.00,Datadog Blog
+MDB,,direct_symbol,1.00,MongoDB Blog
+SNOW,,direct_symbol,1.00,Snowflake Blog
+CRWD,,direct_symbol,1.00,CrowdStrike Blog
+PANW,,direct_symbol,1.00,Palo Alto Networks Blog
+MU,,direct_symbol,1.00,Micron Newsroom
+ASML,,direct_symbol,1.00,ASML Press Releases
+TSM,,direct_symbol,1.00,TSMC Newsroom
+ARM,,direct_symbol,1.00,Arm Newsroom

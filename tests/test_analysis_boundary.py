@@ -7,12 +7,12 @@ import unittest
 from unittest.mock import patch
 
 
-from scripts import generate_daily_report as report_engine
 from stock_trading import analysis as subject
+from stock_trading import analysis_context, analysis_models, analysis_scoring, analysis_snapshot, analysis_targets
 
 
-def research_input() -> report_engine.ResearchInput:
-    return report_engine.ResearchInput(
+def research_input() -> analysis_models.ResearchInput:
+    return analysis_models.ResearchInput(
         symbol="NVDA",
         company="NVIDIA Corp.",
         category="AI",
@@ -51,7 +51,7 @@ class AnalysisBoundaryTests(unittest.TestCase):
             default_buy_amount=2500,
             reliability={"mode": "Fresh provider data", "price_counts": {"fresh": 1}},
         )
-        target = report_engine.BlendedTarget(
+        target = analysis_models.BlendedTarget(
             symbol="NVDA",
             target_price=140.0,
             target_low=120.0,
@@ -74,6 +74,13 @@ class AnalysisBoundaryTests(unittest.TestCase):
         self.assertIn(score_rows[0]["action"], {"Add", "Watch", "Hold", "Avoid"})
         self.assertEqual(context["metadata"]["recommendation_run_id"], 42)
         self.assertEqual(context["recommendations"][0]["symbol"], "NVDA")
+
+    def test_analysis_facade_uses_focused_modules(self) -> None:
+        self.assertIs(subject.AnalysisSnapshot, analysis_snapshot.AnalysisSnapshot)
+        self.assertIs(subject.BlendedTarget, analysis_models.BlendedTarget)
+        self.assertIs(subject.score_recommendations, analysis_scoring.score_recommendations)
+        self.assertIs(subject.compute_target_sources, analysis_targets.compute_target_sources)
+        self.assertIs(subject.build_report_context, analysis_context.build_report_context)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,89 @@
 # Release Notes
 
+## V2.4 In Progress - AI Synthesis Prep + Evidence Review Queue
+
+- Added `scripts/serve_dashboard.py` plus a local `POST /feedback` endpoint so dashboard feedback can save directly to SQLite when served locally, while preserving command fallback for static HTML review.
+- Added `evidence_review_queue` and `synthesis_readiness` SQLite tables to gate event clusters before future AI synthesis.
+- Added `scripts/prepare_synthesis_packets.py --rebuild` to classify event clusters as `ready_for_synthesis`, `needs_corroboration`, `needs_review`, or `ignore_for_now`.
+- Added deterministic readiness scoring by symbol using ready events, review load, corroboration needs, primary-source events, and independent-confirmed events.
+- Added deterministic synthesis packet export at `reports/synthesis-packets-YYYY-MM-DD.json`; packets are explicitly `llm_generated=false`.
+- Wired synthesis preparation into `scripts/run_daily.py` through `--prepare-synthesis` and the existing ingestion bundles.
+- Added Data Ingestion dashboard and markdown report sections for Evidence Review Queue and Synthesis Readiness By Symbol.
+- V2.4 smoke run created 516 evidence review rows and 25 symbol readiness packets from the current event clusters; recommendation scores/actions remain unchanged.
+
+## V2.3 In Progress - Event Clustering + Corroboration
+
+- Added `evidence_event_clusters` and `evidence_event_members` SQLite tables so related evidence can be grouped into auditable source-backed events.
+- Added `scripts/cluster_evidence_events.py --rebuild` to cluster evidence by symbol, event type, date bucket, topic terms, source families, and deterministic evidence tags.
+- Added event classifications including earnings/guidance, filing disclosure, product launch, AI platform update, infrastructure capacity, security risk, analyst target, market sentiment, and general context.
+- Added corroboration labels: `single_source`, `company_only`, `independent_confirmed`, `multi_source_confirmed`, `multi_source_unconfirmed`, and `primary_plus_confirmed`.
+- Added source-family counts for primary, company-framed, independent, and opinion/context sources so repeated headlines do not look like independent corroboration.
+- Wired evidence clustering into `scripts/run_daily.py` through `--cluster-evidence` and the existing ingestion bundles.
+- Added Data Ingestion dashboard and markdown report sections for Evidence Events with corroboration, source count, evidence count, source mix, confidence, and summary.
+- V2.3 smoke run generated 516 evidence event clusters from current stored evidence; recommendation scores/actions remain unchanged.
+
+## V2.2 In Progress - Evidence Freshness + Backfill Control
+
+- Added `ingestion_run_plan` and `ingestion_backfill_queue` SQLite tables to make source freshness, cooldown, run priority, and backfill needs auditable.
+- Added `scripts/plan_ingestion_runs.py --rebuild` to compute source cadence, latest attempt, latest success, next run, cooldown window, run command, and reason from current provider payloads, raw payloads, evidence rows, and source-quality labels.
+- Added deterministic cadence defaults by source category: daily for company blogs/newsrooms, press wires, and active tech/news feeds; slower cadence for podcasts/newsletters/context sources; monthly for paid/not-implemented candidates.
+- Added blocked/error cooldown handling so repeatedly blocked sources are visible but do not waste every daily run.
+- Added backfill queue generation for sources with no records or insufficient historical window coverage, including desired window, covered range, command, and next action.
+- Added `--plan-ingestion` to the daily workflow and wired it into `--ingest-evidence`, `--ingest-free-data`, and `--ingest-public-sources` after source-quality scoring.
+- Added Data Ingestion dashboard and markdown report sections for Next Ingestion Runs and Backfill Queue.
+- V2.2 smoke run created 68 source refresh-plan rows and 62 backfill items; recommendation scores/actions remain unchanged.
+
+## V2.1 In Progress - Source Depth Extraction
+
+- Added `scripts/curate_source_depth.py` to turn stored SEC companyfacts, SEC submissions, official IR links, and official company-source evidence into normalized source-depth rows.
+- Added curated evidence types for `sec_fundamental_depth_signal`, `sec_filing_depth_signal`, `official_ir_depth_signal`, and `official_source_depth_signal`.
+- Source-depth curation stays shadow/explanatory only: no recommendation score, action, blended target, or trading behavior changes.
+- Added `--curate-source-depth` to the daily workflow and wired it into `--ingest-evidence`, `--ingest-free-data`, and `--ingest-public-sources` before source-quality scoring.
+- Excluded the local source-depth curator from source-quality provider scoring so derived rows do not inflate real source reliability metrics.
+- Added a Data Ingestion dashboard section and markdown report section for Source Depth Signals with symbol, depth type, signal, detail, confidence, corroboration, timestamp, and source URL.
+- V2.1 smoke run curated 426 source-depth rows from current stored evidence and regenerated the 2026-05-29 dashboard/report; recommendation scores/actions remain unchanged.
+
+## V2.0 In Progress - Source Relevance Tuning
+
+- Added source-health alert filters on the Health & Trends tab so detailed provider alerts can be scanned by all alerts, blockers, review items, or info rows without losing auditability.
+- Added a compact Action Queue decision scan to the dashboard, with rank, action, score, change marker, key metrics, and rationale visible while the full audit table stays collapsed below.
+- Added `config/symbol_aliases.csv` so deterministic evidence tagging uses configurable company, product, person, fund, ticker, and official-source direct-symbol rules instead of only hardcoded aliases.
+- Added source-aware tagging rules: official single-company sources can default to their mapped symbol, press wires require headline-level stock-specific matches, and broad AI/cloud/chip terms do not create stock-specific evidence tags by themselves.
+- Added persisted evidence-tag confidence buckets and match reasons (`high`, `medium`, `low`, `needs_review`; `ticker`, `direct_symbol`, `company_alias`, `product_alias`, `person_alias`, `fund_alias`, `sector_context`).
+- Updated source-quality scoring to use stock-specific high/medium matches for tag-rate quality while keeping low-confidence/context matches visible for review.
+- Added Source Quality columns for match reasons, confidence buckets, and low-confidence counts; added a Low Confidence Matches review table to dashboard/markdown context.
+- Added product mappings for AWS/Bedrock/Trainium, Azure/Copilot, Google Cloud/Gemini/TPU, CUDA/Blackwell/DGX, HBM, EUV, Falcon, Prisma/Cortex, Snowflake Cortex AI/Data Cloud, and the previous alias set.
+- V2.0 smoke run rebuilt evidence tags from 57 to 100 deterministic tags and scored 75 sources: 21 `high_signal`, 7 `useful_context`, 3 `needs_review`, 8 `blocked`, and 36 `not_enough_data`; recommendation scores/actions remain unchanged.
+
+## V1.9 In Progress - Ingestion Quality + Source Relevance
+
+- Added dashboard Print Review mode with compact print/PDF output for Pre-Market Readiness, Action Queue, Data Gaps, and Next-Day Watchlist.
+- Added `source_quality_metrics` SQLite storage so each source has auditable quality/relevance rollups by run date.
+- Added `scripts/score_source_quality.py --rebuild` to measure records seen, inserted records, duplicates, raw payloads, success/error/blocked runs, tag rate, average match confidence, matched-symbol count, top matched terms, and quality labels.
+- Added deterministic quality labels: `high_signal`, `useful_context`, `needs_review`, `blocked`, `stale`, and `not_enough_data`.
+- Counted both deterministic `evidence_symbol_tags` and direct symbol-specific evidence as source relevance, so official company/newsroom rows are measured correctly.
+- Wired source-quality scoring into `scripts/run_daily.py` after evidence tagging for `--ingest-evidence`, `--ingest-free-data`, `--ingest-public-sources`, and standalone `--score-source-quality`.
+- Added dashboard Data Ingestion sections for Source Quality and Low Relevance / Noisy Sources.
+- Added Research Sources columns for quality label, tag rate, average confidence, and top matched terms.
+- Added Source Quality and Low Relevance / Noisy Sources sections to the markdown report and report context for future AI synthesis.
+- Smoke run on 2026-05-29 scored 75 sources: 19 `high_signal`, 8 `useful_context`, 5 `needs_review`, 7 `blocked`, and 36 `not_enough_data`; recommendation scoring remained unchanged.
+
+## V1.8 In Progress - Verification Queue + Persisted Decision Insights
+
+- Added `--mode` and `--categories` to public-source ingestion so RSS-only, page-link-only, and automatic RSS-to-page-link fallback runs can target source groups.
+- Added generic public page-link extraction for official/free source pages, storing raw page payloads and curated `*_public_page_link` evidence rows.
+- Added source status labels (`rss_ok`, `page_links_ok`, `missing_feed`, `blocked`, `parser_gap`) to public-source payload metadata and CLI output.
+- Activated record-producing ingestion for company blogs/newsrooms, AI/semiconductor publications, and tech-news sources including NVIDIA, Google Cloud, Azure, Meta, AMD, ASML, IEEE Global Semiconductors, HPCwire, ServeTheHome, The Register AI, TechCrunch AI, and InfoQ.
+- Left blocked or non-parseable public sources visible as gaps, including VentureBeat AI, Business Wire, GlobeNewswire, TSMC, Arm, Broadcom, and Micron from the V1.8 smoke run.
+- Added persisted `decision_insights` and `verification_queue_items` SQLite tables so every generated brief and next check is auditable by report run.
+- Added `scripts/run_verification_queue.py` for semi-automatic verification pulls; safe free/local scripts can run with `--execute`, while manual targets and provider-access fixes stay queued.
+- Added `--verify-insights` to the daily workflow so the latest open queue can run before report generation without becoming default behavior.
+- Added dashboard and markdown Verification Queue, Decision Insight History, and AI Analysis Context Ready sections.
+- Added `reports/ai-analysis-context-YYYY-MM-DD.json` as a deterministic, no-LLM context package for future AI summaries.
+
 ## V1.7 In Progress - Decision-Grade Insights From Existing Data
 
+- Added Next-day setup readiness and a Top next-day watch preview to the dashboard pre-market review flow.
 - Expanded V1.7 source coverage with Tier 1 official company sources, Tier 2 press-wire candidates, Tier 3 AI/semiconductor publications, and Tier 4 newsletter/podcast context sources.
 - Broadened public-source ingestion beyond podcasts/newsletters to support `company_blog`, `company_newsroom`, `press_wire`, `tech_news`, `ai_research`, and `semiconductor_news` categories.
 - Added `--ingest-public-sources` as a daily-run alias for free public RSS/archive/page-link ingestion while keeping `--ingest-public-feeds` backward compatible.

@@ -275,7 +275,9 @@ class GenerateDailyReportInsightTests(unittest.TestCase):
         self.assertEqual(count, len(rows))
 
     def test_report_section_labels_are_present_in_template(self) -> None:
-        source = Path(subject.__file__).read_text()
+        from stock_trading.reporting import renderers
+
+        source = Path(renderers.__file__).read_text()
 
         for label in (
             "Insight Drivers",
@@ -286,6 +288,13 @@ class GenerateDailyReportInsightTests(unittest.TestCase):
             "Decision Insight",
             "Insight Themes",
             "What To Verify Next",
+            "Verification Queue",
+            "Provider Blocker Review",
+            "Evidence Events",
+            "Evidence Review Queue",
+            "Synthesis Readiness By Symbol",
+            "AI Insight Briefs",
+            "Decision Insight History",
         ):
             self.assertIn(label, source)
 
@@ -392,6 +401,34 @@ class GenerateDailyReportInsightTests(unittest.TestCase):
 
         self.assertIn(insight.insight_type, {"Verification Needed", "Caution", "Data Gap"})
         self.assertIn("config/manual_analyst_targets.csv", insight.next_check)
+
+    def test_decision_insight_and_queue_storage_rows_are_built(self) -> None:
+        signal = insight_signal(
+            "META",
+            final_score=74.0,
+            data_gap_delta=-1.75,
+            data_gaps=[
+                subject.gap_row(
+                    "META",
+                    "Top candidate lacks primary-source evidence",
+                    1.75,
+                    "scripts/ingest_sec.py + scripts/ingest_official_ir.py",
+                    "Pull filings/company IR before sharing as a high-conviction insight.",
+                )
+            ],
+        )
+        row = decision_row("META", score=74.0, insight=signal)
+        decision_insights = {
+            "META": subject.build_decision_insight(row, {}, {"META": {"analyst": 2, "all": 3}})
+        }
+
+        insight_rows = subject.decision_insight_storage_rows(9, "2026-05-29", [row], decision_insights)
+        queue_rows = subject.verification_queue_storage_rows(9, "2026-05-29", [row], decision_insights)
+
+        self.assertEqual(insight_rows[0]["symbol"], "META")
+        self.assertEqual(insight_rows[0]["insight_type"], "Verification Needed")
+        self.assertEqual(queue_rows[0]["status"], "queued")
+        self.assertIn("scripts/ingest_sec.py META", queue_rows[0]["command_mapping"])
 
 
 if __name__ == "__main__":

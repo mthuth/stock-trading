@@ -36,11 +36,26 @@ class EngineCommonResilienceTests(unittest.TestCase):
         self.assertIn((2, "local batch workflow run manifest"), rows)
         self.assertIn((3, "raw ingestion ledger and shadow score signals"), rows)
         self.assertIn((4, "analysis run boundary"), rows)
+        self.assertIn((5, "persisted decision insights and verification queue"), rows)
+        self.assertIn((6, "source quality metrics"), rows)
+        self.assertIn((7, "source relevance confidence buckets"), rows)
+        self.assertIn((8, "ingestion freshness and backfill planning"), rows)
+        self.assertIn((9, "evidence event clustering"), rows)
+        self.assertIn((10, "synthesis readiness and evidence review queue"), rows)
         self.assertIn("workflow_runs", tables)
         self.assertIn("workflow_step_runs", tables)
         self.assertIn("raw_ingestion_payloads", tables)
         self.assertIn("score_signals", tables)
         self.assertIn("analysis_runs", tables)
+        self.assertIn("decision_insights", tables)
+        self.assertIn("verification_queue_items", tables)
+        self.assertIn("source_quality_metrics", tables)
+        self.assertIn("ingestion_run_plan", tables)
+        self.assertIn("ingestion_backfill_queue", tables)
+        self.assertIn("evidence_event_clusters", tables)
+        self.assertIn("evidence_event_members", tables)
+        self.assertIn("evidence_review_queue", tables)
+        self.assertIn("synthesis_readiness", tables)
 
     def test_recommendation_run_links_to_workflow_run(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -160,6 +175,62 @@ class EngineCommonResilienceTests(unittest.TestCase):
         self.assertEqual(row[0], "unit-model")
         self.assertIn("recommendations", row[1])
         self.assertEqual(row[2], "reports/analysis-context-unit.json")
+
+    def test_decision_insights_and_verification_queue_are_persisted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            db_file = data_dir / "stock_trading.sqlite"
+            insight_row = {
+                "run_id": 7,
+                "report_date": "2026-05-29",
+                "rank": 1,
+                "symbol": "NVDA",
+                "action": "Add",
+                "score": 82.5,
+                "insight_type": "Verification Needed",
+                "headline": "NVDA needs one verification pull.",
+                "why_it_matters": "High score near action.",
+                "supporting_data": "Score and target support.",
+                "risk_or_uncertainty": "Primary-source gap.",
+                "next_check": "scripts/ingest_sec.py + scripts/ingest_official_ir.py",
+                "what_would_change_the_view": "Primary-source evidence resolves the gap.",
+                "source_ref": "recommendation_run:7",
+            }
+            queue_row = {
+                "run_id": 7,
+                "report_date": "2026-05-29",
+                "symbol": "NVDA",
+                "priority_rank": 1,
+                "insight_type": "Verification Needed",
+                "reason": "Top candidate lacks primary-source evidence",
+                "expected_score_impact": 1.75,
+                "next_check": "scripts/ingest_sec.py + scripts/ingest_official_ir.py",
+                "command_mapping": "scripts/ingest_sec.py NVDA; scripts/ingest_official_ir.py --symbols NVDA",
+                "automation_mode": "auto",
+                "status": "queued",
+                "result_summary": "",
+                "workflow_step_id": None,
+                "started_at": None,
+                "completed_at": None,
+            }
+            with patch.object(subject, "DATA_DIR", data_dir), patch.object(subject, "DB_FILE", db_file):
+                self.assertEqual(subject.record_decision_insights([insight_row]), 1)
+                self.assertEqual(subject.record_verification_queue_items([queue_row]), 1)
+                insights = subject.latest_decision_insights_by_symbol()
+                queue = subject.latest_open_verification_queue()
+                subject.update_verification_queue_item_status(
+                    int(queue[0]["id"]),
+                    "completed",
+                    "unit complete",
+                    started=True,
+                    completed=True,
+                )
+                latest_queue = subject.latest_verification_queue()
+
+        self.assertEqual(insights["NVDA"][0]["insight_type"], "Verification Needed")
+        self.assertEqual(queue[0]["symbol"], "NVDA")
+        self.assertEqual(latest_queue[0]["status"], "completed")
+        self.assertEqual(latest_queue[0]["result_summary"], "unit complete")
 
 
 if __name__ == "__main__":

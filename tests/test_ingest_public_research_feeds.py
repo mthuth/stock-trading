@@ -109,12 +109,92 @@ class IngestPublicResearchFeedsTests(unittest.TestCase):
 
         self.assertEqual(inserted, 1)
         self.assertEqual(status["status"], "ok")
+        self.assertEqual(status["status_label"], "rss_ok")
         record_raw_ingestion_payload.assert_called_once()
         self.assertEqual(record_raw_ingestion_payload.call_args.kwargs["endpoint"], "public_feed_body")
         self.assertIn("NVIDIA AI platform update", record_raw_ingestion_payload.call_args.kwargs["payload_text"])
         record_provider_payload.assert_called_once()
         self.assertEqual(record_provider_payload.call_args.args[1], "public_feed")
         self.assertEqual(recorded_evidence[0]["provider_endpoint"], "public_rss_or_archive")
+
+    def test_page_link_items_dedupes_public_source_links(self) -> None:
+        html = """
+        <html><body>
+          <a href="/news-releases/amd-ai-chip-launch">AMD launches AI chip</a>
+          <a href="/news-releases/amd-ai-chip-launch">AMD launches AI chip</a>
+          <a href="/privacy">Privacy policy</a>
+          <a href="https://external.example/news">External semiconductor article</a>
+        </body></html>
+        """
+        source = {"source_name": "AMD Newsroom", "source_category": "company_newsroom"}
+
+        items = subject.page_link_items(source, "https://ir.amd.com/news-events/press-releases", html, 5)
+
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["title"], "AMD launches AI chip")
+        self.assertEqual(items[0]["link"], "https://ir.amd.com/news-releases/amd-ai-chip-launch")
+
+    def test_page_link_evidence_uses_public_page_link_type(self) -> None:
+        rows = subject.evidence_rows(
+            {"source_name": "AMD Newsroom", "source_category": "company_newsroom"},
+            "https://ir.amd.com/news-events/press-releases",
+            [
+                {
+                    "title": "AMD reports financial results",
+                    "link": "https://ir.amd.com/news-releases/results",
+                    "published": "",
+                    "summary": "Public source page link.",
+                    "guid": "https://ir.amd.com/news-releases/results",
+                }
+            ],
+            "public_page_link",
+            "public_page_link",
+        )
+
+        self.assertEqual(rows[0]["evidence_type"], "company_newsroom_public_page_link")
+        self.assertEqual(rows[0]["provider_endpoint"], "public_page_link")
+        self.assertEqual(rows[0]["confidence"], "medium_high")
+
+    def test_ingest_source_auto_falls_back_to_page_links(self) -> None:
+        source = {
+            "source_name": "AMD Newsroom",
+            "source_category": "company_newsroom",
+            "official_url": "https://ir.amd.com/news-events/press-releases",
+            "feed_url": "",
+            "access_model": "free_public",
+        }
+        html = """
+        <html><body>
+          <a href="/news-releases/amd-ai-chip-launch">AMD launches AI chip</a>
+        </body></html>
+        """
+        recorded_evidence: list[dict[str, object]] = []
+
+        def fake_record_research_evidence(rows: list[dict[str, object]]) -> int:
+            recorded_evidence.extend(rows)
+            return len(rows)
+
+        with (
+            patch.object(subject, "discover_feed_url", return_value=("missing", "", "", "No RSS/Atom feed discovered")),
+            patch.object(subject, "fetch_text", return_value=("ok", html, "text/html")),
+            patch.object(subject, "record_raw_ingestion_payload"),
+            patch.object(subject, "record_provider_payload", return_value=1) as record_provider_payload,
+            patch.object(subject, "record_research_evidence", side_effect=fake_record_research_evidence),
+        ):
+            inserted, status = subject.ingest_source(source, item_limit=5, mode="auto")
+
+        self.assertEqual(inserted, 1)
+        self.assertEqual(status["status"], "ok")
+        self.assertEqual(status["field_name"], "public_page_link")
+        self.assertEqual(status["status_label"], "page_links_ok")
+        self.assertEqual(record_provider_payload.call_args.args[1], "public_page_link")
+        self.assertTrue(record_provider_payload.call_args.kwargs["payload_json"]["fallback_used"])
+        self.assertEqual(record_provider_payload.call_args.kwargs["payload_json"]["status_label"], "page_links_ok")
+        self.assertEqual(recorded_evidence[0]["provider_endpoint"], "public_page_link")
+
+    def test_normalize_categories_rejects_unknown_category(self) -> None:
+        with self.assertRaises(ValueError):
+            subject.normalize_categories("company_newsroom,unknown")
 
 
 if __name__ == "__main__":

@@ -16,6 +16,9 @@ from stock_trading.storage import init_db, latest_provider_gaps
 
 
 CommandRunner = Callable[[list[str]], int]
+INGESTION_STATUSES = {"ok", "error", "blocked", "stale", "missing", "rate_limited"}
+BLOCKED_MESSAGES = ("blocked", "forbidden", "unauthorized", "payment required")
+RATE_LIMIT_MESSAGES = ("rate limit", "rate_limited", "quota", "too many requests", "429")
 
 
 @dataclass(frozen=True)
@@ -38,6 +41,28 @@ def run_command(command: list[str]) -> int:
     return subprocess.call(command, cwd=ROOT)
 
 
+def normalize_status(status: str, message: str = "") -> str:
+    value = (status or "").strip().lower()
+    text = (message or "").strip().lower()
+    if any(term in text for term in RATE_LIMIT_MESSAGES):
+        return "rate_limited"
+    if any(term in text for term in BLOCKED_MESSAGES):
+        return "blocked"
+    if "stale" in text:
+        return "stale"
+    if "missing" in text or "not found" in text:
+        return "missing"
+    if value in INGESTION_STATUSES:
+        return value
+    return "ok" if value in {"success", "passed"} else "error"
+
+
+def status_for_exit(status_code: int, message: str = "") -> str:
+    if status_code == 0:
+        return normalize_status("ok", message)
+    return normalize_status("error", message or f"exit={status_code}")
+
+
 def command_result(
     provider: str,
     endpoint: str,
@@ -45,13 +70,14 @@ def command_result(
     runner: CommandRunner = run_command,
 ) -> IngestionResult:
     status_code = runner(command)
-    status = "ok" if status_code == 0 else "error"
+    message = "" if status_code == 0 else f"exit={status_code}"
+    status = status_for_exit(status_code, message)
     return IngestionResult(
         provider=provider,
         endpoint=endpoint,
         symbol="MARKET",
         status=status,
-        message="" if status_code == 0 else f"exit={status_code}",
+        message=message,
         command=" ".join(command),
     )
 

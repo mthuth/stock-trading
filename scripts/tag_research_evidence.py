@@ -17,6 +17,8 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from engine_common import (  # noqa: E402
     DB_FILE,
     RESEARCH_FILE,
+    SYMBOL_ALIASES_FILE,
+    CONFIG_DIR,
     init_db,
     read_csv,
     record_evidence_symbol_tags,
@@ -43,114 +45,29 @@ STOP_COMPANY_TOKENS = {
 }
 
 
-SPECIAL_ALIASES: dict[str, list[tuple[str, str, float]]] = {
-    "NVDA": [
-        ("nvidia", "company_alias", 0.95),
-        ("blackwell", "product_alias", 0.85),
-        ("rubin", "product_alias", 0.80),
-        ("cuda", "product_alias", 0.85),
-        ("h100", "product_alias", 0.85),
-        ("h200", "product_alias", 0.85),
-        ("b200", "product_alias", 0.85),
-        ("gb200", "product_alias", 0.85),
-    ],
-    "MSFT": [
-        ("microsoft", "company_alias", 0.95),
-        ("azure", "product_alias", 0.85),
-        ("microsoft copilot", "product_alias", 0.90),
-    ],
-    "GOOGL": [
-        ("alphabet", "company_alias", 0.95),
-        ("google", "company_alias", 0.95),
-        ("google cloud", "product_alias", 0.90),
-        ("gemini", "product_alias", 0.80),
-        ("deepmind", "product_alias", 0.80),
-        ("sundar pichai", "person_alias", 0.85),
-    ],
-    "AMZN": [
-        ("amazon", "company_alias", 0.95),
-        ("aws", "product_alias", 0.90),
-        ("amazon web services", "product_alias", 0.95),
-        ("trainium", "product_alias", 0.80),
-        ("inferentia", "product_alias", 0.80),
-    ],
-    "META": [
-        ("meta platforms", "company_alias", 0.95),
-        ("facebook", "company_alias", 0.85),
-        ("instagram", "product_alias", 0.80),
-        ("llama", "product_alias", 0.80),
-    ],
-    "AVGO": [
-        ("broadcom", "company_alias", 0.95),
-        ("vmware", "product_alias", 0.75),
-    ],
-    "AMD": [
-        ("advanced micro devices", "company_alias", 0.95),
-        ("amd instinct", "product_alias", 0.90),
-        ("mi300", "product_alias", 0.85),
-    ],
-    "ARM": [
-        ("arm holdings", "company_alias", 0.95),
-    ],
-    "MU": [
-        ("micron", "company_alias", 0.95),
-        ("hbm", "product_alias", 0.75),
-    ],
-    "TSM": [
-        ("taiwan semiconductor", "company_alias", 0.95),
-        ("tsmc", "company_alias", 0.95),
-    ],
-    "ASML": [
-        ("asml", "company_alias", 0.95),
-        ("euv lithography", "product_alias", 0.85),
-    ],
-    "CRWD": [
-        ("crowdstrike", "company_alias", 0.95),
-    ],
-    "PANW": [
-        ("palo alto networks", "company_alias", 0.95),
-        ("palo alto", "company_alias", 0.80),
-    ],
-    "NET": [
-        ("cloudflare", "company_alias", 0.95),
-    ],
-    "DDOG": [
-        ("datadog", "company_alias", 0.95),
-    ],
-    "SNOW": [
-        ("snowflake", "company_alias", 0.95),
-    ],
-    "MDB": [
-        ("mongodb", "company_alias", 0.95),
-    ],
-    "SOUN": [
-        ("soundhound", "company_alias", 0.95),
-        ("soundhound ai", "company_alias", 0.95),
-    ],
-    "AEHR": [
-        ("aehr", "company_alias", 0.90),
-        ("aehr test systems", "company_alias", 0.95),
-    ],
-    "BBAI": [
-        ("bigbear.ai", "company_alias", 0.95),
-        ("bigbear", "company_alias", 0.85),
-    ],
-    "ALAB": [
-        ("astera labs", "company_alias", 0.95),
-    ],
-    "PLAB": [
-        ("photronics", "company_alias", 0.95),
-    ],
-    "QQQM": [
-        ("nasdaq 100", "fund_alias", 0.70),
-        ("invesco nasdaq 100", "fund_alias", 0.85),
-    ],
-    "VGT": [
-        ("vanguard information technology", "fund_alias", 0.85),
-    ],
-    "SMH": [
-        ("vaneck semiconductor", "fund_alias", 0.85),
-    ],
+MATCH_REASON_LABELS = {
+    "ticker",
+    "direct_symbol",
+    "company_alias",
+    "product_alias",
+    "person_alias",
+    "fund_alias",
+    "sector_context",
+}
+STOCK_SPECIFIC_MATCH_TYPES = {
+    "ticker",
+    "direct_symbol",
+    "company_alias",
+    "product_alias",
+    "person_alias",
+}
+HEADLINE_ONLY_CATEGORIES = {
+    "ai_research",
+    "newsletter",
+    "podcast",
+    "press_wire",
+    "semiconductor_news",
+    "tech_news",
 }
 
 
@@ -161,6 +78,7 @@ class AliasRule:
     match_type: str
     confidence: float
     pattern: re.Pattern[str]
+    source_name: str = ""
 
 
 def phrase_pattern(phrase: str) -> re.Pattern[str]:
@@ -185,16 +103,47 @@ def company_aliases(company: str) -> list[str]:
     return aliases
 
 
+def confidence_bucket(confidence: float, match_type: str = "") -> str:
+    if match_type == "sector_context":
+        return "needs_review"
+    if confidence >= 0.85:
+        return "high"
+    if confidence >= 0.70:
+        return "medium"
+    if confidence >= 0.50:
+        return "low"
+    return "needs_review"
+
+
+def source_categories() -> dict[str, str]:
+    path = CONFIG_DIR / "research_source_integrations.csv"
+    if not path.exists():
+        return {}
+    rows, _ = read_csv(path)
+    return {
+        str(row.get("source_name") or "").strip(): str(row.get("source_category") or "").strip()
+        for row in rows
+        if str(row.get("source_name") or "").strip()
+    }
+
+
+def configured_alias_rows() -> list[dict[str, str]]:
+    if not SYMBOL_ALIASES_FILE.exists():
+        return []
+    rows, _ = read_csv(SYMBOL_ALIASES_FILE)
+    return rows
+
+
 def alias_rules() -> list[AliasRule]:
     rows, _ = read_csv(RESEARCH_FILE)
     rules: list[AliasRule] = []
-    seen: set[tuple[str, str]] = set()
+    seen: set[tuple[str, str, str]] = set()
     for row in rows:
         symbol = str(row.get("symbol") or "").strip().upper()
         company = str(row.get("company") or "").strip()
         if not symbol:
             continue
-        ticker_key = (symbol, f"${symbol}")
+        ticker_key = (symbol, f"${symbol}", "")
         if ticker_key not in seen:
             seen.add(ticker_key)
             rules.append(
@@ -203,18 +152,29 @@ def alias_rules() -> list[AliasRule]:
         for alias in company_aliases(company):
             if not alias or alias.lower() in STOP_COMPANY_TOKENS:
                 continue
-            key = (symbol, alias.lower())
+            key = (symbol, alias.lower(), "")
             if key not in seen:
                 seen.add(key)
                 rules.append(
                     AliasRule(symbol, alias, "company_alias", 0.90, phrase_pattern(alias))
                 )
-        for alias, match_type, confidence in SPECIAL_ALIASES.get(symbol, []):
-            key = (symbol, alias.lower())
-            if key not in seen:
-                seen.add(key)
-                pattern = ticker_pattern(symbol) if match_type == "ticker" else phrase_pattern(alias)
-                rules.append(AliasRule(symbol, alias, match_type, confidence, pattern))
+    for row in configured_alias_rows():
+        symbol = str(row.get("symbol") or "").strip().upper()
+        alias = str(row.get("alias") or "").strip()
+        source_name = str(row.get("source_name") or "").strip()
+        match_type = str(row.get("match_type") or "").strip() or "company_alias"
+        if not symbol or match_type not in MATCH_REASON_LABELS:
+            continue
+        try:
+            confidence = float(row.get("confidence") or 0)
+        except (TypeError, ValueError):
+            confidence = 0.0
+        key = (symbol, alias.lower(), source_name)
+        if key in seen:
+            continue
+        seen.add(key)
+        pattern = ticker_pattern(symbol) if match_type == "ticker" else phrase_pattern(alias) if alias else phrase_pattern(source_name or symbol)
+        rules.append(AliasRule(symbol, alias, match_type, confidence, pattern, source_name))
     return sorted(rules, key=lambda rule: len(rule.alias), reverse=True)
 
 
@@ -240,24 +200,65 @@ def evidence_rows(limit: int | None, only_market: bool) -> list[sqlite3.Row]:
     return rows
 
 
+def source_default_rules(rules: list[AliasRule]) -> dict[str, AliasRule]:
+    return {
+        rule.source_name: rule
+        for rule in rules
+        if rule.source_name and not rule.alias and rule.match_type == "direct_symbol"
+    }
+
+
+def is_allowed_match(category: str, rule: AliasRule) -> bool:
+    if rule.match_type == "sector_context":
+        return False
+    if category == "press_wire":
+        return rule.match_type in STOCK_SPECIFIC_MATCH_TYPES
+    if category in HEADLINE_ONLY_CATEGORIES:
+        return rule.match_type in STOCK_SPECIFIC_MATCH_TYPES or rule.match_type == "fund_alias"
+    return True
+
+
+def match_text_for_rule(row: sqlite3.Row, rule: AliasRule, category: str) -> str:
+    headline_text = " ".join(str(row[field] or "") for field in ("title", "source_url"))
+    body_text = " ".join(str(row[field] or "") for field in ("title", "summary", "source_url"))
+    if category in HEADLINE_ONLY_CATEGORIES and rule.match_type != "ticker":
+        return headline_text
+    return body_text if rule.match_type == "ticker" else headline_text
+
+
 def tag_rows(rows: list[sqlite3.Row], rules: list[AliasRule]) -> list[dict[str, object]]:
     tags: list[dict[str, object]] = []
     emitted: set[tuple[int, str, str]] = set()
+    categories = source_categories()
+    default_rules = source_default_rules(rules)
     for row in rows:
-        headline_text = " ".join(
-            str(row[field] or "")
-            for field in ("title", "source_url")
-        )
-        body_text = " ".join(
-            str(row[field] or "")
-            for field in ("title", "summary", "source_url")
-        )
-        if not headline_text.strip() and not body_text.strip():
+        source_name = str(row["source_name"] or "")
+        category = categories.get(source_name, "")
+        if source_name in default_rules:
+            rule = default_rules[source_name]
+            key = (int(row["id"]), rule.symbol, source_name.lower())
+            if key not in emitted:
+                emitted.add(key)
+                tags.append(
+                    {
+                        "evidence_id": int(row["id"]),
+                        "symbol": rule.symbol,
+                        "match_type": rule.match_type,
+                        "matched_text": source_name,
+                        "confidence": rule.confidence,
+                        "confidence_bucket": confidence_bucket(rule.confidence, rule.match_type),
+                        "match_reason": rule.match_type,
+                    }
+                )
+        row_text = " ".join(str(row[field] or "") for field in ("title", "summary", "source_url"))
+        if not row_text.strip():
             continue
         for rule in rules:
-            # For broad market sources, titles and canonical URLs are the
-            # safest relevance signal. Summaries often mention competitors.
-            match_text = body_text if rule.match_type == "ticker" else headline_text
+            if rule.source_name and rule.source_name != source_name:
+                continue
+            if not rule.alias or not is_allowed_match(category, rule):
+                continue
+            match_text = match_text_for_rule(row, rule, category)
             match = rule.pattern.search(match_text)
             if not match:
                 continue
@@ -273,6 +274,8 @@ def tag_rows(rows: list[sqlite3.Row], rules: list[AliasRule]) -> list[dict[str, 
                     "match_type": rule.match_type,
                     "matched_text": matched_text,
                     "confidence": rule.confidence,
+                    "confidence_bucket": confidence_bucket(rule.confidence, rule.match_type),
+                    "match_reason": rule.match_type,
                 }
             )
     return tags

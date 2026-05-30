@@ -57,7 +57,32 @@ class RunDailyTests(unittest.TestCase):
         self.assertIn("scripts/ingest_official_ir.py", command_names)
         self.assertIn("scripts/ingest_public_research_feeds.py", command_names)
         self.assertIn("scripts/tag_research_evidence.py", command_names)
+        self.assertIn("scripts/curate_source_depth.py", command_names)
+        self.assertIn("scripts/cluster_evidence_events.py", command_names)
+        self.assertIn("scripts/prepare_synthesis_packets.py", command_names)
+        self.assertIn("scripts/score_source_quality.py", command_names)
+        self.assertIn("scripts/plan_ingestion_runs.py", command_names)
         self.assertIn("scripts/curate_score_signals.py", command_names)
+        self.assertLess(
+            command_names.index("scripts/tag_research_evidence.py"),
+            command_names.index("scripts/curate_source_depth.py"),
+        )
+        self.assertLess(
+            command_names.index("scripts/curate_source_depth.py"),
+            command_names.index("scripts/cluster_evidence_events.py"),
+        )
+        self.assertLess(
+            command_names.index("scripts/cluster_evidence_events.py"),
+            command_names.index("scripts/prepare_synthesis_packets.py"),
+        )
+        self.assertLess(
+            command_names.index("scripts/prepare_synthesis_packets.py"),
+            command_names.index("scripts/score_source_quality.py"),
+        )
+        self.assertLess(
+            command_names.index("scripts/score_source_quality.py"),
+            command_names.index("scripts/plan_ingestion_runs.py"),
+        )
         self.assertNotIn("scripts/refresh_market_data.py", command_names)
         self.assertEqual(commands[-1][1], "scripts/generate_daily_report.py")
 
@@ -78,7 +103,92 @@ class RunDailyTests(unittest.TestCase):
 
         command_names = [command[1] for command in commands]
         self.assertIn("scripts/ingest_public_research_feeds.py", command_names)
+        self.assertIn("scripts/curate_source_depth.py", command_names)
+        self.assertIn("scripts/cluster_evidence_events.py", command_names)
+        self.assertIn("scripts/prepare_synthesis_packets.py", command_names)
+        self.assertIn("scripts/score_source_quality.py", command_names)
+        self.assertIn("scripts/plan_ingestion_runs.py", command_names)
         self.assertIn("scripts/curate_score_signals.py", command_names)
+        self.assertEqual(commands[-1][1], "scripts/generate_daily_report.py")
+
+    def test_curate_source_depth_can_run_without_other_ingestion(self) -> None:
+        commands: list[list[str]] = []
+
+        def fake_run(command: list[str], *_args: object, **_kwargs: object) -> int:
+            commands.append(command)
+            return 0
+
+        with (
+            patch.object(sys, "argv", ["run_daily.py", "--skip-refresh", "--curate-source-depth"]),
+            patch.object(subject, "run", side_effect=fake_run),
+            patch.object(subject, "start_workflow_run", return_value=42),
+            patch.object(subject, "finish_workflow_run"),
+        ):
+            self.assertEqual(subject.main(), 0)
+
+        command_names = [command[1] for command in commands]
+        self.assertIn("scripts/curate_source_depth.py", command_names)
+        self.assertNotIn("scripts/refresh_market_data.py", command_names)
+        self.assertEqual(commands[-1][1], "scripts/generate_daily_report.py")
+
+    def test_plan_ingestion_can_run_without_other_ingestion(self) -> None:
+        commands: list[list[str]] = []
+
+        def fake_run(command: list[str], *_args: object, **_kwargs: object) -> int:
+            commands.append(command)
+            return 0
+
+        with (
+            patch.object(sys, "argv", ["run_daily.py", "--skip-refresh", "--plan-ingestion"]),
+            patch.object(subject, "run", side_effect=fake_run),
+            patch.object(subject, "start_workflow_run", return_value=42),
+            patch.object(subject, "finish_workflow_run"),
+        ):
+            self.assertEqual(subject.main(), 0)
+
+        command_names = [command[1] for command in commands]
+        self.assertIn("scripts/plan_ingestion_runs.py", command_names)
+        self.assertNotIn("scripts/refresh_market_data.py", command_names)
+        self.assertEqual(commands[-1][1], "scripts/generate_daily_report.py")
+
+    def test_cluster_evidence_can_run_without_other_ingestion(self) -> None:
+        commands: list[list[str]] = []
+
+        def fake_run(command: list[str], *_args: object, **_kwargs: object) -> int:
+            commands.append(command)
+            return 0
+
+        with (
+            patch.object(sys, "argv", ["run_daily.py", "--skip-refresh", "--cluster-evidence"]),
+            patch.object(subject, "run", side_effect=fake_run),
+            patch.object(subject, "start_workflow_run", return_value=42),
+            patch.object(subject, "finish_workflow_run"),
+        ):
+            self.assertEqual(subject.main(), 0)
+
+        command_names = [command[1] for command in commands]
+        self.assertIn("scripts/cluster_evidence_events.py", command_names)
+        self.assertNotIn("scripts/refresh_market_data.py", command_names)
+        self.assertEqual(commands[-1][1], "scripts/generate_daily_report.py")
+
+    def test_prepare_synthesis_can_run_without_other_ingestion(self) -> None:
+        commands: list[list[str]] = []
+
+        def fake_run(command: list[str], *_args: object, **_kwargs: object) -> int:
+            commands.append(command)
+            return 0
+
+        with (
+            patch.object(sys, "argv", ["run_daily.py", "--skip-refresh", "--prepare-synthesis"]),
+            patch.object(subject, "run", side_effect=fake_run),
+            patch.object(subject, "start_workflow_run", return_value=42),
+            patch.object(subject, "finish_workflow_run"),
+        ):
+            self.assertEqual(subject.main(), 0)
+
+        command_names = [command[1] for command in commands]
+        self.assertIn("scripts/prepare_synthesis_packets.py", command_names)
+        self.assertNotIn("scripts/refresh_market_data.py", command_names)
         self.assertEqual(commands[-1][1], "scripts/generate_daily_report.py")
 
     def test_plain_daily_run_keeps_report_refresh(self) -> None:
@@ -99,6 +209,50 @@ class RunDailyTests(unittest.TestCase):
         self.assertEqual(len(commands), 1)
         self.assertEqual(commands[0][1], "scripts/generate_daily_report.py")
         self.assertIn("--refresh", commands[0])
+
+    def test_verify_insights_runs_queue_before_report(self) -> None:
+        commands: list[list[str]] = []
+
+        def fake_run(command: list[str], *_args: object, **_kwargs: object) -> int:
+            commands.append(command)
+            return 0
+
+        with (
+            patch.object(sys, "argv", ["run_daily.py", "--skip-refresh", "--verify-insights"]),
+            patch.object(subject, "run", side_effect=fake_run),
+            patch.object(subject, "start_workflow_run", return_value=42),
+            patch.object(subject, "finish_workflow_run"),
+        ):
+            self.assertEqual(subject.main(), 0)
+
+        command_names = [command[1] for command in commands]
+        self.assertLess(
+            command_names.index("scripts/run_verification_queue.py"),
+            command_names.index("scripts/generate_daily_report.py"),
+        )
+        self.assertIn("--execute", commands[0])
+
+    def test_verify_insights_failure_is_nonfatal_warning(self) -> None:
+        commands: list[list[str]] = []
+
+        def fake_run(command: list[str], *_args: object, **_kwargs: object) -> int:
+            commands.append(command)
+            if command[1] == "scripts/run_verification_queue.py":
+                return 1
+            return 0
+
+        with (
+            patch.object(sys, "argv", ["run_daily.py", "--skip-refresh", "--verify-insights"]),
+            patch.object(subject, "run", side_effect=fake_run),
+            patch.object(subject, "start_workflow_run", return_value=42),
+            patch.object(subject, "finish_workflow_run") as finish_workflow_run,
+        ):
+            self.assertEqual(subject.main(), 0)
+
+        command_names = [command[1] for command in commands]
+        self.assertIn("scripts/run_verification_queue.py", command_names)
+        self.assertIn("scripts/generate_daily_report.py", command_names)
+        self.assertEqual(finish_workflow_run.call_args.args[1], "ok_with_warnings")
 
     def test_optional_evidence_failure_continues_to_report(self) -> None:
         commands: list[list[str]] = []
