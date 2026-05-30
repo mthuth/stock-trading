@@ -531,6 +531,91 @@ def action_rationale(
     return f"{action} based on the current score model."
 
 
+BUY_ACTIONS = {"Strong Buy", "Buy", "Add"}
+DECISION_BLOCKING_INSIGHT_TYPES = {"Verification Needed", "Data Gap"}
+
+
+def decision_safety_gate(
+    row: Dict[str, object],
+    decision_insight: DecisionInsight | None = None,
+) -> Dict[str, object]:
+    item = row.get("input")
+    if not isinstance(item, ResearchInput):
+        return {
+            "safe_to_buy": False,
+            "status": "Blocked",
+            "candidate_action": str(row.get("action") or ""),
+            "reasons": ["Missing recommendation input context"],
+            "summary": "Missing recommendation input context.",
+        }
+
+    target = row.get("target")
+    action = str(row.get("action") or "")
+    target_status = data_status_for_target(item, target if isinstance(target, BlendedTarget) else None)
+    confidence = target_confidence_text(item, target if isinstance(target, BlendedTarget) else None)
+    reasons: List[str] = []
+
+    if action not in BUY_ACTIONS:
+        reasons.append(f"{action or 'Current'} action is not a buy action")
+    if item.current_price <= 0:
+        reasons.append("Missing current price")
+    if target_status.startswith("Needs"):
+        reasons.append(target_status)
+    elif target_status == "Wide range":
+        reasons.append("Wide target range")
+    elif target_status == "Partial blend":
+        reasons.append("Partial target blend")
+    if confidence.lower() not in {"medium", "high"}:
+        reasons.append(f"{confidence.title()} target confidence")
+
+    if decision_insight and decision_insight.insight_type in DECISION_BLOCKING_INSIGHT_TYPES:
+        if decision_insight.insight_type == "Verification Needed":
+            reasons.append("Verification check is still open")
+        else:
+            reasons.append("Required data gap is still open")
+    elif "blocked" in item.provider_notes.lower() or "failed" in item.provider_notes.lower():
+        reasons.append("Provider verification is blocked")
+
+    unique_reasons = list(dict.fromkeys(reason for reason in reasons if reason))
+    safe_to_buy = not unique_reasons
+    summary = "Decision-safe buy candidate." if safe_to_buy else "; ".join(unique_reasons)
+    return {
+        "safe_to_buy": safe_to_buy,
+        "status": "Ready" if safe_to_buy else "Blocked",
+        "candidate_action": action,
+        "reasons": unique_reasons,
+        "summary": summary,
+    }
+
+
+def decision_summary_candidate(
+    ranked: List[Dict[str, object]],
+    decision_insights: Dict[str, DecisionInsight],
+) -> tuple[Dict[str, object], Dict[str, object]]:
+    buy_candidates = [
+        row for row in ranked if str(row.get("action") or "") in BUY_ACTIONS and row["input"].sleeve != "etf"
+    ]
+    for row in buy_candidates:
+        symbol = row["input"].symbol
+        gate = decision_safety_gate(row, decision_insights.get(symbol))
+        if gate["safe_to_buy"]:
+            return row, gate
+
+    if buy_candidates:
+        row = buy_candidates[0]
+        return row, decision_safety_gate(row, decision_insights.get(row["input"].symbol))
+    if ranked:
+        row = ranked[0]
+        return row, decision_safety_gate(row, decision_insights.get(row["input"].symbol))
+    return {}, {
+        "safe_to_buy": False,
+        "status": "Blocked",
+        "candidate_action": "",
+        "reasons": ["No ranked candidates available"],
+        "summary": "No ranked candidates available.",
+    }
+
+
 def fmt_money(value: float) -> str:
     return f"${value:,.2f}"
 
@@ -4966,10 +5051,7 @@ def run_analysis(
         "score-trend-table",
         raw_columns={5},
     )
-    buy_candidates = [
-        row for row in ranked if row["action"] in {"Buy", "Add"} and row["input"].sleeve != "etf"
-    ]
-    next_buy = buy_candidates[0] if buy_candidates else ranked[0]
+    next_buy, decision_gate = decision_summary_candidate(ranked, decision_insights)
 
     holdings_rows = []
     allocation_segments = []
@@ -5020,11 +5102,14 @@ def run_analysis(
 
     next_item = next_buy["input"]
     next_target = next_buy.get("target")
-    suggested_amount = default_buy_amount
+    suggested_amount = default_buy_amount if decision_gate.get("safe_to_buy") else 0.0
     next_action = str(next_buy["action"])
-    actionable_next = next_action in {"Strong Buy", "Buy", "Add"}
+    actionable_next = next_action in BUY_ACTIONS and bool(decision_gate.get("safe_to_buy"))
     next_recommendation_label = "Recommended next buy" if actionable_next else "Top-ranked candidate"
-    next_amount_label = "Suggested buy amount" if actionable_next else "Monthly buy capacity"
+    if not actionable_next and next_action in BUY_ACTIONS:
+        next_recommendation_label = "No decision-safe buy"
+    next_amount_label = "Suggested buy amount" if actionable_next else "Buy capacity held"
+    next_display_action = next_action if actionable_next else f"{next_action} blocked" if next_action in BUY_ACTIONS else next_action
     html_score_rows = []
     for rank, row in enumerate(ranked, start=1):
         item = row["input"]
@@ -5669,7 +5754,7 @@ def run_analysis(
         "summary": {
             "top_symbol": next_item.symbol,
             "top_company": next_item.company,
-            "top_action": next_action,
+            "top_action": next_display_action,
             "top_score": round(float(next_buy["score"]), 2),
             "recommendation_label": next_recommendation_label,
             "amount_label": next_amount_label,
@@ -5681,6 +5766,7 @@ def run_analysis(
             "confidence": target_confidence_text(next_item, next_target),
             "data_status": data_status_for_target(next_item, next_target),
             "top_notes": next_item.notes,
+            "decision_gate": decision_gate,
             "signal_counts": signal_counts,
             "persisted_decision_insights": stored_decision_insights,
             "verification_queue_items": stored_verification_queue_items,

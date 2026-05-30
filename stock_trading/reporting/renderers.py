@@ -373,12 +373,86 @@ def compact_queue_table(
 
 
 def summary_value(context: dict[str, object], key: str, default: str = "") -> str:
-    return text(as_dict(context.get("summary")).get(key), default)
+    return text(normalized_summary(context).get(key), default)
+
+
+BUY_ACTIONS = {"Strong Buy", "Buy", "Add"}
+
+
+def summary_decision_gate_reasons(context: dict[str, object], summary: dict[str, Any]) -> list[str]:
+    action = text(summary.get("top_action")).replace(" blocked", "")
+    if action not in BUY_ACTIONS:
+        return []
+
+    reasons: list[str] = []
+    confidence = text(summary.get("confidence")).lower()
+    data_status = text(summary.get("data_status"))
+    if confidence and confidence not in {"medium", "high"}:
+        reasons.append(f"{confidence.title()} target confidence")
+    if data_status.startswith("Needs"):
+        reasons.append(data_status)
+    elif data_status == "Wide range":
+        reasons.append("Wide target range")
+    elif data_status == "Partial blend":
+        reasons.append("Partial target blend")
+
+    top_symbol = text(summary.get("top_symbol"))
+    decision_rows = as_list(as_dict(context.get("decision_briefs")).get("rows"))
+    for row in decision_rows:
+        values = as_list(row)
+        if len(values) >= 2 and text(values[0]) == top_symbol and text(values[1]) in {"Verification Needed", "Data Gap"}:
+            reasons.append("Verification check is still open" if text(values[1]) == "Verification Needed" else "Required data gap is still open")
+            break
+
+    verification_rows = as_list(queue(context, "verification").get("rows"))
+    if any(as_list(row) and text(as_list(row)[1]) == top_symbol for row in verification_rows):
+        reasons.append("Verification queue item is still open")
+
+    return list(dict.fromkeys(reason for reason in reasons if reason))
+
+
+def normalized_summary(context: dict[str, object]) -> dict[str, Any]:
+    summary = dict(as_dict(context.get("summary")))
+    gate = dict(as_dict(summary.get("decision_gate")))
+    if not gate:
+        reasons = summary_decision_gate_reasons(context, summary)
+        if reasons:
+            action = text(summary.get("top_action")).replace(" blocked", "")
+            gate = {
+                "safe_to_buy": False,
+                "status": "Blocked",
+                "candidate_action": action,
+                "reasons": reasons,
+                "summary": "; ".join(reasons),
+            }
+    if gate:
+        summary["decision_gate"] = gate
+        if not gate.get("safe_to_buy"):
+            action = text(gate.get("candidate_action") or summary.get("top_action")).replace(" blocked", "")
+            summary["recommendation_label"] = "No decision-safe buy"
+            summary["amount_label"] = "Buy capacity held"
+            summary["suggested_amount"] = 0.0
+            summary["suggested_amount_text"] = "$0.00"
+            if action in BUY_ACTIONS:
+                summary["top_action"] = f"{action} blocked"
+    return summary
+
+
+def normalized_report_context(context: dict[str, object]) -> dict[str, object]:
+    normalized = dict(context)
+    normalized["summary"] = normalized_summary(context)
+    return normalized
+
+
+def decision_gate_detail(summary: dict[str, Any]) -> str:
+    gate = as_dict(summary.get("decision_gate"))
+    reasons = [text(reason) for reason in as_list(gate.get("reasons")) if text(reason)]
+    return "; ".join(reasons) if reasons else text(gate.get("summary")) or "Passed"
 
 
 def render_dashboard_html(context: dict[str, object]) -> str:
     metadata = as_dict(context.get("metadata"))
-    summary = as_dict(context.get("summary"))
+    summary = normalized_summary(context)
     reliability = as_dict(context.get("reliability"))
     price_counts = as_dict(reliability.get("price_counts"))
     source_health = as_dict(context.get("source_health"))
@@ -394,6 +468,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     data_ingestion = as_dict(context.get("data_ingestion"))
     feedback = as_dict(context.get("feedback"))
     artifacts = artifact_names(context)
+    decision_gate = as_dict(summary.get("decision_gate"))
 
     action_queue = queue(context, "action_queue")
     full_universe = queue(context, "full_universe")
@@ -551,6 +626,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
         <strong>{html.escape(summary_value(context, "top_symbol"))} · {html.escape(summary_value(context, "top_action"))}</strong>
         <div class="thesis">{html.escape(text(summary.get("top_company")))} · {html.escape(text(summary.get("top_notes")))}</div>
       </div>
+      <div class="metric"><span class="label">Decision Gate</span><strong>{html.escape(text(decision_gate.get("status"), "Ready"))}</strong><div class="thesis">{html.escape(decision_gate_detail(summary))}</div></div>
       <div class="metric"><span class="label">Score</span><strong>{html.escape(text(summary.get("top_score")))}</strong></div>
       <div class="metric"><span class="label">{html.escape(text(summary.get("amount_label"), "Buy Capacity"))}</span><strong>{html.escape(text(summary.get("suggested_amount_text"), money(summary.get("suggested_amount"))))}</strong></div>
       <div class="metric"><span class="label">Blended Target</span><strong>{html.escape(text(summary.get("target_text"), money(summary.get("target_price"))))}</strong><div class="thesis">{html.escape(text(summary.get("confidence")))} confidence</div></div>
@@ -592,7 +668,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
         <section><div class="section-title"><h2>Source Drilldowns</h2><span class="section-note">Target-source and evidence counts</span></div>{html_table(as_list(source_drilldown.get("headers")), as_list(source_drilldown.get("rows")), "compact-table")}</section>
       </div>
       <details class="full-universe"><summary>Open full ranked V1 universe and filters</summary><div class="toolbar"><input id="tickerFilter" type="search" placeholder="Filter ticker or company"><select id="sleeveFilter"><option value="">All sleeves</option><option value="long_term">Long term</option><option value="short_term">Short term</option><option value="speculative_ai">Speculative AI</option><option value="etf">ETF</option></select><select id="actionFilter"><option value="">All actions</option><option value="Add">Add</option><option value="Watch">Watch</option><option value="Avoid">Avoid</option><option value="Hold">Hold</option></select><button type="button" id="sortScore">Sort by score</button></div>{html_table(as_list(full_universe.get("headers")), as_list(full_universe.get("rows")), "rank-table", set(as_list(full_universe.get("raw_columns"))))}</details>
-      <section><h2>Notes</h2><ul class="notes"><li>This dashboard is decision support, not automated trading.</li><li>Rows marked Needs refresh require updated market data and target-price inputs before acting.</li><li>The 10% single-stock cap is applied to the suggested purchase amount.</li></ul></section>
+      <section><h2>Notes</h2><ul class="notes"><li>This dashboard is decision support, not automated trading.</li><li>Low-confidence, wide-range, partial-blend, or verification-blocked candidates stay visible for review but cannot be labeled as the recommended next buy.</li><li>The 10% single-stock cap is applied to any decision-safe suggested purchase amount.</li></ul></section>
     </div>
 
     <div id="holdingsTab" class="tab-panel" hidden>
@@ -687,7 +763,7 @@ def render_readiness(readiness: dict[str, Any]) -> str:
             "</div>"
         )
     preview_html = render_next_day_preview(readiness.get("preview"))
-    return f'<section class="readiness-section"><div class="section-title"><h2>Pre-Market Readiness</h2><span class="section-note">Advisory checks only; recommendations remain visible</span></div>{preview_html}<div class="readiness-grid">{"".join(cards)}</div></section>'
+    return f'<section class="readiness-section"><div class="section-title"><h2>Pre-Market Readiness</h2><span class="section-note">Decision-safety gate applied before buy labeling</span></div>{preview_html}<div class="readiness-grid">{"".join(cards)}</div></section>'
 
 
 def render_recent_feedback(records: list[Any]) -> str:
@@ -711,13 +787,15 @@ def render_recent_feedback(records: list[Any]) -> str:
 
 
 def render_print_summary(context: dict[str, object]) -> str:
-    summary = as_dict(context.get("summary"))
+    summary = normalized_summary(context)
     reliability = as_dict(context.get("reliability"))
     price_counts = as_dict(reliability.get("price_counts"))
     source_health = as_dict(context.get("source_health"))
     source_summary = as_dict(source_health.get("summary") or reliability.get("source_health"))
+    decision_gate = as_dict(summary.get("decision_gate"))
     cards = [
         ("Top candidate", f"{summary_value(context, 'top_symbol')} · {summary_value(context, 'top_action')}", text(summary.get("top_company") or summary.get("top_notes"))),
+        ("Decision Gate", text(decision_gate.get("status"), "Ready"), decision_gate_detail(summary)),
         ("Score", text(summary.get("top_score")), ""),
         (text(summary.get("amount_label"), "Buy Capacity"), text(summary.get("suggested_amount_text"), money(summary.get("suggested_amount"))), ""),
         ("Blended Target", text(summary.get("target_text"), money(summary.get("target_price"))), f"{text(summary.get('confidence'))} confidence"),
@@ -1065,11 +1143,13 @@ def dashboard_script(fallback_symbol: str, report_date: str) -> str:
 
 def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
     metadata = as_dict(context.get("metadata"))
-    summary = as_dict(context.get("summary"))
+    summary = normalized_summary(context)
     reliability = as_dict(context.get("reliability"))
     source_health = as_dict(context.get("source_health"))
     source_quality = as_dict(context.get("source_quality"))
     price_counts = as_dict(reliability.get("price_counts"))
+    decision_gate = as_dict(summary.get("decision_gate"))
+    action_label = "Action" if decision_gate.get("safe_to_buy", True) else "Candidate action"
 
     title_by_kind = {
         "daily": "Daily What-To-Buy-Next Report",
@@ -1087,7 +1167,9 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
         "",
         f"{summary.get('recommendation_label', 'Top candidate')}: **{summary.get('top_symbol', '')} - {summary.get('top_company', '')}**",
         "",
-        f"- Action: **{summary.get('top_action', '')}**",
+        f"- Decision safety gate: **{decision_gate.get('status', 'Ready')}**",
+        f"- Gate reason: **{decision_gate_detail(summary)}**",
+        f"- {action_label}: **{summary.get('top_action', '')}**",
         f"- Score: **{summary.get('top_score', '')}/100**",
         f"- {summary.get('amount_label', 'Buy capacity')}: **{summary.get('suggested_amount_text', '')}**",
         f"- Current price: **{summary.get('current_price_text', '')}**",
@@ -1154,7 +1236,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
                 "## Notes",
                 "",
                 "- This report is decision support, not automated trading.",
-                "- Rows marked `Needs refresh` require updated market data and target-price inputs before acting.",
+                "- Low-confidence, wide-range, partial-blend, or verification-blocked candidates stay visible for review but cannot be labeled as the recommended next buy.",
                 "- E*TRADE holdings use the latest production read-only snapshot when available; otherwise manual positions are used.",
                 f"- Target-source storage captured {storage_counts.get('target_sources', 0)} target inputs.",
                 f"- Blended target storage captured {storage_counts.get('blended_targets', 0)} blended targets.",
@@ -1175,20 +1257,24 @@ def append_table_section(lines: list[str], title: str, table: dict[str, Any], em
 
 def render_email(context: dict[str, object]) -> str:
     metadata = as_dict(context.get("metadata"))
-    summary = as_dict(context.get("summary"))
+    summary = normalized_summary(context)
     reliability = as_dict(context.get("reliability"))
     source_health = as_dict(context.get("source_health"))
     artifacts = artifact_names(context)
     email = as_dict(context.get("email"))
     recipient = text(email.get("recipient"))
     subject = text(email.get("subject") or f"Stock Trading Daily Report - {metadata.get('report_date', 'n/a')}")
+    decision_gate = as_dict(summary.get("decision_gate"))
+    action_label = "Action" if decision_gate.get("safe_to_buy", True) else "Candidate action"
     return f"""To: {recipient}
 Subject: {subject}
 
 Daily stock trading summary for {metadata.get('report_date', 'n/a')}
 
 {summary.get('recommendation_label', 'Top candidate')}: {summary.get('top_symbol', '')} - {summary.get('top_company', '')}
-Action: {summary.get('top_action', '')}
+Decision safety gate: {decision_gate.get('status', 'Ready')}
+Gate reason: {decision_gate_detail(summary)}
+{action_label}: {summary.get('top_action', '')}
 Score: {summary.get('top_score', '')}/100
 {summary.get('amount_label', 'Buy capacity')}: {summary.get('suggested_amount_text', '')}
 Current price: {summary.get('current_price_text', '')}
@@ -1222,7 +1308,7 @@ Next-day watchlist:
 Report context:
 {artifacts['context']}
 
-Note: This is a generated decision-support summary. It does not place trades.
+Note: This is a generated decision-support summary. It does not place trades, and blocked candidates are review-only until the decision-safety gate clears.
 """
 
 
@@ -1253,6 +1339,7 @@ def render_csv(context: dict[str, object], path: Path) -> None:
 
 
 def render_report_context(context: dict[str, object], output_dir: Path) -> list[Path]:
+    context = normalized_report_context(context)
     output_dir.mkdir(parents=True, exist_ok=True)
     names = artifact_names(context)
     paths = {

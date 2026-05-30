@@ -146,6 +146,22 @@ class PresentationBoundaryTests(unittest.TestCase):
         self.assertIn("Info <span>1</span>", dashboard_text)
         self.assertIn("applySourceHealthFilter", dashboard_text)
 
+    def test_2026_05_29_nvda_context_is_not_rendered_as_recommended_next_buy(self) -> None:
+        context = subject.load_report_context(ROOT / "reports" / "report-context-2026-05-29.json")
+
+        markdown = subject.render_markdown(context)
+        dashboard = subject.render_dashboard_html(context)
+
+        self.assertIn("No decision-safe buy: **NVDA - NVIDIA**", markdown)
+        self.assertIn("- Decision safety gate: **Blocked**", markdown)
+        self.assertIn("Low target confidence", markdown)
+        self.assertIn("Wide target range", markdown)
+        self.assertNotIn("Recommended next buy: **NVDA - NVIDIA**", markdown)
+        self.assertIn("No decision-safe buy", dashboard)
+        self.assertIn("Decision Gate", dashboard)
+        self.assertIn("Add blocked", dashboard)
+        self.assertNotIn(">Recommended next buy<", dashboard)
+
 
 if __name__ == "__main__":
     unittest.main()
