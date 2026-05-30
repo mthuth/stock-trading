@@ -157,7 +157,6 @@ Older or compatibility database files may exist in `data/`; confirm the active p
 
 - [REQUIREMENTS.md](REQUIREMENTS.md): product contract, recommendation labels, scoring model, target methodology, and recommendation-only constraints.
 - [docs/UX_EXPERIENCE.md](docs/UX_EXPERIENCE.md): dashboard journey, decision-first UX priorities, confidence display, feedback flow, and recommendation-only wording.
-- [reports/data-ingestion-flow.md](reports/data-ingestion-flow.md): generated data-ingestion and report-generation flow diagram.
 - [RELEASE_NOTES.md](RELEASE_NOTES.md): recent feature history and validation notes.
 - [tests/test_package_boundaries.py](tests/test_package_boundaries.py): executable package-boundary architecture contract.
 
