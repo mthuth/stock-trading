@@ -17,10 +17,10 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from statistics import stdev
 from typing import Dict, Iterable, List, Set
 
 from stock_trading.provider_gap_summary import build_provider_gap_review
+from stock_trading.technical_targets import calculate_technical_target
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -1250,76 +1250,16 @@ def technical_target_row(
     model_config: Dict[str, object],
     price_history: Dict[str, List[Dict[str, float]]],
 ) -> Dict[str, object] | None:
-    if item.current_price <= 0:
-        return None
-
-    history = price_history.get(item.symbol, [])
-    windows = model_config.get("windows", {}) if isinstance(model_config, dict) else {}
-    buffers = model_config.get("buffers", {}) if isinstance(model_config, dict) else {}
-    short_days = int(to_float(windows.get("short_trend_days"), 20))
-    medium_days = int(to_float(windows.get("medium_trend_days"), 50))
-    long_days = int(to_float(windows.get("long_trend_days"), 200))
-    support_days = int(to_float(windows.get("support_lookback_days"), 60))
-    resistance_days = int(to_float(windows.get("resistance_lookback_days"), 60))
-    breakout_buffer = to_float(buffers.get("breakout_buffer_pct"), 0.03)
-    stop_buffer = to_float(buffers.get("stop_review_buffer_below_support_pct"), 0.05)
-
-    if len(history) < short_days:
-        return None
-
-    closes = [row["close"] for row in history if row["close"] > 0]
-    highs = [row["high"] for row in history if row["high"] > 0]
-    lows = [row["low"] for row in history if row["low"] > 0]
-    if len(closes) < short_days:
-        return None
-
-    current = item.current_price
-    ma20 = average(closes[-short_days:])
-    ma50 = average(closes[-medium_days:]) if len(closes) >= medium_days else 0.0
-    ma200 = average(closes[-long_days:]) if len(closes) >= long_days else 0.0
-    support = min(lows[-support_days:]) if len(lows) >= min(support_days, len(lows)) else min(lows)
-    resistance = max(highs[-resistance_days:]) if len(highs) >= min(resistance_days, len(highs)) else max(highs)
-
-    returns = [
-        (closes[index] - closes[index - 1]) / closes[index - 1]
-        for index in range(1, len(closes[-21:]))
-        if closes[index - 1] > 0
-    ]
-    daily_volatility = stdev(returns) if len(returns) >= 2 else 0.0
-
-    if ma50 and current > ma20 > ma50:
-        trend_state = "bullish"
-        target_price = max(resistance * (1 + breakout_buffer), current * 1.04)
-    elif ma50 and current > ma50 and ma20 >= ma50 * 0.98:
-        trend_state = "constructive"
-        target_price = max((current + resistance) / 2, current * 1.02)
-    elif current < ma20 and ma50 and ma20 < ma50:
-        trend_state = "weak"
-        target_price = min(resistance, current * 1.02)
-    else:
-        trend_state = "mixed"
-        target_price = max((current + resistance) / 2, current * 1.01)
-
-    target_low = max(support, current * (1 - min(daily_volatility * 2, 0.12)))
-    target_high = max(target_price, resistance)
-    stop_review = support * (1 - stop_buffer)
-    upside = ((target_price - current) / current) * 100 if current > 0 else 0.0
-
-    confidence = "medium" if len(closes) >= support_days and daily_volatility <= 0.04 else "low"
-    if len(closes) < medium_days:
-        confidence = "low"
-    if item.sleeve == "speculative_ai":
-        confidence = "low"
-
-    notes = (
-        f"Trend {trend_state}; {len(closes)} daily bars; "
-        f"MA{short_days} {ma20:.2f}; "
-        + (f"MA{medium_days} {ma50:.2f}; " if ma50 else f"MA{medium_days} unavailable; ")
-        + (f"MA{long_days} {ma200:.2f}; " if ma200 else f"MA{long_days} unavailable; ")
-        + f"support {support:.2f}; resistance {resistance:.2f}; "
-        f"entry zone {target_low:.2f}-{min(current, target_price):.2f}; "
-        f"stop/review {stop_review:.2f}; 20-day daily volatility {daily_volatility * 100:.1f}%."
+    target = calculate_technical_target(
+        symbol=item.symbol,
+        current_price=item.current_price,
+        sleeve=item.sleeve,
+        as_of_date=as_of_date,
+        model_config=model_config,
+        history=price_history.get(item.symbol, []),
     )
+    if not target:
+        return None
 
     return {
         "run_id": run_id,
@@ -1327,17 +1267,17 @@ def technical_target_row(
         "target_type": "technical",
         "source_name": "Internal technical model",
         "source_type": "model",
-        "target_price": round(target_price, 4),
-        "target_low": round(target_low, 4),
-        "target_high": round(target_high, 4),
-        "current_price": current,
-        "upside_pct": round(upside, 4),
+        "target_price": target["target_price"],
+        "target_low": target["target_low"],
+        "target_high": target["target_high"],
+        "current_price": target["current_price"],
+        "upside_pct": target["upside_pct"],
         "as_of_date": as_of_date,
-        "freshness_days": 0,
-        "confidence": confidence,
-        "provider_endpoint": "price_history + configured V1.3 technical assumptions",
+        "freshness_days": target["freshness_days"],
+        "confidence": target["confidence"],
+        "provider_endpoint": target["provider_endpoint"],
         "raw_payload_ref": "",
-        "notes": notes,
+        "notes": target["notes"],
     }
 
 
