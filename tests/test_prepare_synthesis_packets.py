@@ -3,9 +3,9 @@
 
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
-import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -88,10 +88,11 @@ class PrepareSynthesisPacketsTests(unittest.TestCase):
         self.assertEqual(statuses["amzn-ready"], "ready_for_synthesis")
         self.assertEqual(statuses["nvda-company-only"], "needs_corroboration")
         self.assertIn(readiness["AMZN"], {"partially_ready", "ready_for_ai_synthesis"})
-        self.assertEqual(readiness["NVDA"], "needs_review")
+        self.assertEqual(readiness["NVDA"], "needs_corroboration")
         self.assertTrue(packet_exists)
         self.assertIn("AMZN", packets["symbols"])
         self.assertIn("NVDA", packets["symbols"])
+        self.assertIn("reason_codes", packets["symbols"]["NVDA"])
 
     def test_primary_high_impact_event_is_ready_even_single_source(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -123,6 +124,73 @@ class PrepareSynthesisPacketsTests(unittest.TestCase):
 
         self.assertEqual(review["review_status"], "ready_for_synthesis")
         self.assertIn("primary-source", review["review_reason"])
+
+    def test_provider_gap_blocks_packet_eligibility(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            db_file = data_dir / "stock_trading.sqlite"
+            output_dir = data_dir / "reports"
+            with patch.object(storage, "DATA_DIR", data_dir), patch.object(storage, "DB_FILE", db_file):
+                conn = storage.init_db()
+                with conn:
+                    conn.execute(
+                        """
+                        INSERT INTO evidence_event_clusters (
+                            event_date, symbol, event_key, event_type, headline,
+                            summary, corroboration_label, source_count, evidence_count,
+                            independent_source_count, primary_source_count,
+                            company_source_count, opinion_source_count,
+                            latest_evidence_at, confidence, notes
+                        )
+                        VALUES (
+                            '2026-05-29', 'AVGO', 'avgo-ready-primary', 'product_launch',
+                            'AVGO platform update', 'Primary plus independent event',
+                            'primary_plus_confirmed', 2, 2, 1, 1, 0, 0,
+                            '2026-05-29T12:00:00', 'high', ''
+                        )
+                        """
+                    )
+                    conn.execute(
+                        """
+                        INSERT INTO evidence_event_clusters (
+                            event_date, symbol, event_key, event_type, headline,
+                            summary, corroboration_label, source_count, evidence_count,
+                            independent_source_count, primary_source_count,
+                            company_source_count, opinion_source_count,
+                            latest_evidence_at, confidence, notes
+                        )
+                        VALUES (
+                            '2026-05-29', 'AVGO', 'avgo-ready-independent', 'analyst_target',
+                            'AVGO target corroborated', 'Independent event',
+                            'independent_confirmed', 2, 2, 1, 0, 0, 0,
+                            '2026-05-29T12:00:00', 'high', ''
+                        )
+                        """
+                    )
+                conn.close()
+
+                clusters = subject.load_clusters()
+                review_rows = subject.build_review_rows(clusters)
+                readiness_rows, packets, _ = subject.build_packets(
+                    clusters,
+                    review_rows,
+                    "2026-05-29",
+                    output_dir,
+                    5,
+                    provider_gaps=[
+                        {
+                            "symbol": "AVGO",
+                            "provider": "SEC",
+                            "field_name": "companyfacts",
+                            "status": "blocked",
+                        }
+                    ],
+                    recommendation_facts={"AVGO": {"target_confidence": "High"}},
+                )
+
+        self.assertEqual(readiness_rows[0]["readiness_status"], "blocked_by_provider_gap")
+        self.assertFalse(packets["symbols"]["AVGO"]["eligible_for_ai_synthesis"])
+        self.assertIn("provider_gap:blocked:SEC:companyfacts", packets["symbols"]["AVGO"]["reason_codes"])
 
     def test_prompt_packet_export_uses_report_context_without_model_call(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
