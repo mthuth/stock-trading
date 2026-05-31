@@ -17,6 +17,10 @@ from stock_trading.reporting.provider_gaps import (
     render_provider_gap_review_html,
     render_provider_gap_review_markdown,
 )
+from stock_trading.reporting.product_coherence import (
+    build_capital_deployment_prep,
+    build_review_path,
+)
 
 
 REQUIRED_CONTEXT_SECTIONS = (
@@ -39,6 +43,9 @@ REQUIRED_CONTEXT_SECTIONS = (
     "artifacts",
 )
 REPORT_SECTION_LABELS = (
+    "Product Review Path",
+    "Learning Review",
+    "Wave 7 Capital Deployment Prep",
     "Insight Drivers",
     "Score Movement",
     "Trend Insights",
@@ -772,6 +779,41 @@ def data_reliability_review_markdown_lines(context: dict[str, object]) -> list[s
     return lines
 
 
+def _coherence_cards_html(cards: object) -> str:
+    rendered = []
+    for card in as_list(cards):
+        item = as_dict(card)
+        rendered.append(
+            '<div class="coherence-card">'
+            f'<span class="label">{html.escape(text(item.get("label")))}</span>'
+            f'<strong>{html.escape(text(item.get("value"), "n/a"))}</strong>'
+            f'<p>{html.escape(text(item.get("detail")))}</p>'
+            "</div>"
+        )
+    return "".join(rendered)
+
+
+def render_product_review_path(context: dict[str, object]) -> str:
+    review_path = build_review_path(context)
+    return (
+        '<section class="product-review-path">'
+        '<div class="section-title"><h2>Product Review Path</h2>'
+        '<span class="section-note">Current decision first; audit, synthesis, and learning stay non-impacting</span></div>'
+        f'<div class="coherence-grid">{_coherence_cards_html(review_path.get("cards"))}</div>'
+        "</section>"
+    )
+
+
+def product_review_path_markdown_lines(context: dict[str, object]) -> list[str]:
+    review_path = build_review_path(context)
+    lines = ["## Product Review Path", ""]
+    for card in as_list(review_path.get("cards")):
+        item = as_dict(card)
+        lines.append(f"- {item.get('label', '')}: **{item.get('value', '')}** - {item.get('detail', '')}")
+    lines.append("")
+    return lines
+
+
 def learning_review_summary_value(section: dict[str, Any], *keys: str) -> object:
     summary = as_dict(section.get("summary"))
     for key in keys:
@@ -798,7 +840,7 @@ def render_learning_review_html(context: dict[str, object]) -> str:
     learning = as_dict(context.get("learning_review"))
     note = text(
         learning.get("note"),
-        "Review-only learning outputs; these metrics do not change current recommendations.",
+        "Review-only learning outputs; these metrics do not change current recommendations, scores, targets, gates, allocation, or broker behavior.",
     )
     manual = as_dict(learning.get("manual_journal"))
     outcomes = as_dict(learning.get("recommendation_outcomes"))
@@ -812,6 +854,11 @@ def render_learning_review_html(context: dict[str, object]) -> str:
     source_count = learning_review_summary_value(sources, "source_count")
     safety_count = learning_review_summary_value(safety, "row_count")
     cards = [
+        (
+            "Review-only learning",
+            "No model impact",
+            "Learning review stays separate from scores, targets, actions, gates, allocation, and broker behavior.",
+        ),
         (
             "Manual actions",
             manual_count,
@@ -911,7 +958,7 @@ def render_learning_review_html(context: dict[str, object]) -> str:
     )
     return (
         '<section class="learning-review">'
-        '<div class="section-title"><h2>Learning Review</h2><span class="section-note">Review-only outcomes and follow-through</span></div>'
+        '<div class="section-title"><h2>Learning Review</h2><span class="section-note">Review-only outcomes and follow-through; no recommendation impact</span></div>'
         f'<p class="section-note">{html.escape(note)}</p>'
         f'<div class="data-review-grid">{card_html}</div>'
         f'<div class="data-review-details">{details}</div>'
@@ -929,8 +976,9 @@ def learning_review_markdown_lines(context: dict[str, object]) -> list[str]:
     lines = [
         "## Learning Review",
         "",
-        text(learning.get("note"), "Review-only learning outputs; these metrics do not change current recommendations."),
+        text(learning.get("note"), "Review-only learning outputs; these metrics do not change current recommendations, scores, targets, gates, allocation, or broker behavior."),
         "",
+        "- Review-only learning: **No model impact** - Learning review stays separate from scores, targets, actions, gates, allocation, and broker behavior.",
         f"- What the app recommended: **{learning_review_summary_value(outcomes, 'outcome_count')}** outcome row(s).",
         f"- What the user did manually: **{learning_review_summary_value(manual, 'entry_count')}** journal entry row(s).",
         f"- Catalyst follow-through: **{learning_review_summary_value(catalysts, 'outcome_count')}** catalyst row(s).",
@@ -982,6 +1030,40 @@ def learning_review_markdown_lines(context: dict[str, object]) -> list[str]:
             "rows": compact_learning_rows(as_list(safety.get("top_rows")), ["symbol", "decision_gate_status", "review_bucket", "later_price_movement_pct", "assessment"]),
         },
         text(safety.get("empty_state"), "No decision-safety effectiveness rows available yet."),
+    )
+    return lines
+
+
+def render_capital_deployment_prep(context: dict[str, object]) -> str:
+    prep = build_capital_deployment_prep(context)
+    table = as_dict(prep.get("table"))
+    return (
+        '<section class="capital-deployment-prep">'
+        '<div class="section-title"><h2>Wave 7 Capital Deployment Prep</h2>'
+        '<span class="section-note">Manual capital context before broker expansion; no order previews</span></div>'
+        f'<div class="coherence-grid">{_coherence_cards_html(prep.get("cards"))}</div>'
+        f'{html_table(as_list(table.get("headers")), as_list(table.get("rows")), "compact-table")}'
+        "</section>"
+    )
+
+
+def capital_deployment_prep_markdown_lines(context: dict[str, object]) -> list[str]:
+    prep = build_capital_deployment_prep(context)
+    lines = [
+        "## Wave 7 Capital Deployment Prep",
+        "",
+        "Manual capital context before broker expansion; no order previews.",
+        "",
+    ]
+    for card in as_list(prep.get("cards")):
+        item = as_dict(card)
+        lines.append(f"- {item.get('label', '')}: **{item.get('value', '')}** - {item.get('detail', '')}")
+    lines.append("")
+    append_table_section(
+        lines,
+        "Capital Deployment Prep Surfaces",
+        as_dict(prep.get("table")),
+        "No capital deployment prep surfaces available.",
     )
     return lines
 
@@ -1061,11 +1143,12 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     .change-badge { display:inline-block; border:1px solid var(--line); border-radius:999px; padding:3px 8px; font-size:12px; font-weight:800; color:var(--muted); background:#f3f5f8; }
     .change-up,.change-new { border-color:#b8e4ca; background:#eaf8ef; color:var(--green); } .change-action { border-color:#f3d08a; background:#fff6df; color:var(--amber); } .change-down { border-color:#f3b7b0; background:#fff0ee; color:var(--red); }
     .daily-review-lead { display:grid; grid-template-columns:minmax(280px,1.5fr) minmax(220px,.8fr); gap:12px; margin-bottom:10px; }
-    .daily-review-lead > div,.daily-review-card,.data-review-card { border:1px solid var(--line); border-radius:8px; background:#fbfcfe; padding:12px; min-width:0; }
-    .daily-review-lead strong,.daily-review-card strong,.data-review-card strong { display:block; color:var(--text); font-size:18px; margin-top:2px; overflow-wrap:anywhere; }
-    .daily-review-lead p,.daily-review-card p,.data-review-card p { margin:6px 0 0; color:var(--muted); font-size:13px; }
+    .daily-review-lead > div,.daily-review-card,.data-review-card,.coherence-card { border:1px solid var(--line); border-radius:8px; background:#fbfcfe; padding:12px; min-width:0; }
+    .daily-review-lead strong,.daily-review-card strong,.data-review-card strong,.coherence-card strong { display:block; color:var(--text); font-size:18px; margin-top:2px; overflow-wrap:anywhere; }
+    .daily-review-lead p,.daily-review-card p,.data-review-card p,.coherence-card p { margin:6px 0 0; color:var(--muted); font-size:13px; }
     .daily-review-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
     .data-review-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; }
+    .coherence-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin-bottom:10px; }
     .daily-review-details,.data-review-details { display:grid; gap:8px; margin-top:10px; }
     .daily-review-details details,.data-review-details details { border:1px solid var(--line); border-radius:8px; background:#fbfcfe; padding:8px 10px; }
     .daily-review-details summary,.data-review-details summary { cursor:pointer; color:var(--blue); font-weight:800; }
@@ -1140,7 +1223,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     .print-summary-card { border:1px solid var(--line); border-radius:8px; padding:10px; background:#fbfcfe; }
     .print-summary-card strong { display:block; font-size:15px; margin-top:3px; }
     .print-table { min-width:0; table-layout:auto; }
-    @media (max-width:860px) { main { padding:16px; } .summary,.two-column,.table-pair,.feedback-grid,.decision-safety-callout,.daily-review-lead,.daily-review-grid,.data-review-grid { grid-template-columns:1fr; } .action-card-head { flex-direction:column; } .action-card-metrics,.decision-safety-facts { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (max-width:860px) { main { padding:16px; } .summary,.two-column,.table-pair,.feedback-grid,.decision-safety-callout,.daily-review-lead,.daily-review-grid,.data-review-grid,.coherence-grid { grid-template-columns:1fr; } .action-card-head { flex-direction:column; } .action-card-metrics,.decision-safety-facts { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media print {
       @page { margin:.45in; }
       :root { --bg:#fff; --panel:#fff; --text:#111827; --muted:#4b5563; --line:#d1d5db; }
@@ -1152,8 +1235,8 @@ def render_dashboard_html(context: dict[str, object]) -> str:
       .print-review h2 { font-size:12pt; margin:0 0 6px; }
       .print-review section { border:0; border-top:1px solid var(--line); border-radius:0; padding:8px 0; margin:0 0 8px; overflow:visible; break-inside:avoid; page-break-inside:avoid; }
       .print-review .section-title { margin-bottom:6px; }
-      .print-summary-grid,.readiness-grid { grid-template-columns:repeat(3,1fr); gap:6px; }
-      .print-summary-card,.readiness-card,.next-day-preview { border:1px solid var(--line); border-radius:4px; padding:7px; background:#fff; }
+      .print-summary-grid,.readiness-grid,.coherence-grid { grid-template-columns:repeat(3,1fr); gap:6px; }
+      .print-summary-card,.readiness-card,.coherence-card,.next-day-preview { border:1px solid var(--line); border-radius:4px; padding:7px; background:#fff; }
       .next-day-preview-metrics { grid-template-columns:repeat(4,1fr); gap:4px; }
       .decision-briefs,.tab-nav,.subtab-nav,.feedback-grid,.feedback-buttons,.feedback-status,.recent-feedback,.toolbar,.full-universe,.notes,#feedbackCommand { display:none !important; }
       table,.compact-table,.decision-table,.source-status-table,.source-health-table,.source-issue-group-table,.score-trend-table,.print-table { width:100%; min-width:0 !important; table-layout:auto; border-collapse:collapse; }
@@ -1200,14 +1283,15 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     </div>
 
     {render_daily_decision_review(context)}
+    {render_product_review_path(context)}
     {render_data_reliability_review(context)}
 
     <nav class="tab-nav" aria-label="Dashboard sections">
       <button class="tab-button" type="button" aria-selected="true" data-tab-target="recommendationsTab">Recommendations</button>
       <button class="tab-button" type="button" aria-selected="false" data-tab-target="holdingsTab">Current Holdings</button>
       <button class="tab-button" type="button" aria-selected="false" data-tab-target="healthTrendsTab">Health & Trends</button>
-      <button class="tab-button" type="button" aria-selected="false" data-tab-target="learningReviewTab">Learning Review</button>
       <button class="tab-button" type="button" aria-selected="false" data-tab-target="dataIngestionTab">Data Ingestion</button>
+      <button class="tab-button" type="button" aria-selected="false" data-tab-target="learningReviewTab">Learning Review</button>
       <button class="tab-button" type="button" aria-selected="false" data-tab-target="researchSourcesTab">Research Sources</button>
       <button class="tab-button" type="button" aria-selected="false" data-tab-target="feedbackTab">Feedback</button>
     </nav>
@@ -1262,23 +1346,24 @@ def render_dashboard_html(context: dict[str, object]) -> str:
       <section><div class="section-title"><h2>Trend Insights</h2><span class="section-note">Score, price trend, and data-gap context</span></div>{html_table(as_list(trend_insights.get("headers")), as_list(trend_insights.get("rows")), "compact-table")}</section>
     </div>
 
-    <div id="learningReviewTab" class="tab-panel" hidden>
-      {render_learning_review_html(context)}
-    </div>
-
     <div id="dataIngestionTab" class="tab-panel" hidden>
       <section><div class="section-title"><h2>Data Ingestion & Signal Health</h2><span class="section-note">Free-first raw + curated ingestion status</span></div><p class="section-note">Raw payload rows are retained for audit and future synthesis. Curated records are normalized into evidence, targets, prices, and active insight signals.</p>{html_table(as_list(data_ingestion.get("headers")), as_list(data_ingestion.get("rows")), "source-status-table")}</section>
       <section><div class="section-title"><h2>Next Ingestion Runs</h2><span class="section-note">Freshness, cadence, cooldown, and run priority</span></div>{html_table(as_list(ingestion_run_plan.get("headers")), as_list(ingestion_run_plan.get("rows")), "source-status-table")}</section>
       <section><div class="section-title"><h2>Backfill Queue</h2><span class="section-note">Historical source windows that need more records</span></div>{html_table(as_list(ingestion_backfill.get("headers")), as_list(ingestion_backfill.get("rows")), "compact-table")}</section>
       <section><div class="section-title"><h2>Evidence Events</h2><span class="section-note">Related evidence clustered by symbol, topic, source mix, and corroboration</span></div>{html_table(as_list(evidence_events.get("headers")), as_list(evidence_events.get("rows")), "compact-table")}</section>
-      <section><div class="section-title"><h2>Evidence Review Queue</h2><span class="section-note">Events gated before future AI synthesis or score impact</span></div>{html_table(as_list(evidence_review_queue.get("headers")), as_list(evidence_review_queue.get("rows")), "compact-table")}</section>
-      <section><div class="section-title"><h2>Synthesis Readiness By Symbol</h2><span class="section-note">Deterministic packets for future AI summaries; no LLM conclusions yet</span></div>{html_table(as_list(synthesis_readiness.get("headers")), as_list(synthesis_readiness.get("rows")), "compact-table")}</section>
+      <section><div class="section-title"><h2>Evidence Review Queue</h2><span class="section-note">Review queue for future AI synthesis; no score or recommendation impact</span></div>{html_table(as_list(evidence_review_queue.get("headers")), as_list(evidence_review_queue.get("rows")), "compact-table")}</section>
+      <section><div class="section-title"><h2>AI Synthesis Readiness By Symbol</h2><span class="section-note">Deterministic packets for future AI summaries; explanatory only, no LLM conclusions yet</span></div>{html_table(as_list(synthesis_readiness.get("headers")), as_list(synthesis_readiness.get("rows")), "compact-table")}</section>
       <section><div class="section-title"><h2>Source Quality</h2><span class="section-note">Reliability and stock-relevance measurement; no score impact yet</span></div>{html_table(as_list(as_dict(source_quality.get("table")).get("headers")), as_list(as_dict(source_quality.get("table")).get("rows")), "source-status-table")}</section>
       <section><div class="section-title"><h2>Source Depth Signals</h2><span class="section-note">Normalized SEC, IR, and official-source extraction; shadow/explanatory only</span></div>{html_table(as_list(source_depth.get("headers")), as_list(source_depth.get("rows")), "compact-table")}</section>
       <section><div class="section-title"><h2>Low Relevance / Noisy Sources</h2><span class="section-note">Sources producing records with weak symbol matches</span></div>{html_table(as_list(as_dict(source_quality.get("low_relevance")).get("headers")), as_list(as_dict(source_quality.get("low_relevance")).get("rows")), "compact-table")}</section>
       <section><div class="section-title"><h2>Low Confidence Matches</h2><span class="section-note">Evidence tags needing review before synthesis or scoring use</span></div>{html_table(as_list(as_dict(source_quality.get("low_confidence_matches")).get("headers")), as_list(as_dict(source_quality.get("low_confidence_matches")).get("rows")), "compact-table")}</section>
       <section><div class="section-title"><h2>Paid Provider Watchlist</h2><span class="section-note">Track cost before buying anything</span></div>{html_table(as_list(as_dict(context.get("paid_providers")).get("headers")), as_list(as_dict(context.get("paid_providers")).get("rows")), "compact-table")}</section>
       <section><div class="section-title"><h2>Insight Signal Health</h2><span class="section-note">Active deterministic scoring overlay</span></div>{html_table(as_list(as_dict(context.get("signal_health")).get("headers")), as_list(as_dict(context.get("signal_health")).get("rows")), "compact-table")}</section>
+    </div>
+
+    <div id="learningReviewTab" class="tab-panel" hidden>
+      {render_learning_review_html(context)}
+      {render_capital_deployment_prep(context)}
     </div>
 
     <div id="feedbackTab" class="tab-panel" hidden>
@@ -1456,8 +1541,8 @@ def render_decision_cards(rows: list[Any]) -> str:
     if not rows:
         return (
             '<section class="decision-briefs"><div class="section-title">'
-            "<h2>Decision Briefs</h2>"
-            '<span class="section-note">Top decision-grade summaries</span>'
+            "<h2>Explanatory Decision Briefs</h2>"
+            '<span class="section-note">AI synthesis explanatory; no recommendation impact</span>'
             "</div><p>No decision briefs available.</p></section>"
         )
     cards = []
@@ -1476,7 +1561,7 @@ def render_decision_cards(rows: list[Any]) -> str:
             f"<p><strong>Next:</strong> {html.escape(next_check)}</p>"
             "</div>"
         )
-    return f'<section class="decision-briefs"><div class="section-title"><h2>Decision Briefs</h2><span class="section-note">Top decision-grade summaries</span></div><div class="decision-brief-grid">{"".join(cards)}</div></section>'
+    return f'<section class="decision-briefs"><div class="section-title"><h2>Explanatory Decision Briefs</h2><span class="section-note">AI synthesis explanatory; no recommendation impact</span></div><div class="decision-brief-grid">{"".join(cards)}</div></section>'
 
 
 def render_allocation(rows: list[Any]) -> str:
@@ -1736,6 +1821,14 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
         "end_of_day": f"End-of-Day Review - {metadata.get('report_date', 'n/a')}",
         "watchlist": f"Next-Day Watchlist - {metadata.get('report_date', 'n/a')}",
     }
+    coherence_lines = data_reliability_review_markdown_lines(context)
+    if kind in {"daily", "end_of_day"}:
+        coherence_lines = [
+            *product_review_path_markdown_lines(context),
+            *coherence_lines,
+            *learning_review_markdown_lines(context),
+            *capital_deployment_prep_markdown_lines(context),
+        ]
     lines = [
         f"# {title_by_kind.get(kind, title_by_kind['daily'])}",
         "",
@@ -1762,8 +1855,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
         "",
         *daily_decision_review_markdown_lines(context),
         *decision_safety_markdown_lines(summary),
-        *data_reliability_review_markdown_lines(context),
-        *learning_review_markdown_lines(context),
+        *coherence_lines,
         f"Reason: {summary.get('top_notes', '')}",
         "",
         "## Report Reliability",
@@ -1788,7 +1880,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
         "No target-source drilldown available.",
     )
     append_table_section(lines, "Next-Day Watchlist", queue(context, "next_day"), "No watchlist candidates available.")
-    append_table_section(lines, "Top Decision Briefs", as_dict(context.get("decision_briefs")), "No decision briefs available.")
+    append_table_section(lines, "Explanatory Decision Briefs", as_dict(context.get("decision_briefs")), "No decision briefs available.")
     append_table_section(lines, "Source Health Alerts", as_dict(source_health.get("alerts")), "No source health alerts.")
     lines.extend(["## Provider Gap Review", "", render_provider_gap_review_markdown(provider_gap_review), ""])
     append_table_section(lines, "Provider Blocker Review", as_dict(source_health.get("provider_blockers")), "No active provider blockers.")
@@ -1796,7 +1888,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
     append_table_section(lines, "Backfill Queue", as_dict(context.get("ingestion_backfill")), "No source backfill items queued.")
     append_table_section(lines, "Evidence Events", as_dict(context.get("evidence_events")), "No evidence event clusters available.")
     append_table_section(lines, "Evidence Review Queue", as_dict(context.get("evidence_review_queue")), "No evidence review queue available.")
-    append_table_section(lines, "Synthesis Readiness By Symbol", as_dict(context.get("synthesis_readiness")), "No synthesis readiness rows available.")
+    append_table_section(lines, "AI Synthesis Readiness By Symbol", as_dict(context.get("synthesis_readiness")), "No synthesis readiness rows available.")
     append_table_section(lines, "Source Quality", as_dict(source_quality.get("table")), "No source quality metrics available.")
     append_table_section(lines, "Source Depth Signals", as_dict(context.get("source_depth")), "No curated source-depth signals yet.")
     append_table_section(lines, "Low Relevance / Noisy Sources", as_dict(source_quality.get("low_relevance")), "No low-relevance sources flagged.")
@@ -1813,10 +1905,11 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
         names = artifact_names(context)
         lines.extend(
             [
-                "## AI Analysis Context Ready",
+                "## AI Analysis Context Ready (Explanatory)",
                 "",
                 f"- Ready for future summarization: `{ai_analysis.get('context_path', '')}`",
                 f"- Auditable AI-style briefs: `{names.get('ai_briefs_markdown', '')}`",
+                "- Explanatory only; no recommendation behavior changed.",
                 "",
             ]
         )
