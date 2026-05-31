@@ -49,7 +49,7 @@ The stock-trading app remains recommendation-only decision support for a human i
 
 Agents may work concurrently only when branches stay within one lane and do not alter shared product contracts outside their scope.
 
-## Wave 1: Stabilization And Regression Safety
+## Wave 1: Stabilize And Protect
 
 Goal: make the current recommendation engine safer to change by strengthening fixture coverage, report-context checks, package-boundary confidence, and provider-gap visibility.
 
@@ -105,7 +105,7 @@ Acceptance criteria:
 - Run `python3 scripts/check_quality.py`.
 - Do not add broker-write or order-preview behavior.
 
-## Wave 2: Decision Review UX
+## Wave 2: Improve Decision Review
 
 Goal: make the dashboard and generated summaries faster to review while preserving confidence, source-health, and recommendation-only context.
 
@@ -163,7 +163,7 @@ Acceptance criteria:
 - The Action Queue remains the first practical review surface.
 - Run `python3 scripts/check_quality.py`.
 
-## Wave 3: Data And Source Quality
+## Wave 3: Improve Data Quality
 
 Goal: improve trust in the upstream evidence layer without letting provider availability silently distort recommendations.
 
@@ -220,7 +220,7 @@ Acceptance criteria:
 - Audit history is preserved.
 - Run `python3 scripts/check_quality.py`.
 
-## Wave 4: Model Transparency
+## Wave 4: Improve Model Transparency
 
 Goal: make the current model easier to inspect and challenge without changing its official recommendations.
 
@@ -334,6 +334,119 @@ Acceptance criteria:
 - Regression tests prove feedback summaries do not alter official recommendation labels.
 - Run `python3 scripts/check_quality.py`.
 
+## Wave 6: Portfolio Feedback
+
+Goal: close the loop between recommendations, actual portfolio context, and human feedback without letting feedback silently rewrite model behavior.
+
+Owner: Analytics Agent with UX Agent and QA Agent review
+
+Suggested branch: `codex/portfolio-feedback-loop`
+
+Acceptance criteria:
+
+- Reports summarize recommendation feedback, source feedback, and manual review outcomes without changing scoring or recommendation labels.
+- Portfolio context distinguishes current holdings, desired allocation, capped buy capacity, watchlist-only names, and avoided names.
+- Feedback remains auditable and reversible.
+- Any future model-impact proposal from feedback is documented as a separate product decision.
+- Run `python3 scripts/check_quality.py`.
+
+## Wave 7: Scenario Planning
+
+Goal: let the user review "what if" situations for allocation, prices, targets, and data availability while keeping official recommendations unchanged.
+
+Owner: Analytics Agent with UX Agent review
+
+Suggested branch: `codex/scenario-planning-review`
+
+Acceptance criteria:
+
+- Scenario outputs are clearly labeled as hypothetical review aids.
+- Scenarios can model price moves, target changes, monthly contribution changes, allocation caps, and missing-data assumptions.
+- Official score, action, target, confidence, and decision-safety outputs are not overwritten by scenario runs.
+- Scenario artifacts are separated from daily recommendation artifacts.
+- Run `python3 scripts/check_quality.py`.
+
+## Wave 8: Alerts And Review Triggers
+
+Goal: surface review-worthy changes without creating trade execution, order preview, or broker-write behavior.
+
+Owner: UX Agent with Analytics Agent review
+
+Suggested branch: `codex/alerts-review-triggers`
+
+Acceptance criteria:
+
+- Alerts are recommendation-only review prompts, not trade instructions.
+- Triggers cover material score movement, target-confidence degradation, provider blockers, stale data, price movement, allocation cap changes, and newly available primary-source evidence.
+- Alerts include the reason, source context, and suggested manual review action.
+- Alerts can be rendered in reports or local review output without requiring network-heavy live refreshes in tests.
+- Run `python3 scripts/check_quality.py`.
+
+## Wave 9: Backtesting And Regression History
+
+Goal: compare historical recommendations, scores, targets, source-health states, and outcomes to improve confidence in future model changes.
+
+Owner: QA Agent with Analytics Agent review
+
+Suggested branch: `codex/backtesting-regression-history`
+
+Acceptance criteria:
+
+- Backtesting uses stored historical data or fixtures and does not fetch live provider data by default.
+- Results distinguish recommendation quality, data freshness, provider availability, and target-confidence quality.
+- Backtest output is explanatory and does not auto-tune scoring weights or target methodology.
+- Regression history can detect recommendation drift before model changes are merged.
+- Run `python3 scripts/check_quality.py`.
+
+## Wave 10: Multi-Model Review
+
+Goal: compare alternative scoring, target, or synthesis models in shadow mode before any product decision changes the official model.
+
+Owner: Analytics Agent with QA Agent and Architecture Agent review
+
+Suggested branch: `codex/multi-model-shadow-review`
+
+Acceptance criteria:
+
+- Alternative models run in shadow mode and are labeled as non-authoritative.
+- The official recommendation label, score, target, and decision-safety output remain unchanged unless a separate model-tuning PR explicitly approves the change.
+- Reports show differences between official and shadow outputs with enough context to review why they disagree.
+- Tests prove shadow outputs do not change official daily recommendations.
+- Run `python3 scripts/check_quality.py`.
+
+## Wave 11: Local App Experience
+
+Goal: improve the local review experience beyond static reports while keeping all behavior local, auditable, and recommendation-only.
+
+Owner: UX Agent with Architecture Agent review
+
+Suggested branch: `codex/local-app-review-experience`
+
+Acceptance criteria:
+
+- The local app preserves the existing dashboard/report review flow and recommendation-only wording.
+- Feedback save, recent feedback, source-health review, target drilldown, data reliability, and decision-safety views remain visible.
+- Static artifact rendering still works for phone/offline review.
+- Local app changes do not introduce provider API behavior, broker writes, order previews, or storage schema changes unless separately approved.
+- Run `python3 scripts/check_quality.py`.
+
+## Wave 12: Broker Read-Only Integration
+
+Goal: improve confidence in holdings and allocation context using broker read-only data without adding trading, order preview, or broker-write behavior.
+
+Owner: Ingestion Agent with Architecture Agent and QA Agent review
+
+Suggested branch: `codex/broker-readonly-integration`
+
+Acceptance criteria:
+
+- Broker integration is read-only and cannot place, preview, modify, or cancel orders.
+- Holdings, cash, market value, cost basis, and allocation context are clearly labeled by source and timestamp.
+- Missing or stale broker snapshots surface as reliability/provider gaps instead of silently falling back.
+- The 10% single-stock cap and recommendation-only language remain visible in reports.
+- Tests use fixtures/mocks and do not require live broker access.
+- Run `python3 scripts/check_quality.py`.
+
 ## Suggested Branch Names
 
 Use short-lived branches with the `codex/` prefix and keep each branch to one change area.
@@ -352,6 +465,13 @@ Use short-lived branches with the `codex/` prefix and keep each branch to one ch
 | Target-source drilldowns | `codex/analysis-target-source-drilldowns` |
 | AI synthesis packet quality | `codex/ai-synthesis-packet-quality` |
 | AI summary traceability | `codex/ai-summary-traceability` |
+| Portfolio feedback loop | `codex/portfolio-feedback-loop` |
+| Scenario planning review | `codex/scenario-planning-review` |
+| Alerts and review triggers | `codex/alerts-review-triggers` |
+| Backtesting regression history | `codex/backtesting-regression-history` |
+| Multi-model shadow review | `codex/multi-model-shadow-review` |
+| Local app review experience | `codex/local-app-review-experience` |
+| Broker read-only integration | `codex/broker-readonly-integration` |
 
 ## Agent Ownership By Lane
 
