@@ -1,0 +1,65 @@
+{
+  "metadata": {
+    "report_date": "golden-normal-buy",
+    "generated_at": "2026-05-31T09:00:00",
+    "model_version": "golden-fixture-v1",
+    "recommendation_only": true
+  },
+  "summary": {
+    "top_symbol": "MSFT",
+    "top_company": "Microsoft",
+    "top_action": "Add",
+    "top_score": 82.5,
+    "recommendation_label": "Recommended next buy",
+    "amount_label": "Suggested buy amount",
+    "suggested_amount": 2500.0,
+    "suggested_amount_text": "$2,500.00",
+    "current_price_text": "$410.00",
+    "target_text": "$520.00",
+    "upside_text": "26.8%",
+    "confidence": "Medium",
+    "data_status": "Blended",
+    "top_notes": "Golden safe buy fixture.",
+    "decision_gate": {
+      "safe_to_buy": true,
+      "status": "Ready",
+      "candidate_action": "Add",
+      "reasons": [],
+      "summary": "Decision-safe buy candidate."
+    }
+  },
+  "reliability": {
+    "mode": "Fixture",
+    "price_counts": {"fresh": 1, "fallback": 0, "stale": 0, "manual": 0, "missing": 0},
+    "latest_provider_refresh": "fixture"
+  },
+  "recommendations": [
+    {
+      "rank": 1,
+      "symbol": "MSFT",
+      "company": "Microsoft",
+      "action": "Add",
+      "score": 82.5,
+      "confidence": "Medium",
+      "data_status": "Blended",
+      "why": "Decision-safe golden fixture."
+    }
+  ],
+  "holdings": {"headers": [], "rows": []},
+  "queues": {
+    "action_queue": {"headers": ["Rank", "Symbol"], "rows": [[1, "MSFT"]]},
+    "data_gaps": {"headers": ["Rank", "Symbol"], "rows": []},
+    "next_day": {"headers": ["Rank", "Symbol"], "rows": []},
+    "verification": {"headers": ["Rank", "Symbol"], "rows": []}
+  },
+  "decision_briefs": {"headers": ["Symbol", "Type"], "rows": []},
+  "insight_themes": {"headers": [], "rows": []},
+  "score_movement": {"headers": [], "rows": []},
+  "trend_insights": {"headers": [], "rows": []},
+  "data_gaps": {"headers": [], "rows": []},
+  "source_health": {"summary": {"needs_attention": 0, "healthy": 1, "stale": 0, "not_implemented": 0}},
+  "data_ingestion": {"headers": [], "rows": []},
+  "research_sources": {"headers": [], "rows": []},
+  "feedback": {"source_options": [], "recent": []},
+  "artifacts": {}
+}
