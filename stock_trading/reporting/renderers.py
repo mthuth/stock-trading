@@ -15,6 +15,7 @@ from stock_trading.reporting import decision_safety as safety_review
 from stock_trading.reporting.capital_deployment import build_long_term_capital_deployment_view
 from stock_trading.reporting.data_reliability import build_data_reliability_review
 from stock_trading.reporting.earnings_review import build_earnings_review_view
+from stock_trading.reporting.model_evaluation import build_model_evaluation_view
 from stock_trading.reporting.provider_gaps import (
     render_provider_gap_review_html,
     render_provider_gap_review_markdown,
@@ -46,12 +47,14 @@ REQUIRED_CONTEXT_SECTIONS = (
     "long_term_capital_deployment",
     "earnings_review",
     "tactical_review",
+    "model_evaluation",
     "artifacts",
 )
 REPORT_SECTION_LABELS = (
     "Long-Term Capital Deployment Review",
     "Earnings Review",
     "Tactical Review",
+    "Model Evaluation",
     "Product Review Path",
     "Learning Review",
     "Wave 7 Capital Deployment Prep",
@@ -1071,6 +1074,75 @@ def tactical_review_markdown_lines(context: dict[str, object]) -> list[str]:
     return lines
 
 
+def render_model_evaluation(context: dict[str, object]) -> str:
+    review = build_model_evaluation_view(context)
+    trust = as_dict(review.get("trust"))
+    trust_detail = (
+        f'{html.escape(text(trust.get("trust_level"), "observe"))} · '
+        f'{html.escape(text(trust.get("confidence"), "low"))} confidence · review-only'
+        if trust
+        else "Trust score not available yet."
+    )
+    return (
+        '<section class="model-evaluation-review">'
+        '<div class="section-title"><h2>Model Evaluation</h2>'
+        '<span class="section-note">Review-only model learning; official recommendations stay unchanged</span></div>'
+        f'<p class="section-note">{html.escape(text(review.get("note")))}</p>'
+        f'<div class="coherence-grid">{_coherence_cards_html(review.get("cards"))}</div>'
+        f'<section><h3>Model Trust Score V1</h3><p class="section-note">{trust_detail}</p></section>'
+        '<div class="table-pair">'
+        f'<section><h3>Prediction Records</h3>{render_review_table(as_dict(review.get("predictions")))}</section>'
+        f'<section><h3>Model Registry</h3>{render_review_table(as_dict(review.get("registry")))}</section>'
+        "</div>"
+        '<div class="table-pair">'
+        f'<section><h3>Recommendation Backtest</h3>{render_review_table(as_dict(review.get("backtest")))}</section>'
+        f'<section><h3>Benchmark Comparison</h3>{render_review_table(as_dict(review.get("benchmark")))}</section>'
+        "</div>"
+        '<div class="table-pair">'
+        f'<section><h3>AI Thesis Evaluation</h3>{render_review_table(as_dict(review.get("ai")))}</section>'
+        f'<section><h3>Model Evaluation Warnings</h3>{render_review_table(as_dict(review.get("warnings")))}</section>'
+        "</div>"
+        "</section>"
+    )
+
+
+def model_evaluation_markdown_lines(context: dict[str, object]) -> list[str]:
+    review = build_model_evaluation_view(context)
+    trust = as_dict(review.get("trust"))
+    lines = [
+        "## Model Evaluation",
+        "",
+        text(review.get("note"), "Recommendation-only model evaluation; official recommendations are unchanged."),
+        "",
+    ]
+    for card in as_list(review.get("cards")):
+        item = as_dict(card)
+        lines.append(f"- {item.get('label', '')}: **{item.get('value', '')}** - {item.get('detail', '')}")
+    lines.extend(
+        [
+            "",
+            "### Model Trust Score V1",
+            "",
+            f"- Trust score: **{trust.get('trust_score', 'n/a')}**",
+            f"- Trust level: **{trust.get('trust_level', 'observe')}**",
+            f"- Confidence: **{trust.get('confidence', 'low')}**",
+            f"- Review-only: **{trust.get('review_only', True)}**",
+            f"- No model promotion: **{trust.get('no_model_promotion', True)}**",
+            "",
+        ]
+    )
+    for title, key in (
+        ("Prediction Records", "predictions"),
+        ("Model Registry", "registry"),
+        ("Recommendation Backtest", "backtest"),
+        ("Benchmark Comparison", "benchmark"),
+        ("AI Thesis Evaluation", "ai"),
+        ("Model Evaluation Warnings", "warnings"),
+    ):
+        append_table_section(lines, title, as_dict(review.get(key)), text(as_dict(review.get(key)).get("empty_state"), "No rows available."))
+    return lines
+
+
 def learning_review_summary_value(section: dict[str, Any], *keys: str) -> object:
     summary = as_dict(section.get("summary"))
     for key in keys:
@@ -1545,6 +1617,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     {render_tactical_review(context)}
     {render_product_review_path(context)}
     {render_data_reliability_review(context)}
+    {render_model_evaluation(context)}
 
     <nav class="tab-nav" aria-label="Dashboard sections">
       <button class="tab-button" type="button" aria-selected="true" data-tab-target="recommendationsTab">Recommendations</button>
@@ -1781,6 +1854,7 @@ def render_print_review(context: dict[str, object]) -> str:
       {render_long_term_capital_deployment(context)}
       {render_earnings_review(context)}
       {render_tactical_review(context)}
+      {render_model_evaluation(context)}
       {render_decision_safety_review(context)}
       {render_readiness(as_dict(context.get("readiness")))}
       <section>
@@ -2091,6 +2165,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
             *tactical_review_markdown_lines(context),
             *product_review_path_markdown_lines(context),
             *coherence_lines,
+            *model_evaluation_markdown_lines(context),
             *learning_review_markdown_lines(context),
         ]
     lines = [

@@ -166,6 +166,32 @@ def build_ai_panel(artifacts: dict[str, object]) -> dict[str, object]:
     }
 
 
+def build_model_evaluation_panel(context: dict[str, object]) -> dict[str, object]:
+    evaluation = as_dict(context.get("model_evaluation"))
+    predictions = as_dict(evaluation.get("prediction_records"))
+    registry = as_dict(evaluation.get("model_registry"))
+    backtest = as_dict(evaluation.get("recommendation_backtest"))
+    backtest_summary = as_dict(backtest.get("summary"))
+    benchmark = as_dict(evaluation.get("benchmark_comparison"))
+    benchmark_summary = as_dict(benchmark.get("summary"))
+    trust = as_dict(evaluation.get("model_trust_score_v1"))
+    ai = as_dict(evaluation.get("ai_thesis_evaluation"))
+    return {
+        "title": "Model Evaluation",
+        "status": text(trust.get("trust_level"), "Review-only"),
+        "items": [
+            {"label": "Prediction records", "value": text(predictions.get("prediction_count"), "0")},
+            {"label": "Registered models", "value": text(registry.get("model_count"), "0")},
+            {"label": "Backtest rows", "value": text(backtest_summary.get("row_count"), "0")},
+            {"label": "Benchmark status", "value": text(benchmark_summary.get("status"), "missing")},
+            {"label": "Trust score v1", "value": text(trust.get("trust_score"), "n/a")},
+            {"label": "AI thesis evaluations", "value": text(ai.get("evaluation_count"), "0")},
+            {"label": "No model promotion", "value": text(evaluation.get("no_model_promotion"), "true")},
+        ],
+        "note": "Recommendation-only model evaluation; review-only learning context does not change official recommendations or promote models.",
+    }
+
+
 def build_learning_panel(context: dict[str, object]) -> dict[str, object]:
     learning = as_dict(context.get("learning_review"))
     manual = as_dict(learning.get("manual_trade_journal"))
@@ -265,6 +291,7 @@ def build_console_panels(
         "tactical_review": build_tactical_panel(report_context),
         "provider_reliability": build_reliability_panel(report_context),
         "ai_brief_status": build_ai_panel(artifacts),
+        "model_evaluation": build_model_evaluation_panel(report_context),
         "learning_review": build_learning_panel(report_context),
         "manual_journal_outcomes": build_manual_outcomes_panel(report_context),
         "artifacts": build_artifacts_panel(artifacts),

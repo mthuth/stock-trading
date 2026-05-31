@@ -26,6 +26,7 @@ A local decision console should help the user:
 - Check decision safety.
 - Inspect target confidence.
 - Read AI briefs.
+- Review model evaluation, benchmark comparisons, and model trust.
 - Record and review manual journal entries.
 - Review outcomes and model trust.
 - Inspect run history.
@@ -41,7 +42,7 @@ The app should reduce friction in review, not increase automation risk.
 
 2. Local Decision Console Shell
    - Add a durable local navigation shell.
-   - Show latest recommendation review, best long-term add, earnings review, tactical review, provider gaps, decision safety, target confidence, AI briefs, manual journal, outcomes, model trust, and run history.
+   - Show latest recommendation review, best long-term add, earnings review, tactical review, model evaluation, provider gaps, decision safety, target confidence, AI briefs, manual journal, outcomes, model trust, and run history.
    - Keep all behavior local and recommendation-only.
    - Current Wave 9 implementation target: build a JSON manifest from existing local artifacts, render a static `reports/local-console.html` shell, and require the user to open it manually.
    - The shell must not include run buttons, real-time refreshes, broker access, order previews, or trading actions.
@@ -116,6 +117,12 @@ Earnings mode should be separate from normal long-term buy/add mode.
 Tactical review should appear as a separate review-only section after long-term capital deployment and earnings review. It can summarize setup labels, horizons, review actions, risk zones, invalidation conditions, provider/data gaps, earnings/event context, and tactical outcome history when available.
 
 Tactical review should not override the current buy/add decision, long-term capital deployment, official recommendation labels, scoring, target confidence, allocation, AI generation, provider ingestion, or broker behavior.
+
+## Model Evaluation
+
+Model evaluation should appear as a review-only learning section after the current decision, long-term capital deployment, earnings review, tactical review, and reliability context. It can summarize prediction records, model registry status, recommendation backtests, benchmark/excess-return comparisons, Model Trust Score v1, AI thesis evaluation, and missing-data warnings.
+
+Model evaluation should not promote models, tune scoring, change target methodology, alter decision-safety rules, override official recommendations, alter provider ingestion, or add broker/order behavior.
 
 ## Intraday Signal Review
 
