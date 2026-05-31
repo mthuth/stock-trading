@@ -1,0 +1,12 @@
+{
+  "scenario_id": "model_trust_changed",
+  "scenario_label": "Model trust changed",
+  "alert_layer": "review_triggers",
+  "review_only": true,
+  "recommendation_only": true,
+  "alerts": [
+    {"alert_id": "alert-model-trust", "alert_type": "model_trust_changed", "status": "new", "severity": "medium_review", "priority": 45, "created_at": "2026-05-31T08:00:00", "symbol": "", "company": "", "decision_mode": "model_evaluation", "source": "model_trust", "event_summary": "Model trust score changed after new evaluation data.", "why_review": "Manual review should inspect drivers and sample-size warnings.", "review_action": "review_model_trust_change", "prior_state": {"trust_level": "observe", "trust_score": 0.42}, "current_state": {"trust_level": "observe", "trust_score": 0.50}, "dedupe_key": "portfolio:model_trust_changed:2026-05-31", "dedupe_group": "portfolio:model_trust", "duplicate_of": "", "related_artifacts": ["reports/report-context-2026-05-31.json"], "review_only_note": "Model trust alert does not promote the model."}
+  ],
+  "expected_behavior": {"inbox_state": "has_alerts", "scenario_assertions": ["model_trust_change_visible", "no_model_promotion", "official_recommendation_unchanged"]},
+  "guardrails": {"no_automatic_trading": true, "no_broker_write": true, "no_order_preview": true, "no_margin_account_trading_logic": true, "no_automatic_scoring_changes": true, "no_automatic_target_changes": true, "no_automatic_decision_safety_changes": true, "no_automatic_source_weight_changes": true, "no_model_tuning": true, "no_live_external_notifications": true, "no_automatic_recommendation_changes_from_alerts": true}
+}

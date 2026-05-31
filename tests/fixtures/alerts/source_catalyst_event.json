@@ -1,0 +1,12 @@
+{
+  "scenario_id": "source_catalyst_event",
+  "scenario_label": "New source/catalyst event",
+  "alert_layer": "review_triggers",
+  "review_only": true,
+  "recommendation_only": true,
+  "alerts": [
+    {"alert_id": "alert-nvda-source-event", "alert_type": "source_event_review", "status": "new", "severity": "low_review", "priority": 60, "created_at": "2026-05-31T08:00:00", "symbol": "NVDA", "company": "NVIDIA", "decision_mode": "source_review", "source": "evidence_events", "event_summary": "New official-source catalyst evidence arrived.", "why_review": "Manual review should inspect source usefulness and corroboration.", "review_action": "review_source_event", "prior_state": {"latest_event": "none"}, "current_state": {"latest_event": "official_ir_catalyst"}, "dedupe_key": "NVDA:source_event_review:official_ir:2026-05-31", "dedupe_group": "NVDA:source", "duplicate_of": "", "related_artifacts": ["reports/synthesis-packets-2026-05-31.json"], "review_only_note": "Source alert does not change source weights."}
+  ],
+  "expected_behavior": {"inbox_state": "has_alerts", "scenario_assertions": ["source_event_visible", "source_weight_unchanged", "official_recommendation_unchanged"]},
+  "guardrails": {"no_automatic_trading": true, "no_broker_write": true, "no_order_preview": true, "no_margin_account_trading_logic": true, "no_automatic_scoring_changes": true, "no_automatic_target_changes": true, "no_automatic_decision_safety_changes": true, "no_automatic_source_weight_changes": true, "no_model_tuning": true, "no_live_external_notifications": true, "no_automatic_recommendation_changes_from_alerts": true}
+}

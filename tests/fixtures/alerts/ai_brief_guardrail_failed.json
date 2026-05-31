@@ -1,0 +1,12 @@
+{
+  "scenario_id": "ai_brief_guardrail_failed",
+  "scenario_label": "AI brief guardrail failed",
+  "alert_layer": "review_triggers",
+  "review_only": true,
+  "recommendation_only": true,
+  "alerts": [
+    {"alert_id": "alert-bbai-ai-failed", "alert_type": "ai_brief_guardrail_failed", "status": "new", "severity": "critical_review", "priority": 1, "created_at": "2026-05-31T08:00:00", "symbol": "BBAI", "company": "BigBear.ai", "decision_mode": "ai_thesis_review", "source": "ai_brief_guardrails", "event_summary": "AI brief failed deterministic guardrails.", "why_review": "Unsupported claims or missing risk language require rejection/rework.", "review_action": "review_ai_guardrail_failure", "prior_state": {"guardrail_status": "pending"}, "current_state": {"guardrail_status": "failed"}, "dedupe_key": "BBAI:ai_brief_guardrail_failed:2026-05-31", "dedupe_group": "BBAI:ai", "duplicate_of": "", "related_artifacts": ["reports/ai-insight-briefs-2026-05-31.json"], "review_only_note": "Guardrail failure blocks brief acceptance only; it does not change recommendations."}
+  ],
+  "expected_behavior": {"inbox_state": "has_alerts", "scenario_assertions": ["ai_guardrail_failure_visible", "ai_non_authoritative", "official_recommendation_unchanged"]},
+  "guardrails": {"no_automatic_trading": true, "no_broker_write": true, "no_order_preview": true, "no_margin_account_trading_logic": true, "no_automatic_scoring_changes": true, "no_automatic_target_changes": true, "no_automatic_decision_safety_changes": true, "no_automatic_source_weight_changes": true, "no_model_tuning": true, "no_live_external_notifications": true, "no_automatic_recommendation_changes_from_alerts": true}
+}

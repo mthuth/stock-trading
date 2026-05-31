@@ -1,0 +1,12 @@
+{
+  "scenario_id": "provider_gap_resolved",
+  "scenario_label": "Provider gap resolved",
+  "alert_layer": "review_triggers",
+  "review_only": true,
+  "recommendation_only": true,
+  "alerts": [
+    {"alert_id": "alert-alab-gap-resolved", "alert_type": "provider_gap_resolved", "status": "new", "severity": "informational", "priority": 80, "created_at": "2026-05-31T08:00:00", "symbol": "ALAB", "company": "Astera Labs", "decision_mode": "data_reliability", "source": "provider_gap_summary", "event_summary": "Current-price provider gap resolved.", "why_review": "Resolved data may improve review confidence after analysis refresh.", "review_action": "review_resolved_provider_gap", "prior_state": {"provider_gap": "missing"}, "current_state": {"provider_gap": "resolved"}, "dedupe_key": "ALAB:provider_gap_resolved:current_price:2026-05-31", "dedupe_group": "ALAB:provider_gap", "duplicate_of": "", "related_artifacts": ["reports/provider-gap-action-plan.md"], "review_only_note": "Resolved gap does not automatically change recommendations."}
+  ],
+  "expected_behavior": {"inbox_state": "has_alerts", "scenario_assertions": ["provider_gap_resolution_visible", "informational_review", "official_recommendation_unchanged"]},
+  "guardrails": {"no_automatic_trading": true, "no_broker_write": true, "no_order_preview": true, "no_margin_account_trading_logic": true, "no_automatic_scoring_changes": true, "no_automatic_target_changes": true, "no_automatic_decision_safety_changes": true, "no_automatic_source_weight_changes": true, "no_model_tuning": true, "no_live_external_notifications": true, "no_automatic_recommendation_changes_from_alerts": true}
+}

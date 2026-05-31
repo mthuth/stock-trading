@@ -1,0 +1,12 @@
+{
+  "scenario_id": "capital_deployment_review",
+  "scenario_label": "Capital deployment review",
+  "alert_layer": "review_triggers",
+  "review_only": true,
+  "recommendation_only": true,
+  "alerts": [
+    {"alert_id": "alert-capital-deployment", "alert_type": "capital_deployment_review", "status": "new", "severity": "high_review", "priority": 16, "created_at": "2026-05-31T08:00:00", "symbol": "MSFT", "company": "Microsoft", "decision_mode": "long_term_buy_add", "source": "capital_deployment", "event_summary": "Long-term add moved from hold capacity to deploy review.", "why_review": "Manual review should inspect best add, backup candidate, and allocation notes.", "review_action": "review_capital_deployment", "prior_state": {"deployment_status": "hold_buy_capacity"}, "current_state": {"deployment_status": "deploy_review"}, "dedupe_key": "MSFT:capital_deployment_review:2026-05-31", "dedupe_group": "MSFT:capital", "duplicate_of": "", "related_artifacts": ["reports/report-context-2026-05-31.json"], "review_only_note": "Capital alert does not place or preview orders."}
+  ],
+  "expected_behavior": {"inbox_state": "has_alerts", "scenario_assertions": ["capital_deployment_visible", "no_order_preview", "official_recommendation_unchanged"]},
+  "guardrails": {"no_automatic_trading": true, "no_broker_write": true, "no_order_preview": true, "no_margin_account_trading_logic": true, "no_automatic_scoring_changes": true, "no_automatic_target_changes": true, "no_automatic_decision_safety_changes": true, "no_automatic_source_weight_changes": true, "no_model_tuning": true, "no_live_external_notifications": true, "no_automatic_recommendation_changes_from_alerts": true}
+}
