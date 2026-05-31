@@ -1,0 +1,12 @@
+{
+  "scenario_id": "decision_gate_blocked_to_ready",
+  "scenario_label": "Decision gate changed from blocked to ready",
+  "alert_layer": "review_triggers",
+  "review_only": true,
+  "recommendation_only": true,
+  "alerts": [
+    {"alert_id": "alert-msft-gate-ready", "alert_type": "decision_gate_changed", "status": "new", "severity": "high_review", "priority": 10, "created_at": "2026-05-31T08:00:00", "symbol": "MSFT", "company": "Microsoft", "decision_mode": "long_term_buy_add", "source": "decision_safety", "event_summary": "Decision gate changed from Blocked to Ready.", "why_review": "Manual review can inspect why the candidate became decision-safe.", "review_action": "review_decision_gate_change", "prior_state": {"decision_gate_status": "Blocked"}, "current_state": {"decision_gate_status": "Ready"}, "dedupe_key": "MSFT:decision_gate_changed:2026-05-31", "dedupe_group": "MSFT:gate", "duplicate_of": "", "related_artifacts": ["reports/report-context-2026-05-31.json"], "review_only_note": "Alert does not change official recommendation or place trades."}
+  ],
+  "expected_behavior": {"inbox_state": "has_alerts", "scenario_assertions": ["gate_change_visible", "manual_review_only", "official_recommendation_unchanged"]},
+  "guardrails": {"no_automatic_trading": true, "no_broker_write": true, "no_order_preview": true, "no_margin_account_trading_logic": true, "no_automatic_scoring_changes": true, "no_automatic_target_changes": true, "no_automatic_decision_safety_changes": true, "no_automatic_source_weight_changes": true, "no_model_tuning": true, "no_live_external_notifications": true, "no_automatic_recommendation_changes_from_alerts": true}
+}

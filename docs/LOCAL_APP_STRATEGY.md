@@ -61,6 +61,7 @@ The app should reduce friction in review, not increase automation risk.
    - Future review surface for signals and news triggers.
    - Should remain a review console, not a trading bot.
    - No real-time broker/order behavior.
+   - Read [Wave 12 Alerts And Review Triggers Requirements](WAVE12_ALERTS_REVIEW_TRIGGERS_REQUIREMENTS.md) before adding alert inbox or review-trigger behavior.
 
 6. Optional Broker Read-Only Context
    - Deferred until cash/holdings uncertainty harms recommendations.

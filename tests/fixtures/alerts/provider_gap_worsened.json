@@ -1,0 +1,12 @@
+{
+  "scenario_id": "provider_gap_worsened",
+  "scenario_label": "Provider gap worsened",
+  "alert_layer": "review_triggers",
+  "review_only": true,
+  "recommendation_only": true,
+  "alerts": [
+    {"alert_id": "alert-plab-gap-worsened", "alert_type": "provider_gap_worsened", "status": "new", "severity": "high_review", "priority": 12, "created_at": "2026-05-31T08:00:00", "symbol": "PLAB", "company": "Photronics", "decision_mode": "data_reliability", "source": "provider_gap_summary", "event_summary": "Price-history provider gap worsened from stale to missing.", "why_review": "Missing price history blocks reliable technical/tactical review.", "review_action": "review_worsened_provider_gap", "prior_state": {"price_history": "stale"}, "current_state": {"price_history": "missing"}, "dedupe_key": "PLAB:provider_gap_worsened:price_history:2026-05-31", "dedupe_group": "PLAB:provider_gap", "duplicate_of": "", "related_artifacts": ["reports/provider-gap-action-plan.md"], "review_only_note": "Provider gap alert does not trigger live refresh."}
+  ],
+  "expected_behavior": {"inbox_state": "has_alerts", "scenario_assertions": ["provider_gap_worsening_visible", "no_live_refresh", "official_recommendation_unchanged"]},
+  "guardrails": {"no_automatic_trading": true, "no_broker_write": true, "no_order_preview": true, "no_margin_account_trading_logic": true, "no_automatic_scoring_changes": true, "no_automatic_target_changes": true, "no_automatic_decision_safety_changes": true, "no_automatic_source_weight_changes": true, "no_model_tuning": true, "no_live_external_notifications": true, "no_automatic_recommendation_changes_from_alerts": true}
+}

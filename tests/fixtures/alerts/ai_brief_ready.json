@@ -1,0 +1,12 @@
+{
+  "scenario_id": "ai_brief_ready",
+  "scenario_label": "AI brief ready",
+  "alert_layer": "review_triggers",
+  "review_only": true,
+  "recommendation_only": true,
+  "alerts": [
+    {"alert_id": "alert-msft-ai-ready", "alert_type": "ai_brief_ready", "status": "new", "severity": "low_review", "priority": 65, "created_at": "2026-05-31T08:00:00", "symbol": "MSFT", "company": "Microsoft", "decision_mode": "ai_thesis_review", "source": "ai_brief_review", "event_summary": "AI brief is ready for manual review.", "why_review": "Manual review should inspect evidence, uncertainty, and guardrail status.", "review_action": "review_ai_brief", "prior_state": {"ai_brief_status": "missing"}, "current_state": {"ai_brief_status": "ready"}, "dedupe_key": "MSFT:ai_brief_ready:2026-05-31", "dedupe_group": "MSFT:ai", "duplicate_of": "", "related_artifacts": ["reports/ai-insight-briefs-2026-05-31.md"], "review_only_note": "AI brief cannot change official recommendation."}
+  ],
+  "expected_behavior": {"inbox_state": "has_alerts", "scenario_assertions": ["ai_brief_ready_visible", "ai_explanatory_only", "official_recommendation_unchanged"]},
+  "guardrails": {"no_automatic_trading": true, "no_broker_write": true, "no_order_preview": true, "no_margin_account_trading_logic": true, "no_automatic_scoring_changes": true, "no_automatic_target_changes": true, "no_automatic_decision_safety_changes": true, "no_automatic_source_weight_changes": true, "no_model_tuning": true, "no_live_external_notifications": true, "no_automatic_recommendation_changes_from_alerts": true}
+}

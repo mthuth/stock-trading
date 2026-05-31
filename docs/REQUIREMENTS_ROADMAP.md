@@ -12,6 +12,7 @@ Related strategy docs:
 - [Wave 8 Earnings Review Requirements](WAVE8_EARNINGS_REVIEW_REQUIREMENTS.md)
 - [Wave 10 Tactical Review Requirements](WAVE10_TACTICAL_REVIEW_REQUIREMENTS.md)
 - [Wave 11 Model Evaluation Requirements](WAVE11_MODEL_EVALUATION_REQUIREMENTS.md)
+- [Wave 12 Alerts And Review Triggers Requirements](WAVE12_ALERTS_REVIEW_TRIGGERS_REQUIREMENTS.md)
 - [Decision Modes](DECISION_MODES.md)
 - [Model Learning Strategy](MODEL_LEARNING_STRATEGY.md)
 - [Local App Strategy](LOCAL_APP_STRATEGY.md)
@@ -242,6 +243,8 @@ No automatic score tuning or recommendation changes.
 ## Wave 12: Alerts And Review Triggers
 
 Goal: surface review-worthy changes without creating trade execution, order preview, or broker-write behavior.
+
+Read [Wave 12 Alerts And Review Triggers Requirements](WAVE12_ALERTS_REVIEW_TRIGGERS_REQUIREMENTS.md) before starting implementation.
 
 Likely triggers:
 

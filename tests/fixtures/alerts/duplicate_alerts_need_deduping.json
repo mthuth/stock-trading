@@ -1,0 +1,13 @@
+{
+  "scenario_id": "duplicate_alerts_need_deduping",
+  "scenario_label": "Duplicate alerts need deduping",
+  "alert_layer": "review_triggers",
+  "review_only": true,
+  "recommendation_only": true,
+  "alerts": [
+    {"alert_id": "alert-msft-price-a", "alert_type": "price_move_review", "status": "new", "severity": "medium_review", "priority": 30, "created_at": "2026-05-31T08:00:00", "symbol": "MSFT", "company": "Microsoft", "decision_mode": "portfolio_review", "source": "price_history", "event_summary": "Price move alert from price history.", "why_review": "Review price move once.", "review_action": "review_price_move", "prior_state": {"price": 410.0}, "current_state": {"price": 438.0}, "dedupe_key": "MSFT:price_move_review:2026-05-31", "dedupe_group": "MSFT:price", "duplicate_of": "", "related_artifacts": ["reports/report-context-2026-05-31.json"], "review_only_note": "Primary alert remains review-only."},
+    {"alert_id": "alert-msft-price-b", "alert_type": "price_move_review", "status": "new", "severity": "low_review", "priority": 65, "created_at": "2026-05-31T08:01:00", "symbol": "MSFT", "company": "Microsoft", "decision_mode": "portfolio_review", "source": "local_console", "event_summary": "Duplicate price move alert.", "why_review": "Should dedupe into primary price alert.", "review_action": "review_price_move", "prior_state": {"price": 410.0}, "current_state": {"price": 438.0}, "dedupe_key": "MSFT:price_move_review:2026-05-31", "dedupe_group": "MSFT:price", "duplicate_of": "alert-msft-price-a", "related_artifacts": ["reports/local-console-manifest.json"], "review_only_note": "Duplicate alert is collapsed, not hidden."}
+  ],
+  "expected_behavior": {"inbox_state": "dedupe_needed", "scenario_assertions": ["duplicate_key_visible", "duplicate_of_set", "official_recommendation_unchanged"]},
+  "guardrails": {"no_automatic_trading": true, "no_broker_write": true, "no_order_preview": true, "no_margin_account_trading_logic": true, "no_automatic_scoring_changes": true, "no_automatic_target_changes": true, "no_automatic_decision_safety_changes": true, "no_automatic_source_weight_changes": true, "no_model_tuning": true, "no_live_external_notifications": true, "no_automatic_recommendation_changes_from_alerts": true}
+}

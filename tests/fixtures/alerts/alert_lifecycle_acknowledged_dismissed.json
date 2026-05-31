@@ -1,0 +1,13 @@
+{
+  "scenario_id": "alert_lifecycle_acknowledged_dismissed",
+  "scenario_label": "Alert acknowledged/dismissed lifecycle",
+  "alert_layer": "review_triggers",
+  "review_only": true,
+  "recommendation_only": true,
+  "alerts": [
+    {"alert_id": "alert-lifecycle-ack", "alert_type": "source_event_review", "status": "acknowledged", "severity": "low_review", "priority": 75, "created_at": "2026-05-31T08:00:00", "symbol": "NVDA", "company": "NVIDIA", "decision_mode": "source_review", "source": "alert_lifecycle", "event_summary": "Source event alert acknowledged.", "why_review": "Acknowledgement is local review metadata.", "review_action": "acknowledge_alert", "prior_state": {"status": "seen"}, "current_state": {"status": "acknowledged"}, "dedupe_key": "NVDA:source_event_review:2026-05-31", "dedupe_group": "NVDA:source", "duplicate_of": "", "related_artifacts": [], "review_only_note": "Lifecycle update does not change recommendations."},
+    {"alert_id": "alert-lifecycle-dismissed", "alert_type": "ai_brief_ready", "status": "dismissed", "severity": "informational", "priority": 90, "created_at": "2026-05-31T08:02:00", "symbol": "MSFT", "company": "Microsoft", "decision_mode": "ai_thesis_review", "source": "alert_lifecycle", "event_summary": "AI brief alert dismissed after review.", "why_review": "Dismissal is local review metadata.", "review_action": "dismiss_alert", "prior_state": {"status": "acknowledged"}, "current_state": {"status": "dismissed"}, "dedupe_key": "MSFT:ai_brief_ready:2026-05-31", "dedupe_group": "MSFT:ai", "duplicate_of": "", "related_artifacts": [], "review_only_note": "Dismissal does not hide future materially different alerts."}
+  ],
+  "expected_behavior": {"inbox_state": "lifecycle_reviewed", "scenario_assertions": ["acknowledged_status_visible", "dismissed_status_visible", "official_recommendation_unchanged"]},
+  "guardrails": {"no_automatic_trading": true, "no_broker_write": true, "no_order_preview": true, "no_margin_account_trading_logic": true, "no_automatic_scoring_changes": true, "no_automatic_target_changes": true, "no_automatic_decision_safety_changes": true, "no_automatic_source_weight_changes": true, "no_model_tuning": true, "no_live_external_notifications": true, "no_automatic_recommendation_changes_from_alerts": true}
+}

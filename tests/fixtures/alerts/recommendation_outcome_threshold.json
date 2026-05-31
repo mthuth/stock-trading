@@ -1,0 +1,12 @@
+{
+  "scenario_id": "recommendation_outcome_threshold",
+  "scenario_label": "Recommendation outcome crossed review threshold",
+  "alert_layer": "review_triggers",
+  "review_only": true,
+  "recommendation_only": true,
+  "alerts": [
+    {"alert_id": "alert-adbe-outcome-threshold", "alert_type": "recommendation_outcome_review", "status": "new", "severity": "medium_review", "priority": 40, "created_at": "2026-05-31T08:00:00", "symbol": "ADBE", "company": "Adobe", "decision_mode": "model_evaluation", "source": "recommendation_outcomes", "event_summary": "Recommendation outcome crossed underperformance review threshold.", "why_review": "Manual review should inspect benchmark-relative outcome and thesis quality.", "review_action": "review_recommendation_outcome", "prior_state": {"excess_return": -0.03}, "current_state": {"excess_return": -0.10}, "dedupe_key": "ADBE:recommendation_outcome_review:2026-05-31", "dedupe_group": "ADBE:outcome", "duplicate_of": "", "related_artifacts": ["reports/report-context-2026-05-31.json"], "review_only_note": "Outcome alert does not tune the model."}
+  ],
+  "expected_behavior": {"inbox_state": "has_alerts", "scenario_assertions": ["outcome_threshold_visible", "model_tuning_not_triggered", "official_recommendation_unchanged"]},
+  "guardrails": {"no_automatic_trading": true, "no_broker_write": true, "no_order_preview": true, "no_margin_account_trading_logic": true, "no_automatic_scoring_changes": true, "no_automatic_target_changes": true, "no_automatic_decision_safety_changes": true, "no_automatic_source_weight_changes": true, "no_model_tuning": true, "no_live_external_notifications": true, "no_automatic_recommendation_changes_from_alerts": true}
+}

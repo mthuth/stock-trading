@@ -1,0 +1,10 @@
+{
+  "scenario_id": "no_alerts",
+  "scenario_label": "No alerts",
+  "alert_layer": "review_triggers",
+  "review_only": true,
+  "recommendation_only": true,
+  "alerts": [],
+  "expected_behavior": {"inbox_state": "empty", "scenario_assertions": ["empty_inbox_visible", "no_alerts_invented", "official_recommendation_unchanged"]},
+  "guardrails": {"no_automatic_trading": true, "no_broker_write": true, "no_order_preview": true, "no_margin_account_trading_logic": true, "no_automatic_scoring_changes": true, "no_automatic_target_changes": true, "no_automatic_decision_safety_changes": true, "no_automatic_source_weight_changes": true, "no_model_tuning": true, "no_live_external_notifications": true, "no_automatic_recommendation_changes_from_alerts": true}
+}
