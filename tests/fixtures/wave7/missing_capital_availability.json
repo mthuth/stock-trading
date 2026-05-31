@@ -1,0 +1,52 @@
+{
+  "scenario_id": "missing_capital_availability",
+  "scenario_label": "Missing capital availability",
+  "decision_mode": "long_term_buy_add",
+  "recommendation_only": true,
+  "capital_availability": {
+    "status": "missing",
+    "monthly_buy_capacity": null,
+    "manual_available_cash": null,
+    "as_of_date": "",
+    "source": "not_configured",
+    "suggested_deployment": 0.0,
+    "hold_reason": "Capital availability is missing; hold deployment amount until configured."
+  },
+  "long_term_add_queue": [
+    {
+      "rank": 1,
+      "symbol": "MSFT",
+      "sleeve": "long_term_core",
+      "action": "Add",
+      "candidate_role": "top_candidate",
+      "decision_gate": {
+        "safe_to_buy": true,
+        "status": "Ready",
+        "reasons": []
+      },
+      "target_confidence": "Medium",
+      "allocation_safety": {
+        "status": "missing_capital_availability",
+        "suggested_amount": 0.0,
+        "reason": "Capital availability is missing."
+      },
+      "provider_gaps": [],
+      "ai_summary_status": "explanatory_ready"
+    }
+  ],
+  "holding_health": [],
+  "expected_behavior": {
+    "top_symbol": "MSFT",
+    "fallback_symbol": "",
+    "deployment_decision": "hold_for_capital_context",
+    "suggested_amount": 0.0,
+    "scenario_assertions": ["top_candidate_safe", "capital_missing", "amount_zero"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "ai_explanatory_only": true,
+    "no_model_tuning": true
+  }
+}

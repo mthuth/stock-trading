@@ -1,0 +1,39 @@
+{
+  "scenario_id": "long_term_holding_needs_review",
+  "scenario_label": "Long-term holding needs review",
+  "decision_mode": "long_term_hold_health",
+  "recommendation_only": true,
+  "capital_availability": {
+    "status": "available",
+    "monthly_buy_capacity": 2500.0,
+    "manual_available_cash": 2500.0,
+    "as_of_date": "2026-05-31",
+    "source": "manual",
+    "suggested_deployment": 0.0,
+    "hold_reason": "Holding-health fixture; no deployment recommendation."
+  },
+  "long_term_add_queue": [],
+  "holding_health": [
+    {
+      "symbol": "SNOW",
+      "sleeve": "long_term_core",
+      "status": "needs_review",
+      "review_only": true,
+      "reasons": ["Target confidence weakened", "Provider gaps need review", "Thesis evidence is stale"]
+    }
+  ],
+  "expected_behavior": {
+    "top_symbol": "",
+    "fallback_symbol": "",
+    "deployment_decision": "holding_health_review",
+    "suggested_amount": 0.0,
+    "scenario_assertions": ["holding_health_needs_review", "review_only", "no_sell_now_language"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "ai_explanatory_only": true,
+    "no_model_tuning": true
+  }
+}
