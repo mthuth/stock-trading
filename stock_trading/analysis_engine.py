@@ -17,10 +17,15 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from statistics import stdev
 from typing import Dict, Iterable, List, Set
 
+from stock_trading.fundamental_target_config import (
+    assumptions_for_symbol,
+    peer_group_for_symbol as configured_peer_group_for_symbol,
+    source_config as fundamental_source_config,
+)
 from stock_trading.provider_gap_summary import build_provider_gap_review
+from stock_trading.technical_targets import calculate_technical_target
 from stock_trading.watchlist_policy import evaluate_watchlist_policy
 
 
@@ -1030,12 +1035,7 @@ def latest_sec_facts_by_symbol() -> Dict[str, Dict[str, Dict[str, object]]]:
 
 
 def peer_group_for_symbol(symbol: str, model_config: Dict[str, object]) -> tuple[str, Dict[str, object]]:
-    peer_groups = model_config.get("peer_groups", {})
-    if isinstance(peer_groups, dict):
-        for name, config in peer_groups.items():
-            if symbol in [str(item).upper() for item in config.get("symbols", [])]:
-                return str(name), config
-    return "unknown", {}
+    return configured_peer_group_for_symbol(symbol, model_config)
 
 
 def adjustment_from_score(
@@ -1057,39 +1057,27 @@ def fundamental_target_row(
     if item.current_price <= 0:
         return None
 
-    peer_group, peer_config = peer_group_for_symbol(item.symbol, model_config)
-    if item.sleeve == "etf":
-        peer_group = "etf_ballast"
-        peer_config = model_config.get("peer_groups", {}).get("etf_ballast", {})
-    defaults = model_config.get("target_return_defaults", {})
-    group_defaults = defaults.get(peer_group, {}) if isinstance(defaults, dict) else {}
-    base_upside = to_float(group_defaults.get("base_upside_pct"), 12)
-    min_upside = to_float(group_defaults.get("min_upside_pct"), -15)
-    max_upside = to_float(group_defaults.get("max_upside_pct"), 30)
-
-    quality_config = model_config.get("quality_adjustment", {})
-    catalyst_config = model_config.get("catalyst_adjustment", {})
-    risk_config = model_config.get("risk_adjustment", {})
-    margin_config = model_config.get("margin_adjustment", {})
+    assumptions = assumptions_for_symbol(item.symbol, item.sleeve, model_config)
+    source = fundamental_source_config(model_config)
 
     quality_adj = adjustment_from_score(
         item.quality_score,
-        to_float(quality_config.get("basis_score"), 80),
-        to_float(quality_config.get("pct_per_score_point"), 0.2),
-        to_float(quality_config.get("max_adjustment_pct"), 6),
+        assumptions.quality_basis_score,
+        assumptions.quality_pct_per_score_point,
+        assumptions.quality_max_adjustment_pct,
     )
     catalyst_adj = adjustment_from_score(
         item.catalyst_score,
-        to_float(catalyst_config.get("basis_score"), 75),
-        to_float(catalyst_config.get("pct_per_score_point"), 0.15),
-        to_float(catalyst_config.get("max_adjustment_pct"), 6),
+        assumptions.catalyst_basis_score,
+        assumptions.catalyst_pct_per_score_point,
+        assumptions.catalyst_max_adjustment_pct,
     )
     risk_penalty = max(
         0,
         min(
-            to_float(risk_config.get("max_penalty_pct"), 8),
-            (to_float(risk_config.get("basis_score"), 75) - item.risk_score)
-            * to_float(risk_config.get("pct_per_score_point_below_basis"), 0.2),
+            assumptions.risk_max_penalty_pct,
+            (assumptions.risk_basis_score - item.risk_score)
+            * assumptions.risk_pct_per_score_point_below_basis,
         ),
     )
 
@@ -1112,8 +1100,8 @@ def fundamental_target_row(
     )
 
     margin_adj = 0.0
-    strong_margin_bonus = to_float(margin_config.get("strong_margin_bonus_pct"), 4)
-    negative_margin_penalty = to_float(margin_config.get("negative_margin_penalty_pct"), 8)
+    strong_margin_bonus = assumptions.strong_margin_bonus_pct
+    negative_margin_penalty = assumptions.negative_margin_penalty_pct
     if operating_margin is not None and operating_margin < 0:
         margin_adj -= negative_margin_penalty
     elif cash_flow_margin is not None and cash_flow_margin < 0:
@@ -1121,31 +1109,34 @@ def fundamental_target_row(
     elif (
         operating_margin is not None
         and cash_flow_margin is not None
-        and operating_margin >= to_float(margin_config.get("strong_operating_margin"), 0.25)
-        and cash_flow_margin >= to_float(margin_config.get("strong_cash_flow_margin"), 0.20)
+        and operating_margin >= assumptions.strong_operating_margin
+        and cash_flow_margin >= assumptions.strong_cash_flow_margin
     ):
         margin_adj += strong_margin_bonus
 
-    thin_input_penalty = 4 if not revenue else 0
+    thin_input_penalty = assumptions.thin_revenue_penalty_pct if not revenue else 0
     if not (operating_income or operating_cash_flow or diluted_eps):
-        thin_input_penalty += 3
+        thin_input_penalty += assumptions.thin_profitability_penalty_pct
 
     modeled_upside = max(
-        min_upside,
+        assumptions.min_upside_pct,
         min(
-            max_upside,
-            base_upside + quality_adj + catalyst_adj + margin_adj - risk_penalty - thin_input_penalty,
+            assumptions.max_upside_pct,
+            assumptions.base_upside_pct + quality_adj + catalyst_adj + margin_adj - risk_penalty - thin_input_penalty,
         ),
     )
     target_price = item.current_price * (1 + modeled_upside / 100)
 
-    confidence = "medium" if revenue and (operating_income or operating_cash_flow or diluted_eps) else "low"
+    confidence = (
+        assumptions.complete_input_confidence
+        if revenue and (operating_income or operating_cash_flow or diluted_eps)
+        else assumptions.missing_input_confidence
+    )
     if item.sleeve == "speculative_ai":
-        confidence = "low"
+        confidence = assumptions.speculative_confidence
 
-    range_widths = model_config.get("range_width_pct", {})
     range_width = to_float(
-        range_widths.get(confidence),
+        assumptions.range_width_pct.get(confidence),
         0.12 if confidence == "medium" else 0.18,
     )
     target_low = target_price * (1 - range_width)
@@ -1163,22 +1154,37 @@ def fundamental_target_row(
     if diluted_eps:
         metric_notes.append(f"diluted EPS {to_float(diluted_eps.get('value')):,.2f}")
     if not metric_notes:
-        metric_notes.append("thin fundamentals; target relies on score-based proxy assumptions")
+        metric_notes.append(assumptions.fallback_note)
+
+    assumption_detail = assumptions.to_dict()
+    assumption_detail.update(
+        {
+            "quality_adjustment_pct": round(quality_adj, 4),
+            "catalyst_adjustment_pct": round(catalyst_adj, 4),
+            "margin_adjustment_pct": round(margin_adj, 4),
+            "risk_penalty_pct": round(risk_penalty, 4),
+            "thin_input_penalty_pct": round(thin_input_penalty, 4),
+            "modeled_upside_pct": round(modeled_upside, 4),
+        }
+    )
 
     notes = (
-        f"Peer group {peer_group}; base upside {base_upside:.1f}%; "
+        f"Peer group {assumptions.peer_group}; "
+        f"method {assumptions.primary_valuation_method}; "
+        f"multiple {assumptions.primary_multiple}; "
+        f"base upside {assumptions.base_upside_pct:.1f}%; "
         f"quality adj {quality_adj:+.1f}%; catalyst adj {catalyst_adj:+.1f}%; "
         f"margin adj {margin_adj:+.1f}%; risk/data penalty -{risk_penalty + thin_input_penalty:.1f}%. "
         + "; ".join(metric_notes)
-        + f". Peer notes: {peer_config.get('notes', '')}"
+        + f". Valuation cap: {assumptions.valuation_cap}. Peer notes: {assumptions.peer_notes}"
     )
 
     return {
         "run_id": run_id,
         "symbol": item.symbol,
         "target_type": "fundamental",
-        "source_name": "Internal fundamental model",
-        "source_type": "model",
+        "source_name": source["source_name"],
+        "source_type": source["source_type"],
         "target_price": round(target_price, 4),
         "target_low": round(target_low, 4),
         "target_high": round(target_high, 4),
@@ -1187,9 +1193,10 @@ def fundamental_target_row(
         "as_of_date": as_of_date,
         "freshness_days": 0,
         "confidence": confidence,
-        "provider_endpoint": "SEC companyfacts + configured V1.2 assumptions",
+        "provider_endpoint": source["provider_endpoint"],
         "raw_payload_ref": "",
         "notes": notes,
+        "assumptions": assumption_detail,
     }
 
 
@@ -1257,76 +1264,16 @@ def technical_target_row(
     model_config: Dict[str, object],
     price_history: Dict[str, List[Dict[str, float]]],
 ) -> Dict[str, object] | None:
-    if item.current_price <= 0:
-        return None
-
-    history = price_history.get(item.symbol, [])
-    windows = model_config.get("windows", {}) if isinstance(model_config, dict) else {}
-    buffers = model_config.get("buffers", {}) if isinstance(model_config, dict) else {}
-    short_days = int(to_float(windows.get("short_trend_days"), 20))
-    medium_days = int(to_float(windows.get("medium_trend_days"), 50))
-    long_days = int(to_float(windows.get("long_trend_days"), 200))
-    support_days = int(to_float(windows.get("support_lookback_days"), 60))
-    resistance_days = int(to_float(windows.get("resistance_lookback_days"), 60))
-    breakout_buffer = to_float(buffers.get("breakout_buffer_pct"), 0.03)
-    stop_buffer = to_float(buffers.get("stop_review_buffer_below_support_pct"), 0.05)
-
-    if len(history) < short_days:
-        return None
-
-    closes = [row["close"] for row in history if row["close"] > 0]
-    highs = [row["high"] for row in history if row["high"] > 0]
-    lows = [row["low"] for row in history if row["low"] > 0]
-    if len(closes) < short_days:
-        return None
-
-    current = item.current_price
-    ma20 = average(closes[-short_days:])
-    ma50 = average(closes[-medium_days:]) if len(closes) >= medium_days else 0.0
-    ma200 = average(closes[-long_days:]) if len(closes) >= long_days else 0.0
-    support = min(lows[-support_days:]) if len(lows) >= min(support_days, len(lows)) else min(lows)
-    resistance = max(highs[-resistance_days:]) if len(highs) >= min(resistance_days, len(highs)) else max(highs)
-
-    returns = [
-        (closes[index] - closes[index - 1]) / closes[index - 1]
-        for index in range(1, len(closes[-21:]))
-        if closes[index - 1] > 0
-    ]
-    daily_volatility = stdev(returns) if len(returns) >= 2 else 0.0
-
-    if ma50 and current > ma20 > ma50:
-        trend_state = "bullish"
-        target_price = max(resistance * (1 + breakout_buffer), current * 1.04)
-    elif ma50 and current > ma50 and ma20 >= ma50 * 0.98:
-        trend_state = "constructive"
-        target_price = max((current + resistance) / 2, current * 1.02)
-    elif current < ma20 and ma50 and ma20 < ma50:
-        trend_state = "weak"
-        target_price = min(resistance, current * 1.02)
-    else:
-        trend_state = "mixed"
-        target_price = max((current + resistance) / 2, current * 1.01)
-
-    target_low = max(support, current * (1 - min(daily_volatility * 2, 0.12)))
-    target_high = max(target_price, resistance)
-    stop_review = support * (1 - stop_buffer)
-    upside = ((target_price - current) / current) * 100 if current > 0 else 0.0
-
-    confidence = "medium" if len(closes) >= support_days and daily_volatility <= 0.04 else "low"
-    if len(closes) < medium_days:
-        confidence = "low"
-    if item.sleeve == "speculative_ai":
-        confidence = "low"
-
-    notes = (
-        f"Trend {trend_state}; {len(closes)} daily bars; "
-        f"MA{short_days} {ma20:.2f}; "
-        + (f"MA{medium_days} {ma50:.2f}; " if ma50 else f"MA{medium_days} unavailable; ")
-        + (f"MA{long_days} {ma200:.2f}; " if ma200 else f"MA{long_days} unavailable; ")
-        + f"support {support:.2f}; resistance {resistance:.2f}; "
-        f"entry zone {target_low:.2f}-{min(current, target_price):.2f}; "
-        f"stop/review {stop_review:.2f}; 20-day daily volatility {daily_volatility * 100:.1f}%."
+    target = calculate_technical_target(
+        symbol=item.symbol,
+        current_price=item.current_price,
+        sleeve=item.sleeve,
+        as_of_date=as_of_date,
+        model_config=model_config,
+        history=price_history.get(item.symbol, []),
     )
+    if not target:
+        return None
 
     return {
         "run_id": run_id,
@@ -1334,17 +1281,17 @@ def technical_target_row(
         "target_type": "technical",
         "source_name": "Internal technical model",
         "source_type": "model",
-        "target_price": round(target_price, 4),
-        "target_low": round(target_low, 4),
-        "target_high": round(target_high, 4),
-        "current_price": current,
-        "upside_pct": round(upside, 4),
+        "target_price": target["target_price"],
+        "target_low": target["target_low"],
+        "target_high": target["target_high"],
+        "current_price": target["current_price"],
+        "upside_pct": target["upside_pct"],
         "as_of_date": as_of_date,
-        "freshness_days": 0,
-        "confidence": confidence,
-        "provider_endpoint": "price_history + configured V1.3 technical assumptions",
+        "freshness_days": target["freshness_days"],
+        "confidence": target["confidence"],
+        "provider_endpoint": target["provider_endpoint"],
         "raw_payload_ref": "",
-        "notes": notes,
+        "notes": target["notes"],
     }
 
 
@@ -1719,6 +1666,8 @@ def target_drilldown_for_symbol(
         range_text = "n/a"
         if low not in (None, "") and high not in (None, ""):
             range_text = f"{fmt_money(to_float(low))}-{fmt_money(to_float(high))}"
+        assumptions = row.get("assumptions")
+        assumptions = assumptions if isinstance(assumptions, dict) else {}
         source_entries.append(
             {
                 "symbol": symbol.upper(),
@@ -1735,6 +1684,16 @@ def target_drilldown_for_symbol(
                 "freshness": target_freshness_label(row),
                 "confidence": str(row.get("confidence") or "unknown"),
                 "notes": str(row.get("notes") or ""),
+                "assumptions": assumptions,
+                "assumptions_summary": "; ".join(
+                    str(part)
+                    for part in (
+                        assumptions.get("peer_group"),
+                        assumptions.get("primary_valuation_method"),
+                        assumptions.get("valuation_cap"),
+                    )
+                    if part
+                ),
             }
         )
 

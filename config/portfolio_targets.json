@@ -112,10 +112,27 @@
   "fundamental_target_model": {
     "version": "v1_straightforward_adjustable",
     "status": "v1_2_first_pass_implemented",
+    "primary_valuation_method": "score_adjusted_peer_group_return",
+    "source": {
+      "source_name": "Internal fundamental model",
+      "source_type": "model",
+      "provider_endpoint": "SEC companyfacts + configured fundamental_target_model assumptions"
+    },
     "principles": {
       "store_defaults_in_config": true,
       "prefer_ranges_when_inputs_are_weak": true,
       "fundamental_target_alone_cannot_create_high_confidence_add": true
+    },
+    "fallback_behavior": {
+      "default_peer_group": "unknown",
+      "default_base_upside_pct": 12,
+      "default_min_upside_pct": -15,
+      "default_max_upside_pct": 30,
+      "thin_revenue_penalty_pct": 4,
+      "thin_profitability_penalty_pct": 3,
+      "confidence_with_complete_inputs": "medium",
+      "confidence_with_missing_inputs": "low",
+      "missing_metric_note": "thin fundamentals; target relies on score-based proxy assumptions"
     },
     "growth_adjustment": {
       "pe_points_per_growth_point_above_peer_median": 0.5,
@@ -209,8 +226,13 @@
         "primary_multiple": "ev_revenue_or_manual_range",
         "default_ev_revenue": 4,
         "confidence_haircut": 0.35,
+        "speculative_watchlist_haircut": 0.35,
         "notes": "Watchlist-only until observation period and source confidence improve."
       }
+    },
+    "speculative_watchlist": {
+      "confidence": "low",
+      "confidence_haircut": 0.35
     }
   },
   "blended_target_model": {
@@ -258,6 +280,11 @@
       "stop_review_buffer_below_support_pct": 0.05,
       "high_volatility_confidence_haircut": 0.20,
       "thin_history_confidence_haircut": 0.25
+    },
+    "quality_thresholds": {
+      "minimum_history_days": 20,
+      "stale_history_days": 5,
+      "volatile_daily_move_pct": 0.04
     },
     "blended_target_caps": {
       "long_term_max_technical_contribution": 0.10,
