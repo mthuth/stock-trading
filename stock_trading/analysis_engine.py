@@ -409,6 +409,186 @@ def score_summary(breakdown: ScoreBreakdown) -> str:
     )
 
 
+def score_explanation(
+    item: ResearchInput,
+    breakdown: ScoreBreakdown,
+    target: BlendedTarget | None = None,
+    insight: InsightSignal | None = None,
+    rationale: str = "",
+) -> Dict[str, object]:
+    """Build JSON-native score explainability without changing score math."""
+
+    target_upside = target.upside_pct if target else item.upside_pct
+    upside_raw = clamp(target_upside * 1.8)
+    component_specs = [
+        (
+            "upside",
+            "Upside",
+            upside_raw,
+            breakdown.upside,
+            "Estimated upside from current price to blended target.",
+            50.0,
+        ),
+        (
+            "quality",
+            "Quality",
+            item.quality_score,
+            breakdown.quality,
+            "Business quality, margins, balance sheet, moat, and durability.",
+            60.0,
+        ),
+        (
+            "momentum",
+            "Momentum",
+            item.momentum_score,
+            breakdown.momentum,
+            "Trend, relative strength, price action, and market confirmation.",
+            60.0,
+        ),
+        (
+            "catalyst",
+            "Catalyst",
+            item.catalyst_score,
+            breakdown.catalyst,
+            "Earnings, guidance, product cycle, analyst revisions, sector momentum, or news.",
+            60.0,
+        ),
+        (
+            "risk",
+            "Risk",
+            item.risk_score,
+            breakdown.risk,
+            "Risk-adjusted setup. Higher is better; lower means more valuation, volatility, or thesis risk.",
+            65.0,
+        ),
+    ]
+    components: Dict[str, float] = {
+        "upside": round(float(breakdown.upside), 4),
+        "quality": round(float(breakdown.quality), 4),
+        "momentum": round(float(breakdown.momentum), 4),
+        "catalyst": round(float(breakdown.catalyst), 4),
+        "risk": round(float(breakdown.risk), 4),
+        "owned_penalty": -round(float(breakdown.owned_penalty), 4),
+        "speculative_penalty": -round(float(breakdown.speculative_penalty), 4),
+    }
+    component_details: List[Dict[str, object]] = []
+    driver_candidates: List[Dict[str, object]] = []
+    risk_candidates: List[Dict[str, object]] = []
+    for key, label, raw_value, points, description, risk_threshold in component_specs:
+        detail = {
+            "key": key,
+            "label": label,
+            "raw": round(float(raw_value), 4),
+            "points": round(float(points), 4),
+            "description": description,
+        }
+        component_details.append(detail)
+        if points > 0:
+            driver_candidates.append(
+                {
+                    "key": key,
+                    "label": label,
+                    "points": round(float(points), 4),
+                    "description": description,
+                }
+            )
+        if raw_value < risk_threshold:
+            risk_candidates.append(
+                {
+                    "key": key,
+                    "label": label,
+                    "points": round(float(points), 4),
+                    "severity": round(float(risk_threshold - raw_value), 4),
+                    "description": f"{label} raw score is below the explainability threshold.",
+                }
+            )
+
+    if breakdown.owned_penalty:
+        risk_candidates.append(
+            {
+                "key": "owned_penalty",
+                "label": "Owned penalty",
+                "points": -round(float(breakdown.owned_penalty), 4),
+                "severity": round(float(breakdown.owned_penalty), 4),
+                "description": "Existing position reduces add attractiveness.",
+            }
+        )
+    if breakdown.speculative_penalty:
+        risk_candidates.append(
+            {
+                "key": "speculative_penalty",
+                "label": "Speculative penalty",
+                "points": -round(float(breakdown.speculative_penalty), 4),
+                "severity": round(float(breakdown.speculative_penalty), 4),
+                "description": "Speculative AI guardrail keeps the name review-only.",
+            }
+        )
+
+    signal_overlay: Dict[str, object] | None = None
+    if insight:
+        overlay_parts = [
+            ("evidence", insight.evidence_delta, insight.drivers[0] if len(insight.drivers) > 0 else ""),
+            ("price_trend", insight.trend_delta, insight.drivers[1] if len(insight.drivers) > 1 else ""),
+            ("target_confidence", insight.target_delta, insight.drivers[2] if len(insight.drivers) > 2 else ""),
+            ("data_gap", insight.data_gap_delta, insight.drivers[3] if len(insight.drivers) > 3 else ""),
+        ]
+        signal_overlay = {
+            "total_delta": round(float(insight.total_delta), 4),
+            "final_score": round(float(insight.final_score), 4),
+            "score_movement": insight.score_movement,
+            "components": {
+                key: {
+                    "delta": round(float(delta), 4),
+                    "description": description,
+                }
+                for key, delta, description in overlay_parts
+            },
+        }
+        components["signal_overlay"] = round(float(insight.total_delta), 4)
+        if insight.total_delta > 0:
+            driver_candidates.append(
+                {
+                    "key": "signal_overlay",
+                    "label": "Signal overlay",
+                    "points": round(float(insight.total_delta), 4),
+                    "description": insight.score_movement,
+                }
+            )
+        for key, delta, description in overlay_parts:
+            if delta < 0:
+                risk_candidates.append(
+                    {
+                        "key": key,
+                        "label": key.replace("_", " ").title(),
+                        "points": round(float(delta), 4),
+                        "severity": abs(round(float(delta), 4)),
+                        "description": description,
+                    }
+                )
+
+    top_drivers = sorted(
+        driver_candidates,
+        key=lambda candidate: float(candidate.get("points", 0)),
+        reverse=True,
+    )[:3]
+    top_risks = sorted(
+        risk_candidates,
+        key=lambda candidate: float(candidate.get("severity", abs(float(candidate.get("points", 0))))),
+        reverse=True,
+    )[:3]
+    return {
+        "model": breakdown.model,
+        "base_score": round(float(breakdown.total), 4),
+        "final_score": round(float(insight.final_score if insight else breakdown.total), 4),
+        "components": components,
+        "component_details": component_details,
+        "signal_overlay": signal_overlay,
+        "top_drivers": top_drivers,
+        "top_risks": top_risks,
+        "rationale": rationale,
+    }
+
+
 def score_driver_rows(item: ResearchInput, breakdown: ScoreBreakdown, target: BlendedTarget | None) -> List[List[object]]:
     if breakdown.model == "Day trade":
         weights = {"upside": 0.05, "quality": 0.10, "momentum": 0.40, "catalyst": 0.25, "risk": 0.20}
@@ -5705,6 +5885,7 @@ def run_analysis(
             row["position_after_buy_pct"],
             target,
         )
+        explanation = score_explanation(item, row["breakdown"], target, row.get("insight"), rationale)
         return {
             "rank": rank,
             "symbol": item.symbol,
@@ -5722,6 +5903,7 @@ def run_analysis(
             "data_status": data_status_for_target(item, target),
             "sources": target_source_label(item, target),
             "score_breakdown": score_summary_with_insight(row["breakdown"], row["insight"]),
+            "score_explanation": explanation,
             "why": rationale,
             "rationale": rationale,
             "confidence": target_confidence_text(item, target),
