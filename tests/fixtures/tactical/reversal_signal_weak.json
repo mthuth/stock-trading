@@ -1,0 +1,76 @@
+{
+  "scenario_id": "reversal_signal_weak",
+  "scenario_label": "Reversal signal weak",
+  "decision_mode": "tactical_trade",
+  "recommendation_only": true,
+  "review_only": true,
+  "symbol": "PLTR",
+  "company": "Palantir",
+  "scope": "watchlist",
+  "sleeve": "tactical",
+  "tactical_horizon": "5_to_20_days",
+  "setup_type": "reversal_review",
+  "setup": {
+    "status": "weak",
+    "thesis": "A possible reversal is visible, but confirmation is weak.",
+    "evidence": ["oversold_bounce", "volume_not_confirmed"],
+    "confidence": "low",
+    "prior_setup_outcome": "not_enough_history"
+  },
+  "current_recommendation": {
+    "action": "Watch",
+    "decision_gate_status": "Blocked",
+    "safe_to_buy": false,
+    "official_recommendation_impact": "none_review_only"
+  },
+  "tactical_review": {
+    "review_action": "wait_for_confirmation",
+    "review_label": "Wait for confirmation",
+    "reason": "Reversal evidence is weak and should not be treated as buy-ready.",
+    "long_term_override": false
+  },
+  "risk_zone": {
+    "risk_level": "elevated",
+    "review_zone": "unconfirmed_reversal_zone",
+    "downside_reference": "recent_low",
+    "upside_reference": "first_resistance_review",
+    "volatility_context": "high",
+    "liquidity_context": "normal",
+    "position_context": "watchlist_only",
+    "notes": ["Weak reversal evidence should remain watch/wait."]
+  },
+  "invalidation": {
+    "invalidates_if": ["recent_low_breaks", "volume_confirms_downtrend"],
+    "confirmation_needed": ["higher_high", "volume_confirmation"],
+    "time_stop": "5_to_20_days",
+    "data_gaps": []
+  },
+  "provider_data": {
+    "price_history": "available",
+    "technical_evidence": "partial",
+    "news_catalyst": "not_required",
+    "earnings_context": "not_in_window",
+    "provider_gaps": []
+  },
+  "ai_context": {
+    "status": "explanatory_ready",
+    "may_change_official_recommendation": false
+  },
+  "expected_behavior": {
+    "queue_status": "wait_for_confirmation",
+    "scenario_assertions": ["weak_reversal_not_buy_ready", "confirmation_required", "official_recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_short_selling_execution": true,
+    "no_margin_account_logic": true,
+    "no_real_time_trading_console": true,
+    "no_automatic_score_target_decision_safety_changes": true,
+    "no_automatic_model_tuning": true,
+    "no_automatic_source_weight_changes": true,
+    "no_broker_credential_requirement": true,
+    "no_long_term_override": true
+  }
+}

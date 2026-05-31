@@ -1,0 +1,76 @@
+{
+  "scenario_id": "watchlist_only_remains_blocked",
+  "scenario_label": "Watchlist-only name remains blocked from buy-ready",
+  "decision_mode": "tactical_trade",
+  "recommendation_only": true,
+  "review_only": true,
+  "symbol": "BBAI",
+  "company": "BigBear.ai",
+  "scope": "watchlist",
+  "sleeve": "speculative_ai",
+  "tactical_horizon": "same_day",
+  "setup_type": "news_catalyst_review",
+  "setup": {
+    "status": "watch_only",
+    "thesis": "News catalyst is interesting but watchlist-only status remains blocked from buy-ready.",
+    "evidence": ["news_catalyst_positive", "speculative_watchlist_only"],
+    "confidence": "low",
+    "prior_setup_outcome": "not_enough_history"
+  },
+  "current_recommendation": {
+    "action": "Watch",
+    "decision_gate_status": "Blocked",
+    "safe_to_buy": false,
+    "official_recommendation_impact": "none_review_only"
+  },
+  "tactical_review": {
+    "review_action": "watch_intraday",
+    "review_label": "Watch intraday",
+    "reason": "Catalyst can be watched, but watchlist-only status is not bypassed.",
+    "long_term_override": false
+  },
+  "risk_zone": {
+    "risk_level": "high",
+    "review_zone": "speculative_catalyst_watch",
+    "downside_reference": "catalyst_fades",
+    "upside_reference": "catalyst_follow_through_review",
+    "volatility_context": "high",
+    "liquidity_context": "elevated_risk",
+    "position_context": "watchlist_only",
+    "notes": ["Watchlist-only blocks buy-ready posture."]
+  },
+  "invalidation": {
+    "invalidates_if": ["catalyst_uncorroborated", "watchlist_block_remains"],
+    "confirmation_needed": ["corroborated_evidence", "watchlist_gate_review"],
+    "time_stop": "same_day",
+    "data_gaps": ["source_corroboration_needed"]
+  },
+  "provider_data": {
+    "price_history": "available",
+    "technical_evidence": "partial",
+    "news_catalyst": "uncorroborated",
+    "earnings_context": "not_in_window",
+    "provider_gaps": ["source_corroboration_needed"]
+  },
+  "ai_context": {
+    "status": "not_ready_data_gap",
+    "may_change_official_recommendation": false
+  },
+  "expected_behavior": {
+    "queue_status": "watch_only",
+    "scenario_assertions": ["watchlist_only_not_buy_ready", "decision_gate_not_bypassed", "official_recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_short_selling_execution": true,
+    "no_margin_account_logic": true,
+    "no_real_time_trading_console": true,
+    "no_automatic_score_target_decision_safety_changes": true,
+    "no_automatic_model_tuning": true,
+    "no_automatic_source_weight_changes": true,
+    "no_broker_credential_requirement": true,
+    "no_long_term_override": true
+  }
+}

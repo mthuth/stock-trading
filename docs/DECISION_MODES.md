@@ -71,6 +71,7 @@ Required horizons:
 - Later mode.
 - Should remain separate from long-term recommendations.
 - Should use shorter horizons and tighter catalyst/trend checks.
+- See [Wave 10 Tactical Review Requirements](WAVE10_TACTICAL_REVIEW_REQUIREMENTS.md) before implementing tactical review behavior.
 
 `earnings_event`:
 

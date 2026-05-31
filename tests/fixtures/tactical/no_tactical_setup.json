@@ -1,0 +1,76 @@
+{
+  "scenario_id": "no_tactical_setup",
+  "scenario_label": "No tactical setup",
+  "decision_mode": "tactical_trade",
+  "recommendation_only": true,
+  "review_only": true,
+  "symbol": "ADBE",
+  "company": "Adobe",
+  "scope": "approved_universe",
+  "sleeve": "tactical",
+  "tactical_horizon": "20_to_60_days",
+  "setup_type": "avoid_or_wait",
+  "setup": {
+    "status": "none",
+    "thesis": "No tactical setup is currently visible.",
+    "evidence": [],
+    "confidence": "not_applicable",
+    "prior_setup_outcome": "not_enough_history"
+  },
+  "current_recommendation": {
+    "action": "Hold",
+    "decision_gate_status": "Ready",
+    "safe_to_buy": false,
+    "official_recommendation_impact": "none_review_only"
+  },
+  "tactical_review": {
+    "review_action": "avoid_for_now",
+    "review_label": "Avoid for now",
+    "reason": "No tactical setup should be invented.",
+    "long_term_override": false
+  },
+  "risk_zone": {
+    "risk_level": "not_applicable",
+    "review_zone": "no_setup",
+    "downside_reference": "not_applicable",
+    "upside_reference": "not_applicable",
+    "volatility_context": "normal",
+    "liquidity_context": "normal",
+    "position_context": "not_owned",
+    "notes": ["Empty state should remain explicit."]
+  },
+  "invalidation": {
+    "invalidates_if": [],
+    "confirmation_needed": ["new_setup_evidence"],
+    "time_stop": "20_to_60_days",
+    "data_gaps": []
+  },
+  "provider_data": {
+    "price_history": "available",
+    "technical_evidence": "available",
+    "news_catalyst": "none",
+    "earnings_context": "not_in_window",
+    "provider_gaps": []
+  },
+  "ai_context": {
+    "status": "not_applicable",
+    "may_change_official_recommendation": false
+  },
+  "expected_behavior": {
+    "queue_status": "no_setup",
+    "scenario_assertions": ["no_tactical_setup_invented", "empty_state_visible", "official_recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_short_selling_execution": true,
+    "no_margin_account_logic": true,
+    "no_real_time_trading_console": true,
+    "no_automatic_score_target_decision_safety_changes": true,
+    "no_automatic_model_tuning": true,
+    "no_automatic_source_weight_changes": true,
+    "no_broker_credential_requirement": true,
+    "no_long_term_override": true
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "scenario_id": "post_earnings_overreaction",
+  "scenario_label": "Post-earnings overreaction",
+  "decision_mode": "tactical_trade",
+  "recommendation_only": true,
+  "review_only": true,
+  "symbol": "AMZN",
+  "company": "Amazon",
+  "scope": "approved_universe",
+  "sleeve": "tactical",
+  "tactical_horizon": "5_to_20_days",
+  "setup_type": "post_earnings_reaction_review",
+  "setup": {
+    "status": "review_ready",
+    "thesis": "Post-earnings market reaction may be larger than the thesis change supports.",
+    "evidence": ["earnings_reaction_large", "guidance_not_weakened", "volume_spike"],
+    "confidence": "medium",
+    "prior_setup_outcome": "not_enough_history"
+  },
+  "current_recommendation": {
+    "action": "Hold",
+    "decision_gate_status": "Ready",
+    "safe_to_buy": false,
+    "official_recommendation_impact": "none_review_only"
+  },
+  "tactical_review": {
+    "review_action": "tactical_buy_review",
+    "review_label": "Tactical buy review",
+    "reason": "Review whether the earnings reaction created a tactical opportunity; official recommendation is unchanged.",
+    "long_term_override": false
+  },
+  "risk_zone": {
+    "risk_level": "elevated",
+    "review_zone": "post_earnings_reaction_zone",
+    "downside_reference": "earnings_reaction_low",
+    "upside_reference": "gap_retrace_review",
+    "volatility_context": "high",
+    "liquidity_context": "normal",
+    "position_context": "not_owned",
+    "notes": ["Post-earnings volatility should be reviewed before any manual action."]
+  },
+  "invalidation": {
+    "invalidates_if": ["guidance_weakened", "margin_thesis_breaks", "reaction_continues_on_volume"],
+    "confirmation_needed": ["reaction_stabilizes", "earnings_evidence_reviewed"],
+    "time_stop": "5_to_20_days",
+    "data_gaps": []
+  },
+  "provider_data": {
+    "price_history": "available",
+    "technical_evidence": "available",
+    "news_catalyst": "earnings_available",
+    "earnings_context": "post_earnings",
+    "provider_gaps": []
+  },
+  "ai_context": {
+    "status": "explanatory_ready",
+    "may_change_official_recommendation": false
+  },
+  "expected_behavior": {
+    "queue_status": "review_ready",
+    "scenario_assertions": ["post_earnings_boundary_preserved", "earnings_review_only", "official_recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_short_selling_execution": true,
+    "no_margin_account_logic": true,
+    "no_real_time_trading_console": true,
+    "no_automatic_score_target_decision_safety_changes": true,
+    "no_automatic_model_tuning": true,
+    "no_automatic_source_weight_changes": true,
+    "no_broker_credential_requirement": true,
+    "no_long_term_override": true
+  }
+}

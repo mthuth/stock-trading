@@ -1,0 +1,76 @@
+{
+  "scenario_id": "clean_breakout_setup",
+  "scenario_label": "Clean breakout setup",
+  "decision_mode": "tactical_trade",
+  "recommendation_only": true,
+  "review_only": true,
+  "symbol": "MSFT",
+  "company": "Microsoft",
+  "scope": "owned",
+  "sleeve": "tactical",
+  "tactical_horizon": "1_to_5_days",
+  "setup_type": "breakout_review",
+  "setup": {
+    "status": "review_ready",
+    "thesis": "Price is reviewing a breakout above recent resistance with confirming volume.",
+    "evidence": ["price_above_resistance", "volume_confirmation", "relative_strength_positive"],
+    "confidence": "medium",
+    "prior_setup_outcome": "not_enough_history"
+  },
+  "current_recommendation": {
+    "action": "Add",
+    "decision_gate_status": "Ready",
+    "safe_to_buy": true,
+    "official_recommendation_impact": "none_review_only"
+  },
+  "tactical_review": {
+    "review_action": "tactical_buy_review",
+    "review_label": "Tactical buy review",
+    "reason": "Breakout evidence is present, but any action remains manual review.",
+    "long_term_override": false
+  },
+  "risk_zone": {
+    "risk_level": "moderate",
+    "review_zone": "breakout_continuation_zone",
+    "downside_reference": "prior_resistance",
+    "upside_reference": "measured_move_review",
+    "volatility_context": "normal",
+    "liquidity_context": "normal",
+    "position_context": "owned_core_position",
+    "notes": ["Review false-breakout risk before acting manually."]
+  },
+  "invalidation": {
+    "invalidates_if": ["breakout_fails", "volume_reverses", "market_risk_spikes"],
+    "confirmation_needed": ["hold_above_breakout_level"],
+    "time_stop": "1_to_5_days",
+    "data_gaps": []
+  },
+  "provider_data": {
+    "price_history": "available",
+    "technical_evidence": "available",
+    "news_catalyst": "not_required",
+    "earnings_context": "not_in_window",
+    "provider_gaps": []
+  },
+  "ai_context": {
+    "status": "explanatory_ready",
+    "may_change_official_recommendation": false
+  },
+  "expected_behavior": {
+    "queue_status": "review_ready",
+    "scenario_assertions": ["clean_breakout_visible", "manual_review_only", "official_recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_short_selling_execution": true,
+    "no_margin_account_logic": true,
+    "no_real_time_trading_console": true,
+    "no_automatic_score_target_decision_safety_changes": true,
+    "no_automatic_model_tuning": true,
+    "no_automatic_source_weight_changes": true,
+    "no_broker_credential_requirement": true,
+    "no_long_term_override": true
+  }
+}

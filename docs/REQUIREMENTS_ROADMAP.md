@@ -10,6 +10,7 @@ Related strategy docs:
 - [Roadmap Status](ROADMAP_STATUS.md)
 - [Wave 7 Handoff](WAVE7_HANDOFF.md)
 - [Wave 8 Earnings Review Requirements](WAVE8_EARNINGS_REVIEW_REQUIREMENTS.md)
+- [Wave 10 Tactical Review Requirements](WAVE10_TACTICAL_REVIEW_REQUIREMENTS.md)
 - [Decision Modes](DECISION_MODES.md)
 - [Model Learning Strategy](MODEL_LEARNING_STRATEGY.md)
 - [Local App Strategy](LOCAL_APP_STRATEGY.md)
@@ -210,6 +211,8 @@ No real-time broker/order behavior and no trading automation.
 ## Wave 10: Tactical Trade Review
 
 Goal: define tactical trade review separately from long-term buy/add recommendations.
+
+Read [Wave 10 Tactical Review Requirements](WAVE10_TACTICAL_REVIEW_REQUIREMENTS.md) before starting implementation.
 
 Likely scope:
 

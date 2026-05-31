@@ -1,0 +1,76 @@
+{
+  "scenario_id": "pre_earnings_too_risky",
+  "scenario_label": "Pre-earnings too risky",
+  "decision_mode": "tactical_trade",
+  "recommendation_only": true,
+  "review_only": true,
+  "symbol": "META",
+  "company": "Meta Platforms",
+  "scope": "watchlist",
+  "sleeve": "tactical",
+  "tactical_horizon": "same_day",
+  "setup_type": "pre_earnings_setup_review",
+  "setup": {
+    "status": "avoid_or_wait",
+    "thesis": "Upcoming earnings create too much event risk for a same-day tactical review.",
+    "evidence": ["earnings_within_two_days", "implied_move_elevated", "guidance_risk_unknown"],
+    "confidence": "low",
+    "prior_setup_outcome": "not_enough_history"
+  },
+  "current_recommendation": {
+    "action": "Watch",
+    "decision_gate_status": "Blocked",
+    "safe_to_buy": false,
+    "official_recommendation_impact": "none_review_only"
+  },
+  "tactical_review": {
+    "review_action": "avoid_for_now",
+    "review_label": "Avoid for now",
+    "reason": "Pre-earnings event risk is too high; wait for report evidence.",
+    "long_term_override": false
+  },
+  "risk_zone": {
+    "risk_level": "high",
+    "review_zone": "pre_earnings_event_risk",
+    "downside_reference": "earnings_gap_down",
+    "upside_reference": "earnings_gap_up",
+    "volatility_context": "high",
+    "liquidity_context": "normal",
+    "position_context": "watchlist_only",
+    "notes": ["Do not treat pre-earnings interest as buy-ready."]
+  },
+  "invalidation": {
+    "invalidates_if": ["earnings_uncertainty_unresolved", "decision_gate_blocked"],
+    "confirmation_needed": ["post_earnings_report_review"],
+    "time_stop": "same_day",
+    "data_gaps": ["guidance_uncertainty"]
+  },
+  "provider_data": {
+    "price_history": "available",
+    "technical_evidence": "available",
+    "news_catalyst": "earnings_pending",
+    "earnings_context": "pre_earnings",
+    "provider_gaps": ["guidance_uncertainty"]
+  },
+  "ai_context": {
+    "status": "explanatory_ready",
+    "may_change_official_recommendation": false
+  },
+  "expected_behavior": {
+    "queue_status": "avoid_for_now",
+    "scenario_assertions": ["pre_earnings_risk_visible", "blocked_gate_not_overridden", "official_recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_short_selling_execution": true,
+    "no_margin_account_logic": true,
+    "no_real_time_trading_console": true,
+    "no_automatic_score_target_decision_safety_changes": true,
+    "no_automatic_model_tuning": true,
+    "no_automatic_source_weight_changes": true,
+    "no_broker_credential_requirement": true,
+    "no_long_term_override": true
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "scenario_id": "momentum_strong_but_data_gap",
+  "scenario_label": "Momentum strong but data gap",
+  "decision_mode": "tactical_trade",
+  "recommendation_only": true,
+  "review_only": true,
+  "symbol": "ALAB",
+  "company": "Astera Labs",
+  "scope": "approved_universe",
+  "sleeve": "tactical",
+  "tactical_horizon": "1_to_5_days",
+  "setup_type": "momentum_review",
+  "setup": {
+    "status": "data_gap",
+    "thesis": "Momentum looks strong, but missing/stale provider data prevents a clean tactical review.",
+    "evidence": ["price_momentum_positive", "relative_strength_positive"],
+    "confidence": "low",
+    "prior_setup_outcome": "not_enough_history"
+  },
+  "current_recommendation": {
+    "action": "Watch",
+    "decision_gate_status": "Blocked",
+    "safe_to_buy": false,
+    "official_recommendation_impact": "none_review_only"
+  },
+  "tactical_review": {
+    "review_action": "data_gap_review",
+    "review_label": "Data gap review",
+    "reason": "Provider gaps block confidence in the tactical setup.",
+    "long_term_override": false
+  },
+  "risk_zone": {
+    "risk_level": "elevated",
+    "review_zone": "momentum_gap_review",
+    "downside_reference": "unknown_due_to_gap",
+    "upside_reference": "momentum_continuation_review",
+    "volatility_context": "elevated",
+    "liquidity_context": "unknown",
+    "position_context": "not_owned",
+    "notes": ["Do not upgrade setup confidence while data gaps remain."]
+  },
+  "invalidation": {
+    "invalidates_if": ["provider_gap_unresolved", "momentum_reverses"],
+    "confirmation_needed": ["current_price_confirmed", "price_history_refreshed"],
+    "time_stop": "1_to_5_days",
+    "data_gaps": ["current_price_missing", "price_history_stale"]
+  },
+  "provider_data": {
+    "price_history": "stale",
+    "technical_evidence": "partial",
+    "news_catalyst": "not_required",
+    "earnings_context": "not_in_window",
+    "provider_gaps": ["current_price_missing", "price_history_stale"]
+  },
+  "ai_context": {
+    "status": "not_ready_data_gap",
+    "may_change_official_recommendation": false
+  },
+  "expected_behavior": {
+    "queue_status": "data_gap_review",
+    "scenario_assertions": ["momentum_visible", "provider_gap_blocks_confidence", "official_recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_short_selling_execution": true,
+    "no_margin_account_logic": true,
+    "no_real_time_trading_console": true,
+    "no_automatic_score_target_decision_safety_changes": true,
+    "no_automatic_model_tuning": true,
+    "no_automatic_source_weight_changes": true,
+    "no_broker_credential_requirement": true,
+    "no_long_term_override": true
+  }
+}

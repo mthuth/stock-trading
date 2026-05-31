@@ -1,0 +1,76 @@
+{
+  "scenario_id": "missing_price_history",
+  "scenario_label": "Missing price history",
+  "decision_mode": "tactical_trade",
+  "recommendation_only": true,
+  "review_only": true,
+  "symbol": "PLAB",
+  "company": "Photronics",
+  "scope": "approved_universe",
+  "sleeve": "tactical",
+  "tactical_horizon": "20_to_60_days",
+  "setup_type": "avoid_or_wait",
+  "setup": {
+    "status": "data_gap",
+    "thesis": "Tactical setup cannot be reviewed because price history is missing.",
+    "evidence": [],
+    "confidence": "low",
+    "prior_setup_outcome": "not_enough_history"
+  },
+  "current_recommendation": {
+    "action": "Watch",
+    "decision_gate_status": "Blocked",
+    "safe_to_buy": false,
+    "official_recommendation_impact": "none_review_only"
+  },
+  "tactical_review": {
+    "review_action": "data_gap_review",
+    "review_label": "Data gap review",
+    "reason": "Missing price history prevents tactical setup review.",
+    "long_term_override": false
+  },
+  "risk_zone": {
+    "risk_level": "not_applicable",
+    "review_zone": "missing_price_history",
+    "downside_reference": "unknown_due_to_gap",
+    "upside_reference": "unknown_due_to_gap",
+    "volatility_context": "unknown",
+    "liquidity_context": "unknown",
+    "position_context": "not_owned",
+    "notes": ["Refresh price history before reviewing tactical signals."]
+  },
+  "invalidation": {
+    "invalidates_if": ["price_history_missing"],
+    "confirmation_needed": ["price_history_available"],
+    "time_stop": "20_to_60_days",
+    "data_gaps": ["price_history_missing"]
+  },
+  "provider_data": {
+    "price_history": "missing",
+    "technical_evidence": "missing",
+    "news_catalyst": "not_required",
+    "earnings_context": "unknown",
+    "provider_gaps": ["price_history_missing"]
+  },
+  "ai_context": {
+    "status": "not_ready_data_gap",
+    "may_change_official_recommendation": false
+  },
+  "expected_behavior": {
+    "queue_status": "data_gap_review",
+    "scenario_assertions": ["missing_price_history_visible", "no_tactical_setup_invented", "official_recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_short_selling_execution": true,
+    "no_margin_account_logic": true,
+    "no_real_time_trading_console": true,
+    "no_automatic_score_target_decision_safety_changes": true,
+    "no_automatic_model_tuning": true,
+    "no_automatic_source_weight_changes": true,
+    "no_broker_credential_requirement": true,
+    "no_long_term_override": true
+  }
+}
