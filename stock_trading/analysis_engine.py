@@ -30,6 +30,7 @@ from stock_trading.fundamental_target_config import (
     peer_group_for_symbol as configured_peer_group_for_symbol,
     source_config as fundamental_source_config,
 )
+from stock_trading.long_term_add_queue import build_long_term_add_queue
 from stock_trading.manual_trade_journal import list_manual_journal_entries
 from stock_trading.provider_gap_summary import build_provider_gap_review
 from stock_trading.recommendation_outcomes import build_recommendation_outcome_review
@@ -6276,6 +6277,52 @@ def run_analysis(
         }
 
     recommendations = [recommendation_context(rank, row) for rank, row in enumerate(ranked, start=1)]
+    synthesis_readiness_by_symbol = {
+        str(row[0]): {
+            "status": row[1],
+            "score": row[2],
+            "ready_events": row[3],
+            "needs_review": row[4],
+            "needs_corroboration": row[5],
+            "primary_events": row[7],
+            "independent_confirmed": row[8],
+            "latest_event": row[9],
+            "packet": row[10],
+            "notes": row[11],
+        }
+        for row in synthesis_readiness_table["rows"]
+        if row
+    }
+    long_term_queue_candidates = []
+    sleeve_market_values = sleeve_market_values_for_ranked(ranked, positions)
+    for rank, row in enumerate(ranked, start=1):
+        item = row["input"]
+        symbol = item.symbol
+        candidate = recommendation_context(rank, row)
+        gate = decision_safety_gate(row, decision_insights.get(symbol), targets)
+        allocation = allocation_safety_for_candidate(
+            row,
+            gate,
+            positions=positions,
+            targets=targets,
+            account_value=account_value,
+            buy_capacity=default_buy_amount,
+            sleeve_market_values=sleeve_market_values,
+        )
+        candidate.update(
+            {
+                "decision_mode": "long_term_buy_add" if item.sleeve == "long_term" else "",
+                "decision_gate": gate,
+                "safe_to_buy": gate.get("safe_to_buy"),
+                "decision_gate_status": gate.get("status"),
+                "blocked_reasons": gate.get("reasons", []),
+                "suggested_amount": allocation.suggested_amount,
+                "allocation_safety": allocation.to_context(),
+                "ai_synthesis_readiness": synthesis_readiness_by_symbol.get(symbol, {}),
+            }
+        )
+        long_term_queue_candidates.append(candidate)
+    long_term_add_queue = build_long_term_add_queue(long_term_queue_candidates)
     top_target_drilldown = target_drilldowns.get(next_item.symbol, {})
     allocation_rows = [
         {
@@ -6325,6 +6372,7 @@ def run_analysis(
             "verification_queue_items": stored_verification_queue_items,
         },
         "decision_safety": decision_gate,
+        "long_term_add_queue": long_term_add_queue,
         "reliability": {
             "mode": reliability_status,
             "price_counts": price_counts,
