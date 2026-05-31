@@ -1,0 +1,108 @@
+{
+  "metadata": {
+    "report_date": "2026-05-31",
+    "recommendation_only": true
+  },
+  "summary": {
+    "top_symbol": "NVDA",
+    "top_company": "NVIDIA",
+    "top_action": "Add",
+    "top_score": 81.5,
+    "recommendation_label": "Recommended next buy",
+    "suggested_amount_text": "$2,500.00",
+    "confidence": "High",
+    "top_notes": "Fixture recommendation context.",
+    "decision_gate": {
+      "status": "Ready"
+    }
+  },
+  "decision_safety": {
+    "status": "Ready"
+  },
+  "long_term_capital_deployment": {
+    "review_only": true,
+    "recommendation_only": true,
+    "status": "ready_to_review",
+    "primary_candidate": {
+      "symbol": "NVDA",
+      "action": "Add",
+      "decision_gate_status": "Ready",
+      "target_confidence": "High",
+      "suggested_amount_text": "$2,500.00"
+    },
+    "capital_availability": {
+      "deployable_amount_text": "$2,500.00",
+      "source": "configured"
+    },
+    "note": "Review-only capital deployment."
+  },
+  "earnings_review": {
+    "review_only": true,
+    "recommendation_only": true,
+    "note": "Recommendation-only earnings review; official recommendation outputs are unchanged.",
+    "upcoming_earnings_queue": {
+      "rows": [
+        {
+          "symbol": "MSFT"
+        }
+      ]
+    },
+    "recent_earnings_queue": {
+      "rows": []
+    },
+    "pre_earnings_setup_review": {
+      "rows": [
+        {
+          "symbol": "MSFT"
+        }
+      ]
+    },
+    "post_earnings_reaction_review": {
+      "rows": []
+    },
+    "earnings_signal_summary": {
+      "overall_direction": "mixed"
+    },
+    "provider_data_gaps": {
+      "rows": []
+    }
+  },
+  "reliability": {
+    "mode": "Fixture",
+    "price_counts": {
+      "fresh": 1,
+      "missing": 0
+    }
+  },
+  "source_health": {
+    "summary": {
+      "needs_attention": 0
+    }
+  },
+  "provider_gap_review": {
+    "summary": {
+      "total_gaps": 0
+    },
+    "note": "No fixture provider gaps."
+  },
+  "learning_review": {
+    "note": "Review-only learning outputs.",
+    "manual_trade_journal": {
+      "entry_count": 1,
+      "empty_state": ""
+    },
+    "recommendation_outcomes": {
+      "outcome_count": 2,
+      "empty_state": ""
+    },
+    "catalyst_follow_through": {
+      "row_count": 0
+    },
+    "source_usefulness": {
+      "row_count": 0
+    },
+    "decision_safety_effectiveness": {
+      "row_count": 0
+    }
+  }
+}
