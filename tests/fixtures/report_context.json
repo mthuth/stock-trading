@@ -473,6 +473,84 @@
       "No AI thesis evaluation rows are available yet."
     ]
   },
+  "alerts_review": {
+    "review_only": true,
+    "recommendation_only": true,
+    "no_live_notifications": true,
+    "does_not_override_recommendations": true,
+    "note": "Review-only alert prompts for manual attention; official recommendations stay unchanged and no live notifications are sent.",
+    "active_alerts_summary": {
+      "total_alerts": 2,
+      "active_alerts": 1,
+      "top_priority_count": 1,
+      "by_review_area": {
+        "capital_deployment": 1,
+        "provider_data": 1
+      },
+      "by_severity": {
+        "high": 1,
+        "informational": 1
+      },
+      "by_status": {
+        "new": 1,
+        "resolved": 1
+      },
+      "empty_state": {
+        "is_empty": false,
+        "message": ""
+      }
+    },
+    "top_priority_alerts": [
+      {
+        "alert_id": "alert-capital-fixture",
+        "alert_type": "capital_deployment_review",
+        "status": "new",
+        "severity": "high_review",
+        "display_severity": "high",
+        "priority": 201,
+        "created_at": "2026-05-28T18:00:00",
+        "symbol": "NVDA",
+        "company": "NVIDIA",
+        "decision_mode": "manual_review",
+        "review_area": "capital_deployment",
+        "source": "long_term_capital_deployment",
+        "event_summary": "Long-term add candidate is ready for manual review.",
+        "why_review": "Long-term capital deployment needs review",
+        "review_action": "review_long_term_capital_deployment",
+        "prior_state": {},
+        "current_state": {
+          "severity": "high_review",
+          "status": "new"
+        },
+        "dedupe_key": "capital_deployment_review:NVDA",
+        "dedupe_group": "capital_deployment_review:NVDA",
+        "duplicate_of": "",
+        "related_artifacts": ["report_context"],
+        "review_only": true,
+        "review_only_note": "Review-only alert prompts for manual attention; official recommendations stay unchanged and no live notifications are sent."
+      }
+    ],
+    "alerts_by_review_area": {
+      "capital_deployment": 1,
+      "provider_data": 1
+    },
+    "alerts_by_severity": {
+      "high": 1,
+      "informational": 1
+    },
+    "alerts_by_status": {
+      "new": 1,
+      "resolved": 1
+    },
+    "alert_lifecycle_metadata": {
+      "dismissed_count": 0,
+      "resolved_count": 1,
+      "stale_deferred_alerts": 0,
+      "local_review_metadata_only": true
+    },
+    "rows": [],
+    "empty_state": "No active review alerts. Existing recommendations remain unchanged."
+  },
   "reliability": {
     "mode": "Fresh provider data",
     "price_counts": {

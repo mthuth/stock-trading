@@ -19,6 +19,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List, Set
 
+from stock_trading.alert_inbox import build_alert_inbox
+from stock_trading.alerts import build_alert, build_review_alerts
 from stock_trading.allocation_safety import (
     allocation_safety_for_candidate,
     sleeve_market_values_for_ranked,
@@ -7096,6 +7098,202 @@ def run_analysis(
             "warnings": list(dict.fromkeys(warnings)),
         }
 
+    ALERT_REVIEW_NOTE = (
+        "Review-only alert prompts for manual attention; official recommendations stay unchanged "
+        "and no live notifications are sent."
+    )
+
+    def alert_display_severity(value: object) -> str:
+        token = str(value or "").lower().replace("-", "_").replace(" ", "_")
+        return token.removesuffix("_review") or "informational"
+
+    def alert_review_area(alert_type: object) -> str:
+        token = str(alert_type or "").lower()
+        if "capital" in token or "decision_gate" in token or "watchlist" in token:
+            return "capital_deployment"
+        if "earning" in token:
+            return "earnings_review"
+        if "tactical" in token or "setup" in token:
+            return "tactical_review"
+        if any(part in token for part in ("provider", "gap", "source", "price", "target_confidence")):
+            return "provider_data"
+        if "ai" in token or "brief" in token:
+            return "ai_briefs"
+        if "model" in token or "outcome" in token:
+            return "model_learning"
+        return "local_console"
+
+    def alert_priority(row: Dict[str, object], index: int) -> int:
+        severity_rank = {
+            "critical_review": 1,
+            "high_review": 2,
+            "medium_review": 3,
+            "low_review": 4,
+            "informational": 5,
+        }
+        return severity_rank.get(str(row.get("severity")), 5) * 100 + index
+
+    def alert_display_row(row: Dict[str, object], *, index: int, company_by_symbol: Dict[str, str]) -> Dict[str, object]:
+        symbol = str(row.get("symbol") or "").upper()
+        alert_type = str(row.get("alert_type") or "")
+        severity = str(row.get("severity") or "informational")
+        status = str(row.get("status") or "new")
+        return {
+            "alert_id": row.get("alert_id") or f"alert-{index}",
+            "alert_type": alert_type,
+            "status": status,
+            "severity": severity,
+            "display_severity": alert_display_severity(severity),
+            "priority": alert_priority(row, index),
+            "created_at": row.get("created_at") or "",
+            "symbol": symbol,
+            "company": company_by_symbol.get(symbol, ""),
+            "decision_mode": "manual_review",
+            "review_area": alert_review_area(alert_type),
+            "source": ", ".join(str(item) for item in context_list(row.get("source_refs")) if str(item)),
+            "event_summary": row.get("summary") or row.get("title") or "",
+            "why_review": row.get("title") or row.get("summary") or "",
+            "review_action": row.get("recommended_review_action") or "review_manually",
+            "prior_state": {},
+            "current_state": {
+                "severity": severity,
+                "status": status,
+            },
+            "dedupe_key": row.get("dedupe_key") or row.get("alert_id") or "",
+            "dedupe_group": f"{alert_type}:{symbol or 'portfolio'}",
+            "duplicate_of": row.get("duplicate_of") or "",
+            "related_artifacts": context_list(row.get("related_artifacts")),
+            "review_only": True,
+            "review_only_note": ALERT_REVIEW_NOTE,
+        }
+
+    def count_alerts_by(rows: List[Dict[str, object]], key: str) -> Dict[str, int]:
+        counts: Dict[str, int] = {}
+        for row in rows:
+            value = str(row.get(key) or "unknown")
+            counts[value] = counts.get(value, 0) + 1
+        return dict(sorted(counts.items()))
+
+    def build_alerts_review_context(
+        *,
+        long_term_capital_deployment: Dict[str, object],
+        earnings_review: Dict[str, object],
+        tactical_review: Dict[str, object],
+        model_evaluation: Dict[str, object],
+        learning_review: Dict[str, object],
+        provider_gap_rows: List[Dict[str, object]],
+        recommendations: List[Dict[str, object]],
+        as_of_date: str,
+        generated_at: str,
+    ) -> Dict[str, object]:
+        company_by_symbol = {
+            str(row.get("symbol") or "").upper(): str(row.get("company") or "")
+            for row in recommendations
+            if isinstance(row, dict)
+        }
+        signal_rows: Dict[str, object] = {
+            "provider_gaps": provider_gap_rows[:40],
+            "earnings_events": [
+                *context_list(context_dict(earnings_review.get("upcoming_earnings_queue")).get("rows")),
+                *context_list(context_dict(earnings_review.get("recent_earnings_queue")).get("rows")),
+            ],
+            "recommendation_outcomes": context_list(
+                context_dict(context_dict(learning_review.get("recommendation_outcomes")).get("top_outcomes")).get("rows")
+            )
+            or context_list(context_dict(learning_review.get("recommendation_outcomes")).get("top_outcomes")),
+            "tactical_setups": context_list(context_dict(tactical_review.get("tactical_watchlist_queue")).get("rows")),
+            "model_trust": [
+                {
+                    "model_name": "official_recommendation_model",
+                    "previous_trust_level": "unknown",
+                    "current_trust_level": context_dict(model_evaluation.get("model_trust_score_v1")).get("trust_level"),
+                    "previous_trust_score": 0,
+                    "current_trust_score": context_dict(model_evaluation.get("model_trust_score_v1")).get("trust_score"),
+                    "trust_level_changed": bool(context_list(model_evaluation.get("warnings"))),
+                }
+            ],
+        }
+        built = build_review_alerts(signal_rows, report_date=as_of_date, created_at=generated_at)
+        raw_alerts = [dict(row) for row in context_list(built.get("alerts")) if isinstance(row, dict)]
+        deployment_status = str(long_term_capital_deployment.get("status") or "").lower()
+        primary = context_dict(long_term_capital_deployment.get("primary_candidate"))
+        primary_status = str(primary.get("decision_gate_status") or "").lower()
+        if deployment_status and deployment_status not in {"deployable", "ready"}:
+            raw_alerts.append(
+                build_alert(
+                    report_date=as_of_date,
+                    created_at=generated_at,
+                    symbol=str(primary.get("symbol") or ""),
+                    alert_type="capital_deployment_review",
+                    severity="high_review" if primary_status == "blocked" else "medium_review",
+                    title="Long-term capital deployment needs review",
+                    summary=str(
+                        long_term_capital_deployment.get("hold_capacity_message")
+                        or "Capital deployment context is available for manual review."
+                    ),
+                    reason_codes=["capital_deployment_review", deployment_status],
+                    source_refs=["long_term_capital_deployment"],
+                    related_artifacts=["report_context"],
+                    recommended_review_action="review_long_term_capital_deployment",
+                )
+            )
+        display_rows = [
+            alert_display_row(row, index=index, company_by_symbol=company_by_symbol)
+            for index, row in enumerate(raw_alerts, start=1)
+        ]
+        active_rows = [
+            row
+            for row in display_rows
+            if str(row.get("status") or "").lower() not in {"dismissed", "resolved"}
+        ]
+        active_rows.sort(
+            key=lambda row: (
+                int(row.get("priority") or 999),
+                str(row.get("created_at") or ""),
+                str(row.get("symbol") or ""),
+                str(row.get("alert_id") or ""),
+            )
+        )
+        inbox_rows = [
+            {
+                **row,
+                "severity": row.get("display_severity"),
+                "message": row.get("event_summary"),
+                "title": row.get("why_review"),
+            }
+            for row in display_rows
+        ]
+        inbox = build_alert_inbox(inbox_rows, current_date=as_of_date, report_date=as_of_date)
+        summary = context_dict(inbox.get("summary"))
+        return {
+            "review_only": True,
+            "recommendation_only": True,
+            "no_live_notifications": True,
+            "does_not_override_recommendations": True,
+            "note": ALERT_REVIEW_NOTE,
+            "active_alerts_summary": {
+                "total_alerts": len(display_rows),
+                "active_alerts": len(active_rows),
+                "top_priority_count": min(5, len(active_rows)),
+                "by_review_area": count_alerts_by(display_rows, "review_area"),
+                "by_severity": count_alerts_by(display_rows, "display_severity"),
+                "by_status": count_alerts_by(display_rows, "status"),
+                "empty_state": context_dict(summary.get("empty_state")),
+            },
+            "top_priority_alerts": active_rows[:5],
+            "alerts_by_review_area": count_alerts_by(display_rows, "review_area"),
+            "alerts_by_severity": count_alerts_by(display_rows, "display_severity"),
+            "alerts_by_status": count_alerts_by(display_rows, "status"),
+            "alert_lifecycle_metadata": {
+                "dismissed_count": context_dict(inbox.get("dismissed_resolved_counts")).get("dismissed", 0),
+                "resolved_count": context_dict(inbox.get("dismissed_resolved_counts")).get("resolved", 0),
+                "stale_deferred_alerts": len(context_list(inbox.get("stale_deferred_alerts"))),
+                "local_review_metadata_only": True,
+            },
+            "rows": display_rows[:40],
+            "empty_state": "No active review alerts. Existing recommendations remain unchanged.",
+        }
+
     def recommendation_context(rank: int, row: Dict[str, object]) -> Dict[str, object]:
         item = row["input"]
         target = row.get("target")
@@ -7334,6 +7532,17 @@ def run_analysis(
         generated_at=now.isoformat(timespec="seconds"),
         recommendation_run_id=db_run_id,
     )
+    alerts_review = build_alerts_review_context(
+        long_term_capital_deployment=long_term_capital_deployment,
+        earnings_review=earnings_review,
+        tactical_review=tactical_review,
+        model_evaluation=model_evaluation,
+        learning_review=learning_review,
+        provider_gap_rows=[row for row in provider_gap_rows if isinstance(row, dict)],
+        recommendations=recommendations,
+        as_of_date=report_date,
+        generated_at=now.isoformat(timespec="seconds"),
+    )
     report_date = f"{now:%Y-%m-%d}"
     report_context = {
         "metadata": {
@@ -7373,6 +7582,7 @@ def run_analysis(
         "earnings_review": earnings_review,
         "tactical_review": tactical_review,
         "model_evaluation": model_evaluation,
+        "alerts_review": alerts_review,
         "long_term_add_queue": long_term_add_queue,
         "reliability": {
             "mode": reliability_status,

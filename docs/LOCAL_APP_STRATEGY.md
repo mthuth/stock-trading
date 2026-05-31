@@ -27,6 +27,7 @@ A local decision console should help the user:
 - Inspect target confidence.
 - Read AI briefs.
 - Review model evaluation, benchmark comparisons, and model trust.
+- See alert/review-trigger summaries for manual attention.
 - Record and review manual journal entries.
 - Review outcomes and model trust.
 - Inspect run history.
@@ -42,7 +43,7 @@ The app should reduce friction in review, not increase automation risk.
 
 2. Local Decision Console Shell
    - Add a durable local navigation shell.
-   - Show latest recommendation review, best long-term add, earnings review, tactical review, model evaluation, provider gaps, decision safety, target confidence, AI briefs, manual journal, outcomes, model trust, and run history.
+   - Show latest recommendation review, best long-term add, earnings review, tactical review, model evaluation, alerts/review triggers, provider gaps, decision safety, target confidence, AI briefs, manual journal, outcomes, model trust, and run history.
    - Keep all behavior local and recommendation-only.
    - Current Wave 9 implementation target: build a JSON manifest from existing local artifacts, render a static `reports/local-console.html` shell, and require the user to open it manually.
    - The shell must not include run buttons, real-time refreshes, broker access, order previews, or trading actions.
@@ -124,6 +125,12 @@ Tactical review should not override the current buy/add decision, long-term capi
 Model evaluation should appear as a review-only learning section after the current decision, long-term capital deployment, earnings review, tactical review, and reliability context. It can summarize prediction records, model registry status, recommendation backtests, benchmark/excess-return comparisons, Model Trust Score v1, AI thesis evaluation, and missing-data warnings.
 
 Model evaluation should not promote models, tune scoring, change target methodology, alter decision-safety rules, override official recommendations, alter provider ingestion, or add broker/order behavior.
+
+## Alerts And Review Triggers
+
+Alerts should appear as a review-only manual-attention summary after model evaluation and before broader learning review. They can summarize active alerts, top priority prompts, review areas, severity/status counts, and local lifecycle metadata when available.
+
+Alerts should not override current buy/add decisions, official recommendation labels, scoring, target confidence, decision-safety rules, allocation, provider ingestion, AI generation, model tuning, or local console workflow behavior. Wave 12 does not add live notification delivery.
 
 ## Intraday Signal Review
 
