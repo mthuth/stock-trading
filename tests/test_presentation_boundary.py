@@ -213,6 +213,40 @@ class PresentationBoundaryTests(unittest.TestCase):
         self.assertIn("Add blocked", dashboard)
         self.assertNotIn(">Recommended next buy<", dashboard)
 
+    def test_provider_gap_review_context_renders_in_dashboard_and_markdown(self) -> None:
+        context = {section: {} for section in subject.REQUIRED_CONTEXT_SECTIONS}
+        context["metadata"] = {"report_date": "2026-05-31", "generated_at": "2026-05-31T08:00:00"}
+        context["summary"] = {"top_symbol": "NVDA", "top_action": "Add", "top_score": 82.0}
+        context["reliability"] = {"mode": "ok_with_warnings", "price_counts": {"fresh": 1, "missing": 0}}
+        context["source_health"] = {"summary": {"needs_attention": 1, "healthy": 0, "stale": 0, "not_implemented": 0}}
+        context["provider_gap_review"] = {
+            "summary": {
+                "total": 1,
+                "blocker": 1,
+                "review_needed": 0,
+                "stale_missing": 0,
+                "informational": 0,
+                "top_candidate": "NVDA",
+                "top_candidate_affected": True,
+                "top_candidate_gap_count": 1,
+                "status_note": "Provider gaps remain visible even when report generation succeeds or a workflow finishes ok_with_warnings.",
+            },
+            "headers": ["Severity", "Top Candidate", "Provider", "Symbol", "Endpoint/Field", "Status", "Last Attempted", "Latest Issue", "Next Action"],
+            "rows": [["blocker", "Yes", "Finnhub", "NVDA", "quote", "rate_limited", "2026-05-31", "HTTP 429 quota exceeded", "Wait for quota reset"]],
+            "provider_groups": [{"provider": "Finnhub", "count": 1, "highest_severity": "blocker"}],
+            "symbol_groups": [{"symbol": "NVDA", "count": 1, "highest_severity": "blocker"}],
+        }
+
+        dashboard = subject.render_dashboard_html(context)
+        markdown = subject.render_markdown(context)
+
+        self.assertIn("Provider Gap Review", dashboard)
+        self.assertIn("provider-gap-count-blocker", dashboard)
+        self.assertIn("NVDA affected by 1 active gap", dashboard)
+        self.assertIn("Provider Gap Review", markdown)
+        self.assertIn("Top candidate affected: **Yes**", markdown)
+        self.assertIn("ok_with_warnings", markdown)
+
 
 if __name__ == "__main__":
     unittest.main()
