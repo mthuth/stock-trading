@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from stock_trading.ai_briefs import write_ai_brief_artifacts
+from stock_trading.reporting.data_reliability import build_data_reliability_review
 
 
 REQUIRED_CONTEXT_SECTIONS = (
@@ -661,6 +662,67 @@ def daily_decision_review_markdown_lines(context: dict[str, object]) -> list[str
     ]
 
 
+def render_data_reliability_review(context: dict[str, object]) -> str:
+    review = build_data_reliability_review(context)
+    cards = []
+    for card in as_list(review.get("cards")):
+        item = as_dict(card)
+        cards.append(
+            '<div class="data-review-card">'
+            f'<span class="label">{html.escape(text(item.get("label")))}</span>'
+            f'<strong>{html.escape(text(item.get("value"), "n/a"))}</strong>'
+            f'<p>{html.escape(text(item.get("detail")))}</p>'
+            "</div>"
+        )
+    details = [
+        ("Provider gap status", "What is missing, blocked, or rate-limited by provider.", as_dict(review.get("provider_gap_status"))),
+        ("Source health rollups", "Health counts and source usefulness signals.", as_dict(review.get("source_health_rollups"))),
+        ("SEC coverage", "Primary-source filing and companyfacts coverage where available.", as_dict(review.get("sec_coverage"))),
+        ("Official IR coverage", "Company investor-relations evidence coverage where available.", as_dict(review.get("official_ir_coverage"))),
+        ("Source usefulness/noise", "Useful, low-relevance, noisy, or low-confidence source evidence.", as_dict(review.get("source_usefulness"))),
+        ("Refresh plan", "What should refresh next and why.", as_dict(review.get("refresh_plan"))),
+        ("Backfill needs", "Historical source windows that still need coverage.", as_dict(review.get("backfill"))),
+    ]
+    detail_html = "".join(
+        "<details>"
+        f"<summary>{html.escape(title)}</summary>"
+        f'<p class="section-note">{html.escape(note)}</p>'
+        f'{html_table(as_list(table.get("headers")), as_list(table.get("rows")), "compact-table")}'
+        "</details>"
+        for title, note, table in details
+    )
+    return (
+        '<section class="data-reliability-review">'
+        '<div class="section-title"><h2>Data Reliability Review</h2><span class="section-note">Missing, stale, blocked, useful, and next-refresh signals</span></div>'
+        f'<div class="data-review-grid">{"".join(cards)}</div>'
+        f'<div class="data-review-details">{detail_html}</div>'
+        "</section>"
+    )
+
+
+def data_reliability_review_markdown_lines(context: dict[str, object]) -> list[str]:
+    review = build_data_reliability_review(context)
+    lines = [
+        "## Data Reliability Review",
+        "",
+    ]
+    for card in as_list(review.get("cards")):
+        item = as_dict(card)
+        lines.append(f"- {item.get('label', '')}: **{item.get('value', '')}** - {item.get('detail', '')}")
+    lines.append("")
+    for title, key, empty in (
+        ("Provider Gap Status", "provider_gap_status", "No provider gaps currently visible."),
+        ("Source Health Rollups", "source_health_rollups", "No source-health rollups available."),
+        ("SEC Coverage", "sec_coverage", "No SEC coverage rows available."),
+        ("Official IR Coverage", "official_ir_coverage", "No official IR coverage rows available."),
+        ("Source Usefulness / Noise", "source_usefulness", "No source usefulness rows available."),
+        ("Refresh Plan", "refresh_plan", "No refresh plan rows available."),
+        ("Backfill Needs", "backfill", "No backfill rows available."),
+    ):
+        append_table_section(lines, title, as_dict(review.get(key)), empty)
+    return lines
+
+
 def render_dashboard_html(context: dict[str, object]) -> str:
     metadata = as_dict(context.get("metadata"))
     summary = normalized_summary(context)
@@ -735,14 +797,15 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     .change-badge { display:inline-block; border:1px solid var(--line); border-radius:999px; padding:3px 8px; font-size:12px; font-weight:800; color:var(--muted); background:#f3f5f8; }
     .change-up,.change-new { border-color:#b8e4ca; background:#eaf8ef; color:var(--green); } .change-action { border-color:#f3d08a; background:#fff6df; color:var(--amber); } .change-down { border-color:#f3b7b0; background:#fff0ee; color:var(--red); }
     .daily-review-lead { display:grid; grid-template-columns:minmax(280px,1.5fr) minmax(220px,.8fr); gap:12px; margin-bottom:10px; }
-    .daily-review-lead > div,.daily-review-card { border:1px solid var(--line); border-radius:8px; background:#fbfcfe; padding:12px; min-width:0; }
-    .daily-review-lead strong,.daily-review-card strong { display:block; color:var(--text); font-size:18px; margin-top:2px; overflow-wrap:anywhere; }
-    .daily-review-lead p,.daily-review-card p { margin:6px 0 0; color:var(--muted); font-size:13px; }
+    .daily-review-lead > div,.daily-review-card,.data-review-card { border:1px solid var(--line); border-radius:8px; background:#fbfcfe; padding:12px; min-width:0; }
+    .daily-review-lead strong,.daily-review-card strong,.data-review-card strong { display:block; color:var(--text); font-size:18px; margin-top:2px; overflow-wrap:anywhere; }
+    .daily-review-lead p,.daily-review-card p,.data-review-card p { margin:6px 0 0; color:var(--muted); font-size:13px; }
     .daily-review-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
-    .daily-review-details { display:grid; gap:8px; margin-top:10px; }
-    .daily-review-details details { border:1px solid var(--line); border-radius:8px; background:#fbfcfe; padding:8px 10px; }
-    .daily-review-details summary { cursor:pointer; color:var(--blue); font-weight:800; }
-    .daily-review-details table { margin-top:8px; }
+    .data-review-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; }
+    .daily-review-details,.data-review-details { display:grid; gap:8px; margin-top:10px; }
+    .daily-review-details details,.data-review-details details { border:1px solid var(--line); border-radius:8px; background:#fbfcfe; padding:8px 10px; }
+    .daily-review-details summary,.data-review-details summary { cursor:pointer; color:var(--blue); font-weight:800; }
+    .daily-review-details table,.data-review-details table { margin-top:8px; }
     .action-queue-list { display:grid; gap:10px; }
     .action-card { border:1px solid var(--line); border-radius:8px; background:#fbfcfe; padding:12px; }
     .action-card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
@@ -796,7 +859,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     .print-summary-card { border:1px solid var(--line); border-radius:8px; padding:10px; background:#fbfcfe; }
     .print-summary-card strong { display:block; font-size:15px; margin-top:3px; }
     .print-table { min-width:0; table-layout:auto; }
-    @media (max-width:860px) { main { padding:16px; } .summary,.two-column,.table-pair,.feedback-grid,.daily-review-lead,.daily-review-grid { grid-template-columns:1fr; } .action-card-head { flex-direction:column; } .action-card-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (max-width:860px) { main { padding:16px; } .summary,.two-column,.table-pair,.feedback-grid,.daily-review-lead,.daily-review-grid,.data-review-grid { grid-template-columns:1fr; } .action-card-head { flex-direction:column; } .action-card-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media print {
       @page { margin:.45in; }
       :root { --bg:#fff; --panel:#fff; --text:#111827; --muted:#4b5563; --line:#d1d5db; }
@@ -856,6 +919,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     </div>
 
     {render_daily_decision_review(context)}
+    {render_data_reliability_review(context)}
 
     <nav class="tab-nav" aria-label="Dashboard sections">
       <button class="tab-button" type="button" aria-selected="true" data-tab-target="recommendationsTab">Recommendations</button>
@@ -1404,6 +1468,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
         f"- Latest successful provider refresh: **{reliability.get('latest_provider_refresh', 'n/a')}**",
         "",
         *daily_decision_review_markdown_lines(context),
+        *data_reliability_review_markdown_lines(context),
         f"Reason: {summary.get('top_notes', '')}",
         "",
         "## Report Reliability",
