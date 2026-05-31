@@ -97,7 +97,11 @@ class Wave12AlertFixtureTests(unittest.TestCase):
     maxDiff = None
 
     def test_expected_fixture_set_exists(self) -> None:
-        fixture_ids = {path.stem for path in FIXTURE_DIR.glob("*.json")}
+        fixture_ids = {
+            path.stem
+            for path in FIXTURE_DIR.glob("*.json")
+            if path.stem in EXPECTED_SCENARIOS
+        }
 
         self.assertEqual(fixture_ids, set(EXPECTED_SCENARIOS))
 

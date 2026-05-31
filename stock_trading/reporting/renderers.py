@@ -12,6 +12,7 @@ from typing import Any
 
 from stock_trading.ai_briefs import write_ai_brief_artifacts
 from stock_trading.reporting import decision_safety as safety_review
+from stock_trading.reporting.alerts import build_alerts_review_view
 from stock_trading.reporting.capital_deployment import build_long_term_capital_deployment_view
 from stock_trading.reporting.data_reliability import build_data_reliability_review
 from stock_trading.reporting.earnings_review import build_earnings_review_view
@@ -48,6 +49,7 @@ REQUIRED_CONTEXT_SECTIONS = (
     "earnings_review",
     "tactical_review",
     "model_evaluation",
+    "alerts_review",
     "artifacts",
 )
 REPORT_SECTION_LABELS = (
@@ -55,6 +57,7 @@ REPORT_SECTION_LABELS = (
     "Earnings Review",
     "Tactical Review",
     "Model Evaluation",
+    "Alerts And Review Triggers",
     "Product Review Path",
     "Learning Review",
     "Wave 7 Capital Deployment Prep",
@@ -1143,6 +1146,88 @@ def model_evaluation_markdown_lines(context: dict[str, object]) -> list[str]:
     return lines
 
 
+def alert_count_table(rows: object) -> dict[str, object]:
+    items = [as_dict(row) for row in as_list(rows)]
+    return {
+        "headers": ["Group", "Count"],
+        "rows": [[item.get("label", ""), item.get("count", 0)] for item in items],
+        "empty_state": "No alert counts are available.",
+    }
+
+
+def alert_top_priority_table(rows: object) -> dict[str, object]:
+    items = [as_dict(row) for row in as_list(rows)]
+    return {
+        "headers": ["Priority", "Severity", "Area", "Symbol", "Status", "Why Review", "Review Action"],
+        "rows": [
+            [
+                item.get("priority", ""),
+                item.get("display_severity", item.get("severity", "")),
+                text(item.get("review_area")).replace("_", " ").title(),
+                item.get("symbol", ""),
+                item.get("status", ""),
+                item.get("why_review", ""),
+                item.get("review_action", ""),
+            ]
+            for item in items
+        ],
+        "empty_state": "No active review alerts.",
+    }
+
+
+def alert_lifecycle_table(rows: object) -> dict[str, object]:
+    items = [as_dict(row) for row in as_list(rows)]
+    return {
+        "headers": ["Lifecycle Field", "Value"],
+        "rows": [[item.get("label", ""), item.get("value", "")] for item in items],
+        "empty_state": "No alert lifecycle metadata is available.",
+    }
+
+
+def render_alerts_review(context: dict[str, object]) -> str:
+    review = build_alerts_review_view(context)
+    return (
+        '<section class="alerts-review">'
+        '<div class="section-title"><h2>Alerts And Review Triggers</h2>'
+        '<span class="section-note">Review-only manual attention summary; official recommendations stay unchanged</span></div>'
+        f'<p class="section-note">{html.escape(text(review.get("note")))}</p>'
+        f'<div class="coherence-grid">{_coherence_cards_html(review.get("cards"))}</div>'
+        '<div class="table-pair">'
+        f'<section><h3>Top Priority Alerts</h3>{render_review_table(alert_top_priority_table(review.get("top_priority_alerts")))}</section>'
+        f'<section><h3>Alert Lifecycle Metadata</h3>{render_review_table(alert_lifecycle_table(review.get("lifecycle_metadata")))}</section>'
+        "</div>"
+        '<div class="table-pair">'
+        f'<section><h3>Alerts By Review Area</h3>{render_review_table(alert_count_table(review.get("alerts_by_review_area")))}</section>'
+        f'<section><h3>Alerts By Severity</h3>{render_review_table(alert_count_table(review.get("alerts_by_severity")))}</section>'
+        "</div>"
+        f'<section><h3>Alerts By Status</h3>{render_review_table(alert_count_table(review.get("alerts_by_status")))}</section>'
+        "</section>"
+    )
+
+
+def alerts_review_markdown_lines(context: dict[str, object]) -> list[str]:
+    review = build_alerts_review_view(context)
+    lines = [
+        "## Alerts And Review Triggers",
+        "",
+        text(review.get("note"), "Review-only alert prompts; official recommendations stay unchanged."),
+        "",
+    ]
+    for card in as_list(review.get("cards")):
+        item = as_dict(card)
+        lines.append(f"- {item.get('label', '')}: **{item.get('value', '')}** - {item.get('detail', '')}")
+    lines.append("")
+    for title, table in (
+        ("Top Priority Alerts", alert_top_priority_table(review.get("top_priority_alerts"))),
+        ("Alert Lifecycle Metadata", alert_lifecycle_table(review.get("lifecycle_metadata"))),
+        ("Alerts By Review Area", alert_count_table(review.get("alerts_by_review_area"))),
+        ("Alerts By Severity", alert_count_table(review.get("alerts_by_severity"))),
+        ("Alerts By Status", alert_count_table(review.get("alerts_by_status"))),
+    ):
+        append_table_section(lines, title, table, text(table.get("empty_state"), "No rows available."))
+    return lines
+
+
 def learning_review_summary_value(section: dict[str, Any], *keys: str) -> object:
     summary = as_dict(section.get("summary"))
     for key in keys:
@@ -1618,6 +1703,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     {render_product_review_path(context)}
     {render_data_reliability_review(context)}
     {render_model_evaluation(context)}
+    {render_alerts_review(context)}
 
     <nav class="tab-nav" aria-label="Dashboard sections">
       <button class="tab-button" type="button" aria-selected="true" data-tab-target="recommendationsTab">Recommendations</button>
@@ -1855,6 +1941,7 @@ def render_print_review(context: dict[str, object]) -> str:
       {render_earnings_review(context)}
       {render_tactical_review(context)}
       {render_model_evaluation(context)}
+      {render_alerts_review(context)}
       {render_decision_safety_review(context)}
       {render_readiness(as_dict(context.get("readiness")))}
       <section>
@@ -2166,6 +2253,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
             *product_review_path_markdown_lines(context),
             *coherence_lines,
             *model_evaluation_markdown_lines(context),
+            *alerts_review_markdown_lines(context),
             *learning_review_markdown_lines(context),
         ]
     lines = [

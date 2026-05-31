@@ -192,6 +192,32 @@ def build_model_evaluation_panel(context: dict[str, object]) -> dict[str, object
     }
 
 
+def build_alerts_panel(context: dict[str, object]) -> dict[str, object]:
+    alerts = as_dict(context.get("alerts_review"))
+    summary = as_dict(alerts.get("active_alerts_summary"))
+    lifecycle = as_dict(alerts.get("alert_lifecycle_metadata"))
+    area_counts = as_dict(alerts.get("alerts_by_review_area"))
+    severity_counts = as_dict(alerts.get("alerts_by_severity"))
+    status_counts = as_dict(alerts.get("alerts_by_status"))
+    return {
+        "title": "Alerts And Review Triggers",
+        "status": "Review-only",
+        "items": [
+            {"label": "Active alerts", "value": text(summary.get("active_alerts"), "0")},
+            {"label": "Top priority", "value": text(summary.get("top_priority_count"), "0")},
+            {"label": "Review areas", "value": len(area_counts)},
+            {"label": "Severities", "value": len(severity_counts)},
+            {"label": "Statuses", "value": len(status_counts)},
+            {"label": "Dismissed/resolved", "value": f"{text(lifecycle.get('dismissed_count'), '0')}/{text(lifecycle.get('resolved_count'), '0')}"},
+            {"label": "Live notifications", "value": "Off"},
+        ],
+        "note": text(
+            alerts.get("note"),
+            "Review-only alert prompts for manual attention; official recommendations stay unchanged and no live notifications are sent.",
+        ),
+    }
+
+
 def build_learning_panel(context: dict[str, object]) -> dict[str, object]:
     learning = as_dict(context.get("learning_review"))
     manual = as_dict(learning.get("manual_trade_journal"))
@@ -292,6 +318,7 @@ def build_console_panels(
         "provider_reliability": build_reliability_panel(report_context),
         "ai_brief_status": build_ai_panel(artifacts),
         "model_evaluation": build_model_evaluation_panel(report_context),
+        "alerts_review": build_alerts_panel(report_context),
         "learning_review": build_learning_panel(report_context),
         "manual_journal_outcomes": build_manual_outcomes_panel(report_context),
         "artifacts": build_artifacts_panel(artifacts),
