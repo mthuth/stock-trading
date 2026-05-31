@@ -43,6 +43,7 @@ class PackageBoundaryTests(unittest.TestCase):
             "stock_trading.ingestion",
             "stock_trading.ingestion_workflows",
             "stock_trading.analysis",
+            "stock_trading.allocation_safety",
             "stock_trading.analysis_engine",
             "stock_trading.analysis_context",
             "stock_trading.analysis_insights",
@@ -106,6 +107,7 @@ class PackageBoundaryTests(unittest.TestCase):
     def test_analysis_does_not_import_provider_client(self) -> None:
         for module_path in (
             "stock_trading/analysis.py",
+            "stock_trading/allocation_safety.py",
             "stock_trading/analysis_context.py",
             "stock_trading/analysis_engine.py",
             "stock_trading/analysis_insights.py",
