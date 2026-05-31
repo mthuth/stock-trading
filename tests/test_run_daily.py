@@ -12,6 +12,30 @@ from stock_trading.cli import daily as subject
 
 
 class RunDailyTests(unittest.TestCase):
+    def test_cli_uses_package_report_step_without_run_monkeypatch(self) -> None:
+        with (
+            patch.object(sys, "argv", ["run_daily.py", "--skip-refresh"]),
+            patch.object(subject, "generate_daily_report_step", return_value=0) as report_step,
+            patch.object(subject, "start_workflow_run", return_value=42),
+            patch.object(subject, "finish_workflow_run"),
+        ):
+            self.assertEqual(subject.main(), 0)
+
+        report_step.assert_called_once_with(42, True, refresh=False)
+
+    def test_cli_uses_package_public_feed_step_without_run_monkeypatch(self) -> None:
+        with (
+            patch.object(sys, "argv", ["run_daily.py", "--skip-refresh", "--ingest-public-feeds"]),
+            patch.object(subject, "ingest_public_research_feeds_step", return_value=0) as public_feed_step,
+            patch.object(subject, "generate_daily_report_step", return_value=0) as report_step,
+            patch.object(subject, "start_workflow_run", return_value=42),
+            patch.object(subject, "finish_workflow_run"),
+        ):
+            self.assertEqual(subject.main(), 0)
+
+        public_feed_step.assert_called_once_with(42, False)
+        report_step.assert_called_once_with(42, True, refresh=False)
+
     def test_ingest_evidence_refreshes_analyst_targets_before_fmp_depth_checks(self) -> None:
         commands: list[list[str]] = []
 
@@ -276,6 +300,37 @@ class RunDailyTests(unittest.TestCase):
         self.assertIn("scripts/generate_daily_report.py", command_names)
         finish_workflow_run.assert_called()
         self.assertEqual(finish_workflow_run.call_args.args[1], "ok_with_warnings")
+
+    def test_optional_package_ingestion_failure_continues_to_report(self) -> None:
+        with (
+            patch.object(sys, "argv", ["run_daily.py", "--skip-refresh", "--ingest-public-feeds"]),
+            patch.object(subject, "ingest_public_research_feeds_step", return_value=1),
+            patch.object(subject, "generate_daily_report_step", return_value=0) as report_step,
+            patch.object(subject, "start_workflow_run", return_value=42),
+            patch.object(subject, "finish_workflow_run") as finish_workflow_run,
+        ):
+            self.assertEqual(subject.main(), 0)
+
+        report_step.assert_called_once_with(42, True, refresh=False)
+        finish_workflow_run.assert_called()
+        self.assertEqual(finish_workflow_run.call_args.args[1], "ok_with_warnings")
+
+    def test_required_report_failure_fails_workflow(self) -> None:
+        with (
+            patch.object(sys, "argv", ["run_daily.py", "--skip-refresh"]),
+            patch.object(subject, "generate_daily_report_step", return_value=1),
+            patch.object(subject, "start_workflow_run", return_value=42),
+            patch.object(subject, "finish_workflow_run") as finish_workflow_run,
+        ):
+            self.assertEqual(subject.main(), 1)
+
+        finish_workflow_run.assert_called_with(
+            42,
+            "failed",
+            message="Report generation failed.",
+            summary="",
+            error_class="report_generation_failed",
+        )
 
     def test_refresh_failure_stops_when_no_core_price_data_exists(self) -> None:
         commands: list[list[str]] = []

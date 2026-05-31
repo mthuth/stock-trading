@@ -18,6 +18,7 @@ def py_files(*roots: str) -> list[str]:
         files.extend(str(path.relative_to(ROOT)) for path in sorted((ROOT / root).glob("*.py")))
     files.extend(str(path.relative_to(ROOT)) for path in sorted((ROOT / "stock_trading" / "cli").glob("*.py")))
     files.extend(str(path.relative_to(ROOT)) for path in sorted((ROOT / "stock_trading" / "reporting").glob("*.py")))
+    files.extend(str(path.relative_to(ROOT)) for path in sorted((ROOT / "stock_trading" / "workflows").glob("*.py")))
     return files
 
 

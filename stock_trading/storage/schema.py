@@ -61,6 +61,38 @@ def apply_schema_migrations(conn: sqlite3.Connection) -> None:
     )
     conn.execute(
         """
+        CREATE TABLE IF NOT EXISTS etrade_sync_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            synced_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            environment TEXT NOT NULL,
+            account_id_key TEXT NOT NULL,
+            account_type TEXT,
+            institution_type TEXT
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS etrade_positions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id INTEGER NOT NULL,
+            symbol TEXT NOT NULL,
+            security_type TEXT,
+            quantity REAL,
+            last_price REAL,
+            market_value REAL,
+            price_paid REAL,
+            total_gain REAL,
+            total_gain_pct REAL,
+            pct_of_portfolio REAL,
+            position_type TEXT,
+            raw_json TEXT NOT NULL,
+            FOREIGN KEY (run_id) REFERENCES etrade_sync_runs(id)
+        )
+        """
+    )
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS provider_refresh_runs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             refreshed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -787,6 +819,13 @@ def apply_schema_migrations(conn: sqlite3.Connection) -> None:
         VALUES (?, ?)
         """,
         (10, "synthesis readiness and evidence review queue"),
+    )
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO schema_migrations (version, name)
+        VALUES (?, ?)
+        """,
+        (11, "etrade holdings snapshot tables"),
     )
     conn.execute(
         """

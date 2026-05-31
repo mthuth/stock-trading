@@ -146,6 +146,42 @@ class PresentationBoundaryTests(unittest.TestCase):
         self.assertIn("Info <span>1</span>", dashboard_text)
         self.assertIn("applySourceHealthFilter", dashboard_text)
 
+    def test_2026_05_29_nvda_context_is_not_rendered_as_recommended_next_buy(self) -> None:
+        context = {section: {} for section in subject.REQUIRED_CONTEXT_SECTIONS}
+        context["metadata"] = {"report_date": "2026-05-29", "generated_at": "2026-05-29T18:00:00"}
+        context["summary"] = {
+            "top_symbol": "NVDA",
+            "top_company": "NVIDIA",
+            "top_action": "Add",
+            "top_score": 82.0,
+            "confidence": "Low",
+            "decision_gate": {
+                "safe_to_buy": False,
+                "status": "Blocked",
+                "candidate_action": "Add",
+                "reasons": [
+                    "Low target confidence",
+                    "Wide target range",
+                    "Verification check is still open",
+                ],
+            },
+        }
+        context["reliability"] = {"mode": "Fixture", "price_counts": {"fresh": 1, "missing": 0}}
+        context["source_health"] = {"summary": {"needs_attention": 0, "healthy": 1, "stale": 0, "not_implemented": 0}}
+
+        markdown = subject.render_markdown(context)
+        dashboard = subject.render_dashboard_html(context)
+
+        self.assertIn("No decision-safe buy: **NVDA - NVIDIA**", markdown)
+        self.assertIn("- Decision safety gate: **Blocked**", markdown)
+        self.assertIn("Low target confidence", markdown)
+        self.assertIn("Wide target range", markdown)
+        self.assertNotIn("Recommended next buy: **NVDA - NVIDIA**", markdown)
+        self.assertIn("No decision-safe buy", dashboard)
+        self.assertIn("Decision Gate", dashboard)
+        self.assertIn("Add blocked", dashboard)
+        self.assertNotIn(">Recommended next buy<", dashboard)
+
 
 if __name__ == "__main__":
     unittest.main()
