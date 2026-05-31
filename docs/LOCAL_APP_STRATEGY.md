@@ -43,6 +43,8 @@ The app should reduce friction in review, not increase automation risk.
    - Add a durable local navigation shell.
    - Show latest recommendation review, best long-term add, provider gaps, decision safety, target confidence, AI briefs, manual journal, outcomes, model trust, and run history.
    - Keep all behavior local and recommendation-only.
+   - Current Wave 9 implementation target: build a JSON manifest from existing local artifacts, render a static `reports/local-console.html` shell, and require the user to open it manually.
+   - The shell must not include run buttons, real-time refreshes, broker access, order previews, or trading actions.
 
 3. Local Run Control
    - Allow safer local invocation of approved batch commands.

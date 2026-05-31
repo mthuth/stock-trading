@@ -83,6 +83,15 @@ Serve a generated dashboard locally when reviewing feedback-save behavior:
 python3 scripts/serve_dashboard.py
 ```
 
+Build and render the static local decision console:
+
+```bash
+python3 scripts/build_local_console_manifest.py --output reports/local-console-manifest.json
+python3 scripts/render_local_console.py --manifest reports/local-console-manifest.json --output reports/local-console.html
+```
+
+Open `reports/local-console.html` manually in a browser to review the console. The console is static and does not execute refreshes, run commands, broker actions, order previews, or trades.
+
 ## Quality Checks
 
 The default local gate is:
@@ -148,6 +157,8 @@ Provider failures, blocked endpoints, missing fields, and stale data should be r
 - `reports/ai-analysis-context-YYYY-MM-DD.json`: deterministic context package for future AI summaries.
 - `reports/ai-insight-briefs-YYYY-MM-DD.*`: deterministic insight brief artifacts.
 - `reports/synthesis-packets-YYYY-MM-DD.json`: evidence synthesis readiness packets.
+- `reports/local-console-manifest.json`: local decision console manifest with artifact index, panel summaries, and read-only run history.
+- `reports/local-console.html`: static local decision console shell for manual review.
 - `data/stock_trading.sqlite`: canonical SQLite database used by current storage paths.
 - `data/raw_payloads/`: large raw provider payload storage when payloads are not kept inline.
 
