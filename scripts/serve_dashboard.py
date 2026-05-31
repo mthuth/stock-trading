@@ -15,12 +15,18 @@ from urllib.parse import urlparse
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from stock_trading.ai_brief_review import load_ai_brief_reviews, record_ai_brief_review  # noqa: E402
 from stock_trading.feedback import recent_feedback, record_feedback  # noqa: E402
 
 
 def handle_feedback_payload(payload: dict[str, object]) -> dict[str, object]:
     saved = record_feedback(payload)
     return {"ok": True, "feedback": saved, "recent": recent_feedback()}
+
+
+def handle_ai_brief_review_payload(payload: dict[str, object]) -> dict[str, object]:
+    saved = record_ai_brief_review(payload)
+    return {"ok": True, "review": saved, "recent": load_ai_brief_reviews(limit=8)}
 
 
 class DashboardRequestHandler(SimpleHTTPRequestHandler):
@@ -32,17 +38,26 @@ class DashboardRequestHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/feedback/recent":
             self.write_json({"ok": True, "records": recent_feedback()})
             return
+        if parsed.path == "/ai-brief-reviews/recent":
+            self.write_json({"ok": True, "records": load_ai_brief_reviews(limit=8)})
+            return
         super().do_GET()
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
-        if parsed.path != "/feedback":
-            self.send_error(HTTPStatus.NOT_FOUND, "Unknown endpoint")
+        if parsed.path == "/feedback":
+            try:
+                self.write_json(handle_feedback_payload(self.read_json()))
+            except Exception as exc:  # noqa: BLE001 - endpoint returns a user-facing failure.
+                self.write_json({"ok": False, "error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
             return
-        try:
-            self.write_json(handle_feedback_payload(self.read_json()))
-        except Exception as exc:  # noqa: BLE001 - endpoint returns a user-facing failure.
-            self.write_json({"ok": False, "error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+        if parsed.path == "/ai-brief-review":
+            try:
+                self.write_json(handle_ai_brief_review_payload(self.read_json()))
+            except Exception as exc:  # noqa: BLE001 - endpoint returns a user-facing failure.
+                self.write_json({"ok": False, "error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+        self.send_error(HTTPStatus.NOT_FOUND, "Unknown endpoint")
 
     def read_json(self) -> dict[str, object]:
         length = int(self.headers.get("Content-Length") or "0")
