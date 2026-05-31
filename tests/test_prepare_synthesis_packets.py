@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -122,6 +123,57 @@ class PrepareSynthesisPacketsTests(unittest.TestCase):
 
         self.assertEqual(review["review_status"], "ready_for_synthesis")
         self.assertIn("primary-source", review["review_reason"])
+
+    def test_prompt_packet_export_uses_report_context_without_model_call(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir)
+            context_path = output_dir / "report-context.json"
+            packet_path = output_dir / "ai-prompt-packets.json"
+            context_path.write_text(
+                json.dumps(
+                    {
+                        "metadata": {
+                            "report_date": "2026-05-31",
+                            "generated_at": "2026-05-31T08:00:00",
+                            "recommendation_only": True,
+                        },
+                        "summary": {
+                            "top_symbol": "MSFT",
+                            "decision_gate": {
+                                "safe_to_buy": False,
+                                "status": "Blocked",
+                                "candidate_action": "Add",
+                                "reasons": ["Low target confidence"],
+                                "summary": "Blocked by target confidence.",
+                            },
+                        },
+                        "recommendations": [
+                            {
+                                "rank": 1,
+                                "symbol": "MSFT",
+                                "company": "Microsoft",
+                                "action": "Add",
+                                "score": 81.0,
+                                "confidence": "Low",
+                                "data_status": "Partial blend",
+                                "score_breakdown": "Fixture score explanation.",
+                                "score_explanation": {"model": "Long-term", "top_drivers": [], "top_risks": []},
+                            }
+                        ],
+                        "synthesis_readiness": {
+                            "headers": ["Symbol", "Readiness", "Score", "Ready Events", "Needs Review", "Needs Corroboration", "Ignored", "Primary Events", "Independent Confirmed", "Latest Event", "Packet", "Notes"],
+                            "rows": [["MSFT", "partially_ready", "0.5", 1, 1, 0, 0, 1, 1, "2026-05-31", "synthesis-packets.json", "Fixture"]],
+                        },
+                    }
+                )
+            )
+
+            packets = subject.export_prompt_packets(context_path, packet_path, limit=5)
+
+            self.assertTrue(packet_path.exists())
+            self.assertFalse(packets["metadata"]["llm_generated"])
+            self.assertEqual(packets["packets"][0]["symbol"], "MSFT")
+            self.assertEqual(packets["packets"][0]["decision_safety"]["status"], "Blocked")
 
 
 if __name__ == "__main__":
