@@ -43,6 +43,7 @@ The app should reduce friction in review, not increase automation risk.
    - Add a durable local navigation shell.
    - Show latest recommendation review, best long-term add, provider gaps, decision safety, target confidence, AI briefs, manual journal, outcomes, model trust, and run history.
    - Keep all behavior local and recommendation-only.
+   - Use [Wave 9 Local Decision Console Requirements](WAVE9_LOCAL_CONSOLE_REQUIREMENTS.md) before implementing the console shell.
 
 3. Local Run Control
    - Allow safer local invocation of approved batch commands.

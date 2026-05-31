@@ -1,0 +1,83 @@
+{
+  "scenario_id": "no_learning_history_yet",
+  "scenario_label": "No learning history yet",
+  "console_mode": "local_decision_console",
+  "recommendation_only": true,
+  "read_only": true,
+  "report_date": "2026-05-31",
+  "latest_run": {
+    "run_id": "daily-2026-05-31",
+    "run_type": "daily_report",
+    "status": "success",
+    "started_at": "2026-05-31T08:00:00",
+    "finished_at": "2026-05-31T08:03:00",
+    "commands": ["python3 scripts/run_daily.py --skip-refresh --show-gaps"],
+    "artifacts": ["reports/report-context-2026-05-31.json"],
+    "warnings": [],
+    "errors": []
+  },
+  "latest_artifacts": {
+    "items": [
+      {
+        "artifact_id": "report_context",
+        "artifact_type": "report_context",
+        "path": "reports/report-context-2026-05-31.json",
+        "report_date": "2026-05-31",
+        "created_at": "2026-05-31T08:03:00",
+        "status": "available",
+        "source": "daily_report",
+        "notes": []
+      }
+    ],
+    "missing": []
+  },
+  "latest_decision_snapshot": {
+    "status": "available",
+    "latest_recommendation_review": "available",
+    "top_recommendation": {"symbol": "MSFT", "action": "Add", "score": 86.4, "decision_gate_status": "Ready"},
+    "best_long_term_add": {"symbol": "MSFT", "company": "Microsoft", "safe_to_buy": true, "suggested_amount": 2000.0},
+    "capital_deployment_status": "deploy_review",
+    "earnings_review_status": "no_pending_review",
+    "provider_gap_status": "minor",
+    "ai_brief_status": "reviewed",
+    "learning_review_status": "not_enough_history"
+  },
+  "panels": [
+    {"panel_id": "latest_recommendation", "title": "Latest Recommendation Review", "state": "available", "source": "report_context", "read_only": true, "empty_state": "", "last_updated": "2026-05-31T08:03:00"},
+    {"panel_id": "long_term_add", "title": "Long-Term Add Queue", "state": "available", "source": "report_context.long_term_add_queue", "read_only": true, "empty_state": "", "last_updated": "2026-05-31T08:03:00"},
+    {"panel_id": "capital_deployment", "title": "Capital Deployment", "state": "available", "source": "report_context.capital_deployment", "read_only": true, "empty_state": "", "last_updated": "2026-05-31T08:03:00"},
+    {"panel_id": "earnings_review", "title": "Earnings Review", "state": "empty", "source": "report_context.earnings_review", "read_only": true, "empty_state": "No earnings event needs review.", "last_updated": "2026-05-31T08:03:00"},
+    {"panel_id": "provider_gaps", "title": "Provider And Data Gaps", "state": "available", "source": "provider_gap_summary", "read_only": true, "empty_state": "", "last_updated": "2026-05-31T08:03:00"},
+    {"panel_id": "ai_briefs", "title": "AI Briefs", "state": "available", "source": "ai_brief_reviews", "read_only": true, "empty_state": "", "last_updated": "2026-05-31T08:03:00"},
+    {"panel_id": "manual_journal", "title": "Manual Journal", "state": "empty", "source": "manual_trade_journal", "read_only": true, "empty_state": "No manual journal entries yet.", "last_updated": "2026-05-31T08:03:00"},
+    {"panel_id": "learning_review", "title": "Learning And Outcomes", "state": "empty", "source": "learning_review", "read_only": true, "empty_state": "Not enough outcome history yet.", "last_updated": "2026-05-31T08:03:00"},
+    {"panel_id": "run_history", "title": "Run History", "state": "available", "source": "workflow_runs", "read_only": true, "empty_state": "", "last_updated": "2026-05-31T08:03:00"},
+    {"panel_id": "artifacts", "title": "Artifacts", "state": "available", "source": "reports_directory", "read_only": true, "empty_state": "", "last_updated": "2026-05-31T08:03:00"}
+  ],
+  "provider_gaps": [],
+  "ai_briefs": [],
+  "manual_journal": [],
+  "learning_review": {"status": "not_enough_history", "outcomes_available": false, "review_only": true},
+  "earnings_review": {"status": "empty", "pending_count": 0},
+  "future_boundaries": {
+    "run_control": "not_in_scope_view_only",
+    "intraday": "not_in_scope_not_real_time",
+    "broker_read_only": "future_optional_read_only"
+  },
+  "expected_behavior": {
+    "primary_console_state": "decision_ready_learning_empty",
+    "scenario_assertions": ["learning_empty_state_visible", "no_outcome_inference", "recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_real_time_market_monitoring": true,
+    "no_run_control_execution_yet": true,
+    "no_live_provider_refresh_from_console": true,
+    "no_score_target_decision_safety_changes": true,
+    "no_automatic_source_weight_changes": true,
+    "no_automatic_recommendation_changes_from_feedback_or_outcomes": true,
+    "no_future_short_candidate_in_buy_add": true
+  }
+}

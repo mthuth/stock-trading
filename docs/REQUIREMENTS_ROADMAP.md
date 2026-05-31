@@ -10,6 +10,7 @@ Related strategy docs:
 - [Roadmap Status](ROADMAP_STATUS.md)
 - [Wave 7 Handoff](WAVE7_HANDOFF.md)
 - [Wave 8 Earnings Review Requirements](WAVE8_EARNINGS_REVIEW_REQUIREMENTS.md)
+- [Wave 9 Local Decision Console Requirements](WAVE9_LOCAL_CONSOLE_REQUIREMENTS.md)
 - [Decision Modes](DECISION_MODES.md)
 - [Model Learning Strategy](MODEL_LEARNING_STRATEGY.md)
 - [Local App Strategy](LOCAL_APP_STRATEGY.md)
@@ -191,6 +192,8 @@ Likely scope:
 ## Wave 9: Local Decision Console Shell
 
 Goal: evolve from static reports into a local decision console shell.
+
+Read [Wave 9 Local Decision Console Requirements](WAVE9_LOCAL_CONSOLE_REQUIREMENTS.md) before starting implementation.
 
 Likely scope:
 

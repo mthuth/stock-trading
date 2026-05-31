@@ -1,0 +1,72 @@
+{
+  "scenario_id": "no_generated_artifacts",
+  "scenario_label": "No generated artifacts",
+  "console_mode": "local_decision_console",
+  "recommendation_only": true,
+  "read_only": true,
+  "report_date": "2026-05-31",
+  "latest_run": {
+    "run_id": "",
+    "run_type": "daily_report",
+    "status": "not_run",
+    "started_at": null,
+    "finished_at": null,
+    "commands": [],
+    "artifacts": [],
+    "warnings": [],
+    "errors": []
+  },
+  "latest_artifacts": {
+    "items": [],
+    "missing": ["report_context", "dashboard_html", "daily_markdown", "daily_csv", "ai_briefs"]
+  },
+  "latest_decision_snapshot": {
+    "status": "missing",
+    "latest_recommendation_review": "missing",
+    "top_recommendation": null,
+    "best_long_term_add": null,
+    "capital_deployment_status": "unknown",
+    "earnings_review_status": "unknown",
+    "provider_gap_status": "unknown",
+    "ai_brief_status": "unknown",
+    "learning_review_status": "unknown"
+  },
+  "panels": [
+    {"panel_id": "latest_recommendation", "title": "Latest Recommendation Review", "state": "missing", "source": "report_context", "read_only": true, "empty_state": "No generated recommendation artifacts were found.", "last_updated": null},
+    {"panel_id": "long_term_add", "title": "Long-Term Add Queue", "state": "missing", "source": "report_context.long_term_add_queue", "read_only": true, "empty_state": "No long-term add queue is available.", "last_updated": null},
+    {"panel_id": "capital_deployment", "title": "Capital Deployment", "state": "missing", "source": "report_context.capital_deployment", "read_only": true, "empty_state": "No capital deployment context is available.", "last_updated": null},
+    {"panel_id": "earnings_review", "title": "Earnings Review", "state": "missing", "source": "report_context.earnings_review", "read_only": true, "empty_state": "No earnings review context is available.", "last_updated": null},
+    {"panel_id": "provider_gaps", "title": "Provider And Data Gaps", "state": "missing", "source": "provider_gap_summary", "read_only": true, "empty_state": "No provider gap artifact is available.", "last_updated": null},
+    {"panel_id": "ai_briefs", "title": "AI Briefs", "state": "missing", "source": "ai_brief_reviews", "read_only": true, "empty_state": "No AI brief artifact is available.", "last_updated": null},
+    {"panel_id": "manual_journal", "title": "Manual Journal", "state": "empty", "source": "manual_trade_journal", "read_only": true, "empty_state": "No manual journal entries were loaded.", "last_updated": null},
+    {"panel_id": "learning_review", "title": "Learning And Outcomes", "state": "missing", "source": "learning_review", "read_only": true, "empty_state": "No learning review artifact is available.", "last_updated": null},
+    {"panel_id": "run_history", "title": "Run History", "state": "empty", "source": "workflow_runs", "read_only": true, "empty_state": "No run history is available.", "last_updated": null},
+    {"panel_id": "artifacts", "title": "Artifacts", "state": "empty", "source": "reports_directory", "read_only": true, "empty_state": "No generated artifacts were found.", "last_updated": null}
+  ],
+  "provider_gaps": [],
+  "ai_briefs": [],
+  "manual_journal": [],
+  "learning_review": {"status": "missing", "outcomes_available": false, "review_only": true},
+  "earnings_review": {"status": "missing", "pending_count": 0},
+  "future_boundaries": {
+    "run_control": "not_in_scope_view_only",
+    "intraday": "not_in_scope_not_real_time",
+    "broker_read_only": "future_optional_read_only"
+  },
+  "expected_behavior": {
+    "primary_console_state": "no_artifacts",
+    "scenario_assertions": ["artifact_empty_state_visible", "no_auto_run", "no_recommendation_invented"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_real_time_market_monitoring": true,
+    "no_run_control_execution_yet": true,
+    "no_live_provider_refresh_from_console": true,
+    "no_score_target_decision_safety_changes": true,
+    "no_automatic_source_weight_changes": true,
+    "no_automatic_recommendation_changes_from_feedback_or_outcomes": true,
+    "no_future_short_candidate_in_buy_add": true
+  }
+}
