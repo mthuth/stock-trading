@@ -1,0 +1,100 @@
+[
+  {
+    "symbol": "NVDA",
+    "setup_label": "breakout",
+    "tactical_horizon": "5_trading_days",
+    "setup_confidence": "high",
+    "risk_zone_label": "medium",
+    "invalidation_condition": "Breakout fails if NVDA closes below the prior base.",
+    "catalyst_context": {
+      "strength": "strong",
+      "summary": "AI infrastructure demand commentary remains strong."
+    },
+    "earnings_event_context": {
+      "event_type": "post_earnings_reaction",
+      "earnings_date": "2026-05-29"
+    },
+    "data_quality": "ok",
+    "outcome_history": {
+      "sample_size": 4,
+      "win_rate": 0.75,
+      "label": "positive"
+    },
+    "long_term_context": {
+      "symbol": "NVDA",
+      "action": "Add",
+      "decision_gate_status": "Ready"
+    }
+  },
+  {
+    "symbol": "MSFT",
+    "setup_label": "pre_earnings_setup",
+    "tactical_horizon": "5_trading_days",
+    "setup_confidence": "medium",
+    "risk_zone_label": "low",
+    "earnings_event_context": {
+      "event_type": "upcoming_earnings",
+      "earnings_date": "2026-06-03"
+    },
+    "catalyst_strength": "medium",
+    "data_quality": "ok",
+    "long_term_context": {
+      "symbol": "MSFT",
+      "action": "Add",
+      "decision_gate_status": "Ready"
+    }
+  },
+  {
+    "symbol": "AMZN",
+    "setup_label": "post_earnings_reaction",
+    "tactical_horizon": "1_day",
+    "setup_confidence": "medium",
+    "risk_zone_label": "medium",
+    "review_action": "tactical_sell_review",
+    "earnings_event_context": {
+      "event_type": "recent_earnings",
+      "earnings_date": "2026-05-30"
+    },
+    "catalyst_strength": "medium",
+    "data_quality": "ok",
+    "long_term_context": {
+      "symbol": "AMZN",
+      "action": "Hold",
+      "decision_gate_status": "Review"
+    }
+  },
+  {
+    "symbol": "PANW",
+    "setup_label": "momentum",
+    "tactical_horizon": "20_trading_days",
+    "setup_confidence": "high",
+    "risk_zone_label": "medium",
+    "provider_data_gaps": [
+      {
+        "provider": "price_history",
+        "field": "recent_prices",
+        "status": "missing",
+        "message": "Recent tactical price history is unavailable."
+      }
+    ],
+    "catalyst_strength": "strong",
+    "long_term_context": {
+      "symbol": "PANW",
+      "action": "Watch",
+      "decision_gate_status": "Blocked"
+    }
+  },
+  {
+    "symbol": "AVGO",
+    "setup_label": "no_setup",
+    "tactical_horizon": "20_trading_days",
+    "setup_confidence": "none",
+    "risk_zone_label": "high",
+    "data_quality": "ok",
+    "long_term_context": {
+      "symbol": "AVGO",
+      "action": "Add",
+      "decision_gate_status": "Ready"
+    }
+  }
+]
