@@ -1,0 +1,90 @@
+{
+  "metadata": {
+    "report_date": "2026-05-31",
+    "generated_at": "2026-05-31T09:30:00Z",
+    "source": "fixture"
+  },
+  "alerts": [
+    {
+      "alert_id": "decision-gate-nvda",
+      "symbol": "NVDA",
+      "title": "Decision gate changed",
+      "summary": "NVDA moved from blocked to decision-safe review.",
+      "severity": "high",
+      "status": "active",
+      "review_area": "decision_safety",
+      "trigger_type": "decision_gate_changed",
+      "priority_score": 92,
+      "recommended_review_action": "review_decision_gate",
+      "source": "decision_safety",
+      "reasons": [
+        "Verification blocker cleared."
+      ]
+    },
+    {
+      "alert_id": "target-confidence-msft",
+      "symbol": "MSFT",
+      "title": "Target confidence degraded",
+      "summary": "MSFT target confidence moved from medium to low.",
+      "severity": "medium",
+      "status": "active",
+      "review_area": "target_confidence",
+      "trigger_type": "target_confidence_changed",
+      "priority_score": 65,
+      "recommended_review_action": "review_target_sources",
+      "source": "target_confidence"
+    },
+    {
+      "alert_id": "provider-gap-panw",
+      "symbol": "PANW",
+      "title": "Provider gap worsened",
+      "summary": "Price history freshness moved to stale.",
+      "severity": "critical",
+      "status": "active",
+      "review_area": "provider_gaps",
+      "trigger_type": "provider_gap_worsened",
+      "priority_score": 99,
+      "recommended_review_action": "review_provider_gap",
+      "source": "provider_health"
+    },
+    {
+      "alert_id": "ai-brief-amzn",
+      "symbol": "AMZN",
+      "title": "AI brief failed guardrails",
+      "summary": "AI brief needs human review before use.",
+      "severity": "high",
+      "status": "active",
+      "review_area": "ai_briefs",
+      "trigger_type": "ai_brief_guardrail_failed",
+      "priority_score": 88,
+      "recommended_review_action": "review_ai_brief",
+      "source": "ai_brief_guardrails"
+    },
+    {
+      "alert_id": "earnings-window-avgo",
+      "symbol": "AVGO",
+      "title": "Earnings review window opened",
+      "summary": "AVGO moved into a pre-earnings review window.",
+      "severity": "low",
+      "status": "resolved",
+      "review_area": "earnings_review",
+      "trigger_type": "earnings_window_changed",
+      "priority_score": 35,
+      "recommended_review_action": "review_earnings_context",
+      "source": "earnings_events"
+    },
+    {
+      "alert_id": "old-tactical-alert",
+      "symbol": "TSLA",
+      "title": "Old tactical setup reviewed",
+      "summary": "Prior tactical setup alert was dismissed after review.",
+      "severity": "info",
+      "status": "dismissed",
+      "review_area": "tactical_review",
+      "trigger_type": "tactical_outcome_threshold",
+      "priority_score": 10,
+      "recommended_review_action": "no_action_needed",
+      "source": "tactical_outcomes"
+    }
+  ]
+}
