@@ -143,6 +143,31 @@ def apply_schema_migrations(conn: sqlite3.Connection) -> None:
     )
     conn.execute(
         """
+        CREATE TABLE IF NOT EXISTS manual_trade_journal (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            decision_date TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            action_taken TEXT NOT NULL,
+            amount REAL,
+            shares REAL,
+            price REAL,
+            rationale TEXT,
+            recommendation_run_id INTEGER,
+            report_date TEXT,
+            notes TEXT,
+            FOREIGN KEY (recommendation_run_id) REFERENCES recommendation_runs(id)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_manual_trade_journal_symbol_date
+        ON manual_trade_journal(symbol, report_date, decision_date)
+        """
+    )
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS recommendation_runs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             generated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -826,6 +851,13 @@ def apply_schema_migrations(conn: sqlite3.Connection) -> None:
         VALUES (?, ?)
         """,
         (11, "etrade holdings snapshot tables"),
+    )
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO schema_migrations (version, name)
+        VALUES (?, ?)
+        """,
+        (12, "manual trade journal"),
     )
     conn.execute(
         """

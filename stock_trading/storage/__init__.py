@@ -15,6 +15,7 @@ from stock_trading.storage.connection import *  # noqa: F401,F403
 from stock_trading.storage.csv_files import *  # noqa: F401,F403
 from stock_trading.storage.evidence_repository import *  # noqa: F401,F403
 from stock_trading.storage.ingestion_plan_repository import *  # noqa: F401,F403
+from stock_trading.storage.manual_trade_journal_repository import *  # noqa: F401,F403
 from stock_trading.storage.provider_repository import *  # noqa: F401,F403
 from stock_trading.storage.recommendation_repository import *  # noqa: F401,F403
 from stock_trading.storage.schema import apply_schema_migrations  # noqa: F401
