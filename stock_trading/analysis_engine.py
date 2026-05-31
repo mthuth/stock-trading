@@ -6161,6 +6161,7 @@ def run_analysis(
             "persisted_decision_insights": stored_decision_insights,
             "verification_queue_items": stored_verification_queue_items,
         },
+        "decision_safety": decision_gate,
         "reliability": {
             "mode": reliability_status,
             "price_counts": price_counts,

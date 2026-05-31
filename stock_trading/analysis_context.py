@@ -54,6 +54,14 @@ def build_report_context(
             }
         )
     top = recommendations[0] if recommendations else {}
+    top_row = ranked[0] if ranked else {}
+    decision_gate = engine.decision_safety_gate(top_row) if top_row else {
+        "safe_to_buy": False,
+        "status": "Blocked",
+        "candidate_action": "",
+        "reasons": ["No ranked candidates available"],
+        "summary": "No ranked candidates available.",
+    }
     return {
         "metadata": {
             "report_date": snapshot.report_date,
@@ -67,7 +75,9 @@ def build_report_context(
             "top_symbol": top.get("symbol", ""),
             "top_action": top.get("action", ""),
             "top_score": top.get("score", 0),
+            "decision_gate": decision_gate,
         },
+        "decision_safety": decision_gate,
         "reliability": snapshot.reliability,
         "recommendations": recommendations,
     }
