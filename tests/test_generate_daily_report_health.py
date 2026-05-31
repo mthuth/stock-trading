@@ -101,6 +101,19 @@ def next_day_row(
     return row
 
 
+def decision_insight(symbol: str = "NVDA", insight_type: str = "Conviction Builder") -> subject.DecisionInsight:
+    return subject.DecisionInsight(
+        symbol=symbol,
+        headline="Test insight",
+        insight_type=insight_type,
+        why_it_matters="Test why",
+        supporting_data="Test data",
+        risk_or_uncertainty="Test risk",
+        next_check="Test next check",
+        what_would_change_the_view="Test change",
+    )
+
+
 class GenerateDailyReportHealthTests(unittest.TestCase):
     def test_source_health_summary_counts_each_status_bucket(self) -> None:
         source_rows = [
@@ -406,6 +419,60 @@ class GenerateDailyReportHealthTests(unittest.TestCase):
         self.assertEqual(weak_target["item"]["status"], "Review")
         self.assertEqual(stale_context["item"]["status"], "Review")
         self.assertEqual(health_alert["item"]["status"], "Review")
+
+    def test_decision_safety_gate_blocks_current_nvda_low_confidence_case(self) -> None:
+        row = next_day_row(
+            target=blended_target(
+                confidence="low",
+                blend_status="Analyst + fundamental + technical; wide target range",
+            )
+        )
+        row["action"] = "Add"
+
+        gate = subject.decision_safety_gate(row, decision_insight(insight_type="Verification Needed"))
+
+        self.assertFalse(gate["safe_to_buy"])
+        self.assertEqual(gate["status"], "Blocked")
+        self.assertIn("Low target confidence", gate["reasons"])
+        self.assertIn("Wide target range", gate["reasons"])
+        self.assertIn("Verification check is still open", gate["reasons"])
+
+    def test_decision_summary_candidate_skips_blocked_add_for_safe_add(self) -> None:
+        blocked = next_day_row(target=blended_target(confidence="low", blend_status="Analyst + fundamental + technical; wide target range"))
+        blocked["action"] = "Add"
+        blocked["score"] = 82.0
+        safe_item = research_input()
+        safe_item.symbol = "MSFT"
+        safe_item.company = "Microsoft"
+        safe_target = blended_target()
+        safe_target.symbol = "MSFT"
+        safe = next_day_row(item=safe_item, target=safe_target)
+        safe["action"] = "Add"
+        safe["score"] = 80.0
+
+        selected, gate = subject.decision_summary_candidate(
+            [blocked, safe],
+            {
+                "NVDA": decision_insight("NVDA", "Verification Needed"),
+                "MSFT": decision_insight("MSFT", "Conviction Builder"),
+            },
+        )
+
+        self.assertEqual(selected["input"].symbol, "MSFT")
+        self.assertTrue(gate["safe_to_buy"])
+
+    def test_decision_summary_candidate_holds_buy_capacity_when_no_safe_add_exists(self) -> None:
+        blocked = next_day_row(target=blended_target(confidence="low", blend_status="Analyst + fundamental + technical; wide target range"))
+        blocked["action"] = "Add"
+
+        selected, gate = subject.decision_summary_candidate(
+            [blocked],
+            {"NVDA": decision_insight("NVDA", "Verification Needed")},
+        )
+
+        self.assertEqual(selected["input"].symbol, "NVDA")
+        self.assertFalse(gate["safe_to_buy"])
+        self.assertEqual(gate["candidate_action"], "Add")
 
     def test_pre_market_readiness_all_checks_ready(self) -> None:
         next_day_status = subject.next_day_readiness([next_day_row()], {"stale": 0, "not_implemented": 0}, [])
