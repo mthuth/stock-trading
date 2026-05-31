@@ -57,6 +57,28 @@ def record_price_history(rows: List[Mapping[str, object]]) -> int:
     conn.close()
     return len(rows)
 
+def price_history_for_symbols(symbols: List[str] | tuple[str, ...] | set[str]) -> dict[str, list[dict[str, object]]]:
+    normalized_symbols = sorted({str(symbol or "").upper() for symbol in symbols if str(symbol or "").strip()})
+    if not normalized_symbols:
+        return {}
+    conn = init_db()
+    conn.row_factory = sqlite3.Row
+    placeholders = ",".join("?" for _ in normalized_symbols)
+    rows = conn.execute(
+        f"""
+        SELECT symbol, price_date, open, high, low, close, adjusted_close, volume, provider, fetched_at
+        FROM price_history
+        WHERE UPPER(symbol) IN ({placeholders})
+        ORDER BY symbol, price_date, provider
+        """,
+        normalized_symbols,
+    ).fetchall()
+    conn.close()
+    grouped: dict[str, list[dict[str, object]]] = {}
+    for row in rows:
+        grouped.setdefault(str(row["symbol"]).upper(), []).append(dict(row))
+    return grouped
+
 def record_provider_payload(
     provider: str,
     endpoint: str,
