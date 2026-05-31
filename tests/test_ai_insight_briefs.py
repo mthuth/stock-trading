@@ -100,6 +100,8 @@ class AiInsightBriefTests(unittest.TestCase):
         self.assertEqual(brief["guardrails"]["recommended_action"], "accept")
         self.assertIn("Recommendation-only", brief["recommendation_only_disclaimer"])
         self.assertIn("Finnhub", brief["data_gaps"])
+        self.assertEqual(brief["review"]["status"], "draft")
+        self.assertFalse(brief["review"]["trusted_research"])
 
     def test_markdown_mentions_no_llm_and_next_check(self) -> None:
         markdown = render_ai_briefs_markdown(build_ai_insight_briefs(brief_context()))
@@ -108,6 +110,7 @@ class AiInsightBriefTests(unittest.TestCase):
         self.assertIn("scripts/show_provider_gaps.py", markdown)
         self.assertIn("Recommendation-only", markdown)
         self.assertIn("Guardrails: accept", markdown)
+        self.assertIn("Review status: Draft - not trusted research", markdown)
 
     def test_report_render_writes_ai_brief_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -121,6 +124,7 @@ class AiInsightBriefTests(unittest.TestCase):
             self.assertIn(html, paths)
             self.assertIn("AI Insight Briefs", markdown.read_text())
             self.assertEqual(json.loads(payload.read_text())["briefs"][0]["symbol"], "MSFT")
+            self.assertEqual(json.loads(payload.read_text())["briefs"][0]["review"]["status"], "draft")
 
 
 if __name__ == "__main__":

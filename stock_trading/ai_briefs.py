@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from stock_trading.ai_brief_review import apply_review_metadata, brief_id_for
 from stock_trading.ai_brief_guardrails import validate_ai_brief, validate_ai_briefs
 
 
@@ -221,8 +222,14 @@ def data_gap_summary(queue_row: dict[str, object], blocker_rows: list[dict[str, 
     return "No major data gaps found in the current brief context."
 
 
-def build_ai_insight_briefs(context: dict[str, object], limit: int = 8) -> dict[str, object]:
+def build_ai_insight_briefs(
+    context: dict[str, object],
+    limit: int = 8,
+    reviews: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
     metadata = as_dict(context.get("metadata"))
+    report_date = text(metadata.get("report_date"))
+    source_context = as_dict(context.get("artifacts")).get("context") or metadata.get("purpose", "report_context")
     decisions = sorted(
         decision_insights_from_context(context),
         key=lambda row: int(float(row.get("rank") or row.get("Rank") or 9999)),
@@ -268,9 +275,14 @@ def build_ai_insight_briefs(context: dict[str, object], limit: int = 8) -> dict[
             f"verification_queue:{symbol}" if queue_row else "",
             f"provider_blockers:{symbol}" if blocker_rows else "",
         ]
+        rank = int(float(row.get("rank") or row.get("Rank") or len(briefs) + 1))
+        brief_id = brief_id_for(symbol, report_date, rank)
         brief_row = {
+            "brief_id": brief_id,
             "symbol": symbol,
-            "rank": int(float(row.get("rank") or row.get("Rank") or len(briefs) + 1)),
+            "report_date": report_date,
+            "artifact_ref": text(source_context),
+            "rank": rank,
             "action": action,
             "score": float(score) if str(score).replace(".", "", 1).replace("-", "", 1).isdigit() else score,
             "insight_type": insight_type,
@@ -296,14 +308,15 @@ def build_ai_insight_briefs(context: dict[str, object], limit: int = 8) -> dict[
         brief_row["guardrails"] = validate_ai_brief(brief_row).to_dict()
         briefs.append(brief_row)
 
+    briefs = apply_review_metadata(briefs, reviews or [])
     guardrail_summary = validate_ai_briefs(briefs)
     return {
         "metadata": {
-            "report_date": metadata.get("report_date", ""),
+            "report_date": report_date,
             "generated_at": metadata.get("generated_at", ""),
             "brief_version": BRIEF_VERSION,
             "llm_generated": False,
-            "source_context": as_dict(context.get("artifacts")).get("context") or metadata.get("purpose", "report_context"),
+            "source_context": source_context,
             "guardrails": {
                 key: value
                 for key, value in guardrail_summary.items()
@@ -323,6 +336,7 @@ def render_ai_briefs_markdown(brief_context: dict[str, object]) -> str:
         "",
     ]
     for brief in [as_dict(item) for item in as_list(brief_context.get("briefs"))]:
+        review = as_dict(brief.get("review"))
         lines.extend(
             [
                 f"## {brief.get('symbol', '')} - {brief.get('insight_type', 'Insight')}",
@@ -335,6 +349,8 @@ def render_ai_briefs_markdown(brief_context: dict[str, object]) -> str:
                 f"- Next check: `{brief.get('next_check', '')}`",
                 f"- What would change the view: {brief.get('what_would_change_the_view', '')}",
                 f"- Guardrails: {as_dict(brief.get('guardrails')).get('recommended_action', 'n/a')}",
+                f"- Review status: {review.get('display_label', 'Draft - not trusted research')}",
+                f"- Review reason: {review.get('reason', 'needs_more_evidence')}",
                 f"- Recommendation-only: {brief.get('recommendation_only_disclaimer', '')}",
                 f"- Audit refs: {', '.join(text(ref) for ref in as_list(brief.get('audit_refs')))}",
                 "",
@@ -348,10 +364,13 @@ def render_ai_briefs_html(brief_context: dict[str, object]) -> str:
     cards = []
     for brief in [as_dict(item) for item in as_list(brief_context.get("briefs"))]:
         refs = ", ".join(text(ref) for ref in as_list(brief.get("audit_refs")))
+        review = as_dict(brief.get("review"))
         cards.append(
             "<section>"
             f"<h2>{html.escape(text(brief.get('symbol')))} - {html.escape(text(brief.get('insight_type')))}</h2>"
             f"<p>{html.escape(text(brief.get('brief')))}</p>"
+            f"<p><strong>Review status:</strong> {html.escape(text(review.get('display_label'), 'Draft - not trusted research'))}</p>"
+            f"<p><strong>Review reason:</strong> {html.escape(text(review.get('reason'), 'needs_more_evidence'))}</p>"
             f"<p><strong>Risk:</strong> {html.escape(text(brief.get('risk_or_uncertainty')))}</p>"
             f"<p><strong>Data gaps:</strong> {html.escape(text(brief.get('data_gaps')))}</p>"
             f"<p><strong>Next check:</strong> {html.escape(text(brief.get('next_check')))}</p>"
