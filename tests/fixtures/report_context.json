@@ -340,6 +340,139 @@
       "empty_state": "No tactical outcome history is available yet."
     }
   },
+  "model_evaluation": {
+    "review_only": true,
+    "recommendation_only": true,
+    "no_model_promotion": true,
+    "note": "Recommendation-only model evaluation; review-only learning context does not change official recommendations or promote models.",
+    "prediction_records": {
+      "review_only": true,
+      "prediction_record_version": "prediction-records-v1",
+      "prediction_count": 1,
+      "model_versions": ["fixture-rules-v1"],
+      "warnings": [],
+      "rows": [
+        {
+          "prediction_id": "pred-fixture-nvda",
+          "report_date": "2026-05-28",
+          "symbol": "NVDA",
+          "model_name": "official_recommendation_model",
+          "model_version": "fixture-rules-v1",
+          "model_role": "official",
+          "decision_mode": "long_term_buy_add",
+          "horizon": "12_months",
+          "expected_direction": "up",
+          "confidence": "Medium",
+          "review_only": true
+        }
+      ],
+      "validation": {"ok": true, "errors": [], "warnings": []},
+      "empty_state": "No prediction records are available for model evaluation yet."
+    },
+    "model_registry": {
+      "review_only": true,
+      "registry_version": "model-registry-v1",
+      "model_count": 1,
+      "official_count": 1,
+      "shadow_count": 0,
+      "missing_version_count": 0,
+      "rows": [
+        {
+          "model_name": "official_recommendation_model",
+          "model_version": "fixture-rules-v1",
+          "model_role": "official",
+          "official_or_shadow": "official",
+          "recommendation_impact": "none",
+          "score_impact": "none",
+          "review_only": true
+        }
+      ],
+      "validation": {"ok": true, "errors": [], "warnings": []},
+      "empty_state": "No model registry rows are available yet."
+    },
+    "recommendation_backtest": {
+      "review_only": true,
+      "summary": {
+        "review_only": true,
+        "row_count": 1,
+        "enough_history_count": 0,
+        "not_enough_history_count": 1,
+        "win_rate": null,
+        "average_excess_return_vs_benchmark": null,
+        "warnings": ["Insufficient sample size: 0 evaluable row(s), minimum review threshold is 5."]
+      },
+      "rows": [
+        {
+          "symbol": "NVDA",
+          "window": "60_trading_days",
+          "action": "Add",
+          "outcome_status": "not_enough_history",
+          "return_pct": null,
+          "excess_return_pct": null,
+          "model_version": "fixture-rules-v1",
+          "review_only": true
+        }
+      ],
+      "empty_state": "No recommendation backtest rows are available yet."
+    },
+    "benchmark_comparison": {
+      "review_only": true,
+      "summary": {
+        "review_only": true,
+        "row_count": 1,
+        "available_count": 0,
+        "missing_count": 1,
+        "status": "missing",
+        "average_excess_return_pct": null,
+        "warnings": ["benchmark_missing_window_price", "symbol_return_missing"],
+        "empty_state": "No benchmark comparison rows are available yet."
+      },
+      "rows": [
+        {
+          "symbol": "NVDA",
+          "benchmark_symbol": "QQQ",
+          "data_status": "benchmark_missing",
+          "symbol_return_pct": null,
+          "benchmark_return_pct": null,
+          "excess_return_pct": null,
+          "warnings": ["benchmark_missing_window_price", "symbol_return_missing"],
+          "review_only": true
+        }
+      ],
+      "empty_state": "No benchmark comparison rows are available yet."
+    },
+    "model_trust_score_v1": {
+      "model_name": "official_recommendation_model",
+      "model_version": "fixture-rules-v1",
+      "trust_score": 12.0,
+      "trust_level": "observe",
+      "sample_size": 0,
+      "enough_sample_size": false,
+      "confidence": "low",
+      "warnings": ["Benchmark data is missing or insufficient for model evaluation."],
+      "recommended_review_action": "collect_more_outcomes",
+      "review_only": true,
+      "no_model_promotion": true,
+      "components": [],
+      "notes": "Review-only Model Trust Score v1; no model promotion or recommendation behavior changes are applied."
+    },
+    "ai_thesis_evaluation": {
+      "review_only": true,
+      "no_model_change": true,
+      "evaluation_count": 0,
+      "label_counts": {},
+      "useful_theses": 0,
+      "weak_theses": 0,
+      "accuracy": null,
+      "rows": [],
+      "empty_state": "No AI thesis evaluation rows are available yet."
+    },
+    "warnings": [
+      "Insufficient sample size: 0 evaluable row(s), minimum review threshold is 5.",
+      "Benchmark data is missing or insufficient for model evaluation.",
+      "No AI thesis evaluation rows are available yet."
+    ]
+  },
   "reliability": {
     "mode": "Fresh provider data",
     "price_counts": {

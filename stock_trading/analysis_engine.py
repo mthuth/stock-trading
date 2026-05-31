@@ -23,6 +23,8 @@ from stock_trading.allocation_safety import (
     allocation_safety_for_candidate,
     sleeve_market_values_for_ranked,
 )
+from stock_trading.ai_thesis_evaluation import evaluate_ai_theses
+from stock_trading.benchmark_comparison import benchmark_comparison_rows
 from stock_trading.best_add_fallback import build_best_add_fallback_review
 from stock_trading.capital_deployment import capital_deployment_context
 from stock_trading.catalyst_outcomes import build_catalyst_follow_through_review
@@ -37,10 +39,14 @@ from stock_trading.fundamental_target_config import (
 from stock_trading.long_term_add_queue import build_long_term_add_queue
 from stock_trading.long_term_holding_health import build_holding_health_review
 from stock_trading.manual_trade_journal import list_manual_journal_entries
+from stock_trading.model_registry import build_model_registry
+from stock_trading.model_trust import build_model_trust_score
 from stock_trading.post_earnings_review import build_post_earnings_reviews
+from stock_trading.prediction_records import build_prediction_record_set, prediction_from_recommendation
 from stock_trading.pre_earnings_review import review_pre_earnings_setup
 from stock_trading.provider_gap_summary import build_provider_gap_review
 from stock_trading.recommendation_outcomes import build_recommendation_outcome_review
+from stock_trading.recommendation_backtests import recommendation_backtest
 from stock_trading.source_usefulness import build_source_usefulness, summarize_source_usefulness
 from stock_trading.tactical_outcomes import summarize_tactical_outcomes, tactical_outcome_rows
 from stock_trading.tactical_risk import tactical_risk_zones
@@ -6879,6 +6885,217 @@ def run_analysis(
             },
         }
 
+    def compact_model_registry(registry: Dict[str, object]) -> Dict[str, object]:
+        rows = [row for row in context_list(registry.get("models")) if isinstance(row, dict)]
+        official_count = len([row for row in rows if str(row.get("official_or_shadow") or "") == "official"])
+        shadow_count = len([row for row in rows if str(row.get("official_or_shadow") or "") == "shadow"])
+        missing_version_count = len([row for row in rows if not str(row.get("model_version") or "")])
+        return {
+            "review_only": True,
+            "registry_version": registry.get("registry_version", "model-registry-v1"),
+            "model_count": registry.get("model_count", len(rows)),
+            "official_count": official_count,
+            "shadow_count": shadow_count,
+            "missing_version_count": missing_version_count,
+            "rows": rows,
+            "validation": registry.get("validation", {}),
+            "empty_state": "No model registry rows are available yet.",
+        }
+
+    def compact_prediction_summary(records: Dict[str, object]) -> Dict[str, object]:
+        rows = [row for row in context_list(records.get("predictions")) if isinstance(row, dict)]
+        model_versions = sorted({str(row.get("model_version") or "missing") for row in rows})
+        warnings = []
+        if not rows:
+            warnings.append("No prediction records are available for model evaluation yet.")
+        if any(not str(row.get("model_version") or "") for row in rows):
+            warnings.append("Some prediction records are missing model version.")
+        validation = context_dict(records.get("validation"))
+        errors = context_list(validation.get("errors"))
+        if errors:
+            warnings.append(f"Prediction record validation has {len(errors)} issue(s).")
+        return {
+            "review_only": True,
+            "prediction_record_version": records.get("prediction_record_version", "prediction-records-v1"),
+            "prediction_count": records.get("prediction_count", len(rows)),
+            "model_versions": model_versions,
+            "warnings": warnings,
+            "rows": rows[:12],
+            "validation": validation,
+            "empty_state": "No prediction records are available for model evaluation yet.",
+        }
+
+    def benchmark_summary(rows: List[Dict[str, object]]) -> Dict[str, object]:
+        values = [
+            to_float(row.get("excess_return_pct"))
+            for row in rows
+            if row.get("excess_return_pct") is not None
+        ]
+        warnings = [
+            str(warning)
+            for row in rows
+            for warning in context_list(row.get("warnings"))
+            if str(warning)
+        ]
+        return {
+            "review_only": True,
+            "row_count": len(rows),
+            "available_count": len(values),
+            "missing_count": len(rows) - len(values),
+            "status": "available" if values else "missing",
+            "average_excess_return_pct": round(sum(values) / len(values), 4) if values else None,
+            "warnings": list(dict.fromkeys(warnings)),
+            "empty_state": "No benchmark comparison rows are available yet.",
+        }
+
+    def ai_thesis_summary(evaluation: Dict[str, object]) -> Dict[str, object]:
+        metadata = context_dict(evaluation.get("metadata"))
+        rows = [row for row in context_list(evaluation.get("evaluations")) if isinstance(row, dict)]
+        label_counts = context_dict(metadata.get("label_counts"))
+        useful = sum(
+            int(value or 0)
+            for key, value in label_counts.items()
+            if key in {"thesis_supported", "thesis_partially_supported"}
+        )
+        weak = sum(
+            int(value or 0)
+            for key, value in label_counts.items()
+            if key in {"thesis_contradicted", "insufficient_evidence", "guardrail_failed"}
+        )
+        total = useful + weak
+        return {
+            "review_only": True,
+            "no_model_change": True,
+            "evaluation_count": metadata.get("evaluation_count", len(rows)),
+            "label_counts": label_counts,
+            "useful_theses": useful,
+            "weak_theses": weak,
+            "accuracy": round(useful / total, 4) if total else None,
+            "rows": rows[:12],
+            "empty_state": "No AI thesis evaluation rows are available yet.",
+        }
+
+    def build_model_evaluation_context(
+        *,
+        recommendations: List[Dict[str, object]],
+        learning_review: Dict[str, object],
+        as_of_date: str,
+        generated_at: str,
+        recommendation_run_id: int | None,
+    ) -> Dict[str, object]:
+        model_name = "official_recommendation_model"
+        model_version = MODEL_VERSION
+        registry = build_model_registry(
+            [
+                {
+                    "model_name": model_name,
+                    "model_version": model_version,
+                    "model_role": "official",
+                    "official_or_shadow": "official",
+                    "description": "Current rules-based daily recommendation model.",
+                    "created_at": generated_at,
+                    "allowed_decision_modes": ["long_term_buy_add", "portfolio_review"],
+                    "allowed_horizons": ["12_months", "multi_year"],
+                    "score_impact": "none",
+                    "recommendation_impact": "none",
+                    "notes": "Review-only registry row for model evaluation context.",
+                }
+            ],
+            created_at=generated_at,
+        )
+        prediction_rows = [
+            prediction_from_recommendation(
+                {
+                    **rec,
+                    "report_date": as_of_date,
+                    "model_version": model_version,
+                    "rationale": rec.get("rationale") or rec.get("why") or rec.get("notes"),
+                },
+                model_name=model_name,
+                model_version=model_version,
+                created_at=generated_at,
+                report_date=as_of_date,
+                recommendation_run_id=recommendation_run_id,
+            )
+            for rec in recommendations
+        ]
+        prediction_records = build_prediction_record_set(prediction_rows)
+        recommendation_snapshots = [
+            {
+                **rec,
+                "report_date": as_of_date,
+                "model_version": model_version,
+                "benchmark_symbol": "BENCHMARK",
+            }
+            for rec in recommendations
+        ]
+        benchmark_history = {
+            "BENCHMARK": price_history.get("QQQM") or price_history.get("VGT") or price_history.get("SMH") or []
+        }
+        backtest = recommendation_backtest(
+            recommendation_snapshots,
+            price_history,
+            benchmark_price_history=benchmark_history,
+            windows=["20_trading_days", "60_trading_days", "12_months"],
+            minimum_sample_size=5,
+        )
+        benchmark_rows = benchmark_comparison_rows(
+            context_list(backtest.get("rows")),
+            price_history,
+        )
+        benchmark_review = benchmark_summary([row for row in benchmark_rows if isinstance(row, dict)])
+        ai_evaluation = evaluate_ai_theses([])
+        ai_summary = ai_thesis_summary(ai_evaluation)
+        source_summary = context_dict(context_dict(learning_review.get("source_usefulness")).get("summary"))
+        safety_summary = context_dict(context_dict(learning_review.get("decision_safety_effectiveness")).get("summary"))
+        warnings = []
+        warnings.extend(str(item) for item in context_list(context_dict(backtest.get("summary")).get("warnings")) if str(item))
+        warnings.extend(str(item) for item in context_list(benchmark_review.get("warnings")) if str(item))
+        if benchmark_review.get("status") == "missing":
+            warnings.append("Benchmark data is missing or insufficient for model evaluation.")
+        if not context_list(ai_evaluation.get("evaluations")):
+            warnings.append("No AI thesis evaluation rows are available yet.")
+        trust_score = build_model_trust_score(
+            {
+                "model_name": model_name,
+                "model_version": model_version,
+                "sample_size": context_dict(backtest.get("summary")).get("enough_history_count", 0),
+                "recommendation_backtest_summary": context_dict(backtest.get("summary")),
+                "benchmark_comparison_summary": benchmark_review,
+                "decision_safety_effectiveness_summary": safety_summary,
+                "source_usefulness_summary": source_summary,
+                "ai_thesis_evaluation_summary": ai_summary,
+                "warning_flags": warnings,
+                "minimum_sample_size": 30,
+            }
+        )
+        return {
+            "review_only": True,
+            "recommendation_only": True,
+            "no_model_promotion": True,
+            "note": "Recommendation-only model evaluation; review-only learning context does not change official recommendations or promote models.",
+            "prediction_records": compact_prediction_summary(prediction_records),
+            "model_registry": compact_model_registry(registry),
+            "recommendation_backtest": {
+                "review_only": True,
+                "summary": context_dict(backtest.get("summary")),
+                "rows": context_list(backtest.get("rows"))[:20],
+                "empty_state": "No recommendation backtest rows are available yet.",
+            },
+            "benchmark_comparison": {
+                "review_only": True,
+                "summary": benchmark_review,
+                "rows": benchmark_rows[:20],
+                "empty_state": "No benchmark comparison rows are available yet.",
+            },
+            "model_trust_score_v1": {
+                **trust_score,
+                "notes": "Review-only Model Trust Score v1; no model promotion or recommendation behavior changes are applied.",
+            },
+            "ai_thesis_evaluation": ai_summary,
+            "warnings": list(dict.fromkeys(warnings)),
+        }
+
     def recommendation_context(rank: int, row: Dict[str, object]) -> Dict[str, object]:
         item = row["input"]
         target = row.get("target")
@@ -7110,6 +7327,13 @@ def run_analysis(
         ai_context_by_symbol=synthesis_readiness_by_symbol,
         as_of_date=report_date,
     )
+    model_evaluation = build_model_evaluation_context(
+        recommendations=recommendations,
+        learning_review=learning_review,
+        as_of_date=report_date,
+        generated_at=now.isoformat(timespec="seconds"),
+        recommendation_run_id=db_run_id,
+    )
     report_date = f"{now:%Y-%m-%d}"
     report_context = {
         "metadata": {
@@ -7148,6 +7372,7 @@ def run_analysis(
         "long_term_capital_deployment": long_term_capital_deployment,
         "earnings_review": earnings_review,
         "tactical_review": tactical_review,
+        "model_evaluation": model_evaluation,
         "long_term_add_queue": long_term_add_queue,
         "reliability": {
             "mode": reliability_status,
