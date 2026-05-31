@@ -1,0 +1,23 @@
+[
+  {
+    "symbol": "MSFT",
+    "earnings_date": "2026-06-05",
+    "source": "fixture earnings calendar",
+    "source_confidence": "high",
+    "source_status": "ok"
+  },
+  {
+    "symbol": "NVDA",
+    "earnings_date": "2026-07-15",
+    "source": "fixture earnings calendar",
+    "source_confidence": "medium",
+    "source_status": "ok"
+  },
+  {
+    "symbol": "AMZN",
+    "earnings_date": "2026-05-29",
+    "source": "fixture earnings calendar",
+    "source_confidence": "medium",
+    "source_status": "ok"
+  }
+]
