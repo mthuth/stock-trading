@@ -83,6 +83,12 @@ Serve a generated dashboard locally when reviewing feedback-save behavior:
 python3 scripts/serve_dashboard.py
 ```
 
+Render the static local decision console shell from a manifest:
+
+```bash
+python3 scripts/render_local_console.py --manifest reports/local-console-manifest.json --output reports/local-console.html
+```
+
 ## Quality Checks
 
 The default local gate is:

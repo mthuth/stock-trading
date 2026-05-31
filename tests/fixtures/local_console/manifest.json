@@ -1,0 +1,152 @@
+{
+  "metadata": {
+    "title": "Local Decision Console",
+    "report_date": "2026-05-31",
+    "generated_at": "2026-05-31T18:10:00",
+    "version": "local-decision-console-shell-v1",
+    "source": "fixture"
+  },
+  "guardrails": [
+    "Recommendation-only decision support",
+    "No automatic trading",
+    "No order preview",
+    "No broker writes",
+    "Review-only sections do not change scores, targets, actions, gates, allocation, source weights, or provider behavior"
+  ],
+  "sections": {
+    "current_decision": {
+      "status": "Review",
+      "summary": "Latest recommendation review from the daily report context.",
+      "review_only": true,
+      "items": [
+        {
+          "label": "MSFT",
+          "value": "Add",
+          "detail": "Top reviewed long-term candidate; human final decision required.",
+          "href": "dashboard-2026-05-31.html"
+        }
+      ]
+    },
+    "capital_deployment": {
+      "status": "Available",
+      "summary": "Long-term add queue and capital availability context.",
+      "review_only": true,
+      "items": [
+        {
+          "label": "Best long-term add",
+          "value": "MSFT",
+          "detail": "Decision-safe in fixture with configured monthly capacity."
+        },
+        {
+          "label": "Backup candidate",
+          "value": "NVDA",
+          "detail": "Shown only as review context."
+        }
+      ]
+    },
+    "earnings_review": {
+      "status": "Needs review",
+      "summary": "Upcoming and recent earnings events needing review-only attention.",
+      "review_only": true,
+      "items": [
+        {
+          "label": "NVDA earnings",
+          "value": "wait_for_earnings",
+          "detail": "Provider confidence and post-event signals should be checked before manual action."
+        }
+      ]
+    },
+    "data_reliability": {
+      "status": "Needs review",
+      "summary": "Provider gaps and data quality issues that matter to decisions.",
+      "review_only": true,
+      "items": [
+        {
+          "label": "Current price gap",
+          "value": "BBAI",
+          "detail": "Missing current price blocks buy-readiness."
+        }
+      ]
+    },
+    "ai_briefs": {
+      "status": "Reviewed",
+      "summary": "AI briefs are explanatory only and must remain guardrailed.",
+      "review_only": true,
+      "items": [
+        {
+          "label": "MSFT AI brief",
+          "value": "accepted",
+          "detail": "Reviewed user-approved context; does not change official recommendations."
+        }
+      ]
+    },
+    "learning_review": {
+      "status": "Review",
+      "summary": "Outcome, catalyst, decision-safety, and source-usefulness learning remains observational.",
+      "review_only": true,
+      "items": [
+        {
+          "label": "Source usefulness",
+          "value": "needs_more_history",
+          "detail": "Review-only; no source weights changed."
+        }
+      ]
+    },
+    "manual_journal": {
+      "status": "Current",
+      "summary": "Manual journal entries are read for review, not execution.",
+      "review_only": true,
+      "items": [
+        {
+          "label": "Latest journal entry",
+          "value": "reviewed",
+          "detail": "Manual note captured outside broker workflows."
+        }
+      ]
+    },
+    "outcomes": {
+      "status": "Partial",
+      "summary": "Recommendation and catalyst outcomes are review-only learning surfaces.",
+      "review_only": true,
+      "items": [
+        {
+          "label": "Recommendation outcome sample",
+          "value": "too_small",
+          "detail": "Not enough history for model-impact decisions."
+        }
+      ]
+    },
+    "artifacts": {
+      "status": "Available",
+      "summary": "Latest generated artifacts and run history pointers.",
+      "review_only": true,
+      "links": [
+        {
+          "label": "Daily dashboard",
+          "path": "dashboard-2026-05-31.html",
+          "detail": "Static dashboard artifact"
+        },
+        {
+          "label": "Report context",
+          "path": "report-context-2026-05-31.json",
+          "detail": "JSON context artifact"
+        }
+      ]
+    },
+    "strategy_roadmap": {
+      "status": "Available",
+      "summary": "Product strategy and roadmap references.",
+      "review_only": true,
+      "links": [
+        {
+          "label": "Local App Strategy",
+          "path": "../docs/LOCAL_APP_STRATEGY.md"
+        },
+        {
+          "label": "Requirements Roadmap",
+          "path": "../docs/REQUIREMENTS_ROADMAP.md"
+        }
+      ]
+    }
+  }
+}
