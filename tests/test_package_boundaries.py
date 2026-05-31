@@ -41,6 +41,7 @@ class PackageBoundaryTests(unittest.TestCase):
     def test_package_modules_import_without_test_path_mutation(self) -> None:
         for module_name in (
             "stock_trading.ingestion",
+            "stock_trading.ingestion_workflows",
             "stock_trading.analysis",
             "stock_trading.analysis_engine",
             "stock_trading.analysis_context",
@@ -66,6 +67,9 @@ class PackageBoundaryTests(unittest.TestCase):
             "stock_trading.provider_repository",
             "stock_trading.recommendation_repository",
             "stock_trading.verification_queue",
+            "stock_trading.workflows",
+            "stock_trading.workflows.daily",
+            "stock_trading.workflows.steps",
             "stock_trading.cli.daily",
             "stock_trading.cli.run_analysis",
             "stock_trading.cli.render_report_context",
@@ -86,17 +90,18 @@ class PackageBoundaryTests(unittest.TestCase):
             )
 
     def test_ingestion_does_not_render_reports(self) -> None:
-        assert_no_imports(
-            self,
-            "stock_trading/ingestion.py",
-            (
-                "stock_trading.presentation",
-                "stock_trading.reporting",
-                "stock_trading.analysis_scoring",
-                "stock_trading.analysis_context",
-                "stock_trading.analysis_engine",
-            ),
-        )
+        for module_path in ("stock_trading/ingestion.py", "stock_trading/ingestion_workflows.py"):
+            assert_no_imports(
+                self,
+                module_path,
+                (
+                    "stock_trading.presentation",
+                    "stock_trading.reporting",
+                    "stock_trading.analysis_scoring",
+                    "stock_trading.analysis_context",
+                    "stock_trading.analysis_engine",
+                ),
+            )
 
     def test_analysis_does_not_import_provider_client(self) -> None:
         for module_path in (
