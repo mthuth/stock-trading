@@ -1,0 +1,189 @@
+{
+  "summary": {
+    "top_symbol": "NVDA",
+    "top_company": "NVIDIA",
+    "top_action": "Add",
+    "top_score": 87.4,
+    "suggested_amount_text": "$2,500.00",
+    "confidence": "Medium",
+    "data_status": "Blended",
+    "decision_gate": {
+      "status": "passed",
+      "safe_to_buy": true,
+      "reasons": []
+    }
+  },
+  "long_term_capital_deployment": {
+    "status": "deployable",
+    "decision_mode": "long_term_buy_add",
+    "question": "What should I buy/add today for long-term holdings?",
+    "primary_candidate": {
+      "symbol": "NVDA",
+      "action": "Add"
+    },
+    "fallback_candidate": {
+      "symbol": "MSFT",
+      "action": "Add"
+    },
+    "decision_safety_status": "passed",
+    "target_confidence": "medium",
+    "capital_availability": {
+      "status": "current",
+      "deployable_amount_text": "$2,500.00",
+      "held_amount_text": "$0.00",
+      "reason": "Configured monthly buy capacity is available."
+    },
+    "note": "Capital deployment review is recommendation-only."
+  },
+  "earnings_review": {
+    "note": "Review upcoming and recent earnings without changing recommendations.",
+    "upcoming_earnings_queue": {
+      "rows": [
+        {
+          "symbol": "MSFT",
+          "recommended_review_action": "review_pre_earnings"
+        }
+      ]
+    },
+    "recent_earnings_queue": {
+      "rows": [
+        {
+          "symbol": "AMZN",
+          "recommended_review_action": "review_post_earnings"
+        }
+      ]
+    },
+    "provider_data_gaps": {
+      "rows": [
+        {
+          "symbol": "PANW",
+          "status": "blocked",
+          "latest_issue": "Calendar provider blocked"
+        }
+      ]
+    },
+    "earnings_signal_summary": {
+      "overall_direction": "mixed"
+    }
+  },
+  "source_health": {
+    "summary": {
+      "healthy": 3,
+      "needs_attention": 1,
+      "stale": 1
+    },
+    "top_blocker": "Analyst target provider access",
+    "provider_blockers": {
+      "headers": [
+        "Severity",
+        "Symbol",
+        "Provider",
+        "Dataset",
+        "Impact",
+        "Latest Detail"
+      ],
+      "rows": [
+        [
+          "High",
+          "NVDA",
+          "FMP",
+          "analyst_targets",
+          "Analyst target breadth",
+          "Provider plan/access blocker"
+        ]
+      ]
+    },
+    "alerts": {
+      "headers": [
+        "Symbol",
+        "Status",
+        "Detail"
+      ],
+      "rows": [
+        [
+          "MSFT",
+          "stale",
+          "Companyfacts older than expected"
+        ]
+      ]
+    }
+  },
+  "ai_briefs": {
+    "summary": "Two AI briefs are ready for human review.",
+    "briefs": [
+      {
+        "symbol": "NVDA",
+        "title": "AI infrastructure thesis",
+        "status": "reviewed",
+        "readiness": "ready_for_ai_synthesis",
+        "guardrail_status": "passed"
+      }
+    ],
+    "guardrails": {
+      "status": "passed",
+      "warnings": []
+    }
+  },
+  "learning_review": {
+    "note": "Learning outputs are review-only and do not tune recommendations.",
+    "manual_journal": {
+      "status": "available",
+      "entry_count": 2
+    },
+    "recommendation_outcomes": {
+      "status": "available",
+      "outcome_count": 3
+    },
+    "catalyst_follow_through": {
+      "status": "available",
+      "outcome_count": 1
+    },
+    "source_usefulness": {
+      "status": "available",
+      "source_count": 4
+    },
+    "decision_safety_effectiveness": {
+      "status": "available",
+      "row_count": 2
+    }
+  },
+  "manual_journal": {
+    "entries": [
+      {
+        "symbol": "MSFT",
+        "action_taken": "held"
+      },
+      {
+        "symbol": "NVDA",
+        "action_taken": "added"
+      }
+    ]
+  },
+  "recommendation_outcomes": {
+    "outcomes": [
+      {
+        "symbol": "NVDA",
+        "outcome_status": "pending"
+      }
+    ]
+  },
+  "artifacts": {
+    "dashboard": {
+      "path": "reports/dashboard-2026-05-31.html",
+      "status": "current"
+    },
+    "context": {
+      "path": "reports/report-context-2026-05-31.json",
+      "status": "stale"
+    }
+  },
+  "run_history": {
+    "runs": [
+      {
+        "name": "daily",
+        "status": "ok_with_warnings",
+        "artifact_count": 3
+      }
+    ]
+  }
+}
