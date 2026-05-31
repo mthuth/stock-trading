@@ -5,10 +5,208 @@ from __future__ import annotations
 
 import sys
 import unittest
+from argparse import Namespace
 from unittest.mock import patch
 
 
 from stock_trading.cli import daily as subject
+from stock_trading.workflows import daily as workflow_subject
+
+
+def workflow_args(**overrides: bool) -> Namespace:
+    values = {name: False for name in workflow_subject.FLAG_LABELS}
+    values.update(overrides)
+    return Namespace(**values)
+
+
+def plan_names(plan: list[workflow_subject.WorkflowStep]) -> list[str]:
+    return [step.name for step in plan]
+
+
+def plan_by_name(plan: list[workflow_subject.WorkflowStep]) -> dict[str, workflow_subject.WorkflowStep]:
+    return {step.name: step for step in plan}
+
+
+def required_by_name(plan: list[workflow_subject.WorkflowStep]) -> dict[str, bool]:
+    return {step.name: step.required for step in plan}
+
+
+class DailyWorkflowPlanTests(unittest.TestCase):
+    def test_default_daily_plan_refreshes_report_only(self) -> None:
+        plan = workflow_subject.build_daily_workflow_plan(workflow_args())
+
+        self.assertEqual(plan_names(plan), ["generate_daily_report"])
+        report = plan[0]
+        self.assertTrue(report.required)
+        self.assertEqual(report.callable_name, "generate_daily_report_step")
+        self.assertEqual(report.command[1:], ("scripts/generate_daily_report.py", "--refresh"))
+        self.assertEqual(report.reason, "always enabled; report refresh planned")
+
+    def test_skip_refresh_plan_disables_report_refresh(self) -> None:
+        plan = workflow_subject.build_daily_workflow_plan(workflow_args(skip_refresh=True))
+
+        self.assertEqual(plan_names(plan), ["generate_daily_report"])
+        report = plan[0]
+        self.assertTrue(report.required)
+        self.assertEqual(report.callable_name, "generate_daily_report_step")
+        self.assertEqual(report.command[1:], ("scripts/generate_daily_report.py",))
+        self.assertEqual(report.reason, "always enabled; refresh disabled by --skip-refresh")
+
+    def test_ingest_evidence_plan_covers_required_optional_paths_and_reasons(self) -> None:
+        plan = workflow_subject.build_daily_workflow_plan(workflow_args(ingest_evidence=True))
+
+        self.assertEqual(
+            plan_names(plan),
+            [
+                "refresh_market_data",
+                "ingest_finnhub",
+                "ingest_research_depth",
+                "ingest_sec",
+                "ingest_official_ir",
+                "ingest_public_research_feeds",
+                "tag_research_evidence",
+                "curate_source_depth",
+                "cluster_evidence_events",
+                "prepare_synthesis_packets",
+                "score_source_quality",
+                "plan_ingestion_runs",
+                "curate_score_signals",
+                "generate_daily_report",
+            ],
+        )
+        self.assertEqual(
+            required_by_name(plan),
+            {
+                "refresh_market_data": True,
+                "ingest_finnhub": False,
+                "ingest_research_depth": False,
+                "ingest_sec": False,
+                "ingest_official_ir": False,
+                "ingest_public_research_feeds": False,
+                "tag_research_evidence": False,
+                "curate_source_depth": False,
+                "cluster_evidence_events": False,
+                "prepare_synthesis_packets": False,
+                "score_source_quality": False,
+                "plan_ingestion_runs": False,
+                "curate_score_signals": False,
+                "generate_daily_report": True,
+            },
+        )
+
+        steps = plan_by_name(plan)
+        self.assertEqual(steps["refresh_market_data"].callable_name, "")
+        self.assertEqual(steps["refresh_market_data"].command[1:], ("scripts/refresh_market_data.py",))
+        self.assertEqual(steps["refresh_market_data"].reason, "enabled by --ingest-evidence")
+        self.assertEqual(steps["ingest_finnhub"].callable_name, "")
+        self.assertEqual(steps["ingest_finnhub"].reason, "enabled by --ingest-evidence")
+        self.assertEqual(steps["ingest_research_depth"].callable_name, "")
+        self.assertEqual(steps["ingest_research_depth"].reason, "enabled by --ingest-evidence")
+        self.assertEqual(steps["ingest_sec"].reason, "enabled by --ingest-evidence")
+        self.assertEqual(steps["ingest_official_ir"].reason, "enabled by --ingest-evidence")
+        self.assertEqual(steps["ingest_public_research_feeds"].callable_name, "ingest_public_research_feeds_step")
+        self.assertEqual(steps["tag_research_evidence"].callable_name, "tag_research_evidence_step")
+        self.assertEqual(steps["curate_source_depth"].callable_name, "curate_source_depth_step")
+        self.assertEqual(steps["cluster_evidence_events"].callable_name, "cluster_evidence_events_step")
+        self.assertEqual(steps["cluster_evidence_events"].command[1:], ("scripts/cluster_evidence_events.py", "--rebuild"))
+        self.assertEqual(steps["prepare_synthesis_packets"].callable_name, "prepare_synthesis_packets_step")
+        self.assertEqual(steps["score_source_quality"].callable_name, "score_source_quality_step")
+        self.assertEqual(steps["plan_ingestion_runs"].callable_name, "plan_ingestion_runs_step")
+        self.assertEqual(steps["curate_score_signals"].callable_name, "")
+        self.assertEqual(steps["curate_score_signals"].command[1:], ("scripts/curate_score_signals.py", "--rebuild"))
+        self.assertEqual(steps["generate_daily_report"].command[1:], ("scripts/generate_daily_report.py",))
+        self.assertEqual(steps["generate_daily_report"].reason, "always enabled; prior market refresh step supplies fresh data")
+
+    def test_ingest_free_data_plan_uses_free_bundle_without_market_refresh(self) -> None:
+        plan = workflow_subject.build_daily_workflow_plan(workflow_args(ingest_free_data=True))
+
+        self.assertEqual(
+            plan_names(plan),
+            [
+                "ingest_price_history",
+                "ingest_research_depth",
+                "ingest_sec",
+                "ingest_official_ir",
+                "ingest_public_research_feeds",
+                "tag_research_evidence",
+                "curate_source_depth",
+                "cluster_evidence_events",
+                "prepare_synthesis_packets",
+                "score_source_quality",
+                "plan_ingestion_runs",
+                "curate_score_signals",
+                "generate_daily_report",
+            ],
+        )
+        self.assertNotIn("refresh_market_data", plan_names(plan))
+
+        steps = plan_by_name(plan)
+        self.assertTrue(steps["generate_daily_report"].required)
+        self.assertEqual(steps["generate_daily_report"].command[1:], ("scripts/generate_daily_report.py", "--refresh"))
+        self.assertEqual(steps["generate_daily_report"].reason, "always enabled; report refresh planned")
+        for step_name in plan_names(plan)[:-1]:
+            self.assertFalse(steps[step_name].required, step_name)
+            self.assertIn("--ingest-free-data", steps[step_name].reason)
+        self.assertEqual(steps["ingest_price_history"].callable_name, "ingest_price_history_step")
+        self.assertEqual(steps["ingest_research_depth"].callable_name, "")
+        self.assertEqual(steps["ingest_public_research_feeds"].callable_name, "ingest_public_research_feeds_step")
+        self.assertEqual(steps["curate_score_signals"].callable_name, "")
+
+    def test_ingest_public_sources_plan_runs_public_bundle_without_market_refresh(self) -> None:
+        plan = workflow_subject.build_daily_workflow_plan(workflow_args(ingest_public_sources=True))
+
+        self.assertEqual(
+            plan_names(plan),
+            [
+                "ingest_public_research_feeds",
+                "tag_research_evidence",
+                "curate_source_depth",
+                "cluster_evidence_events",
+                "prepare_synthesis_packets",
+                "score_source_quality",
+                "plan_ingestion_runs",
+                "curate_score_signals",
+                "generate_daily_report",
+            ],
+        )
+        self.assertNotIn("refresh_market_data", plan_names(plan))
+
+        steps = plan_by_name(plan)
+        self.assertEqual(steps["generate_daily_report"].command[1:], ("scripts/generate_daily_report.py", "--refresh"))
+        for step_name in plan_names(plan)[:-1]:
+            self.assertFalse(steps[step_name].required, step_name)
+            self.assertIn("--ingest-public-sources", steps[step_name].reason)
+        self.assertEqual(steps["ingest_public_research_feeds"].callable_name, "ingest_public_research_feeds_step")
+        self.assertEqual(steps["tag_research_evidence"].callable_name, "tag_research_evidence_step")
+        self.assertEqual(steps["curate_source_depth"].callable_name, "curate_source_depth_step")
+        self.assertEqual(steps["curate_score_signals"].callable_name, "")
+
+    def test_verify_insights_plan_adds_optional_subprocess_before_report(self) -> None:
+        plan = workflow_subject.build_daily_workflow_plan(workflow_args(verify_insights=True))
+
+        self.assertEqual(plan_names(plan), ["run_verification_queue", "generate_daily_report"])
+        verification, report = plan
+        self.assertFalse(verification.required)
+        self.assertEqual(verification.callable_name, "")
+        self.assertEqual(verification.command[1:], ("scripts/run_verification_queue.py", "--execute"))
+        self.assertEqual(verification.reason, "enabled by --verify-insights")
+        self.assertTrue(report.required)
+        self.assertEqual(report.callable_name, "generate_daily_report_step")
+        self.assertEqual(report.command[1:], ("scripts/generate_daily_report.py", "--refresh"))
+        self.assertEqual(report.reason, "always enabled; report refresh planned")
+
+    def test_show_gaps_plan_adds_optional_subprocess_after_report(self) -> None:
+        plan = workflow_subject.build_daily_workflow_plan(workflow_args(show_gaps=True))
+
+        self.assertEqual(plan_names(plan), ["generate_daily_report", "show_provider_gaps"])
+        report, gaps = plan
+        self.assertTrue(report.required)
+        self.assertEqual(report.callable_name, "generate_daily_report_step")
+        self.assertEqual(report.command[1:], ("scripts/generate_daily_report.py", "--refresh"))
+        self.assertEqual(gaps.required, False)
+        self.assertEqual(gaps.callable_name, "")
+        self.assertEqual(gaps.command[1:], ("scripts/show_provider_gaps.py",))
+        self.assertEqual(gaps.reason, "enabled by --show-gaps")
 
 
 class RunDailyTests(unittest.TestCase):
