@@ -8,6 +8,7 @@ Related strategy docs:
 
 - [Product Strategy](PRODUCT_STRATEGY.md)
 - [Roadmap Status](ROADMAP_STATUS.md)
+- [Wave 7 Handoff](WAVE7_HANDOFF.md)
 - [Decision Modes](DECISION_MODES.md)
 - [Model Learning Strategy](MODEL_LEARNING_STRATEGY.md)
 - [Local App Strategy](LOCAL_APP_STRATEGY.md)
@@ -19,7 +20,9 @@ Current status after Waves 1-6:
 
 - Waves 1-5 are complete.
 - Wave 6 is complete: manual journal, recommendation outcome tracking, decision-safety effectiveness, catalyst follow-through, and source usefulness have merged.
-- The next recommended step is Wave 6.5: Product Integration And Stabilization.
+- PR #38 is complete: product strategy, roadmap status, decision modes, model learning strategy, and local app strategy are documented.
+- The current step is Wave 6.5: Product Integration And Stabilization.
+- The next feature wave is Wave 7: Long-Term Capital Deployment.
 - Future development should not move into Wave 7 until Wave 6 integration and stabilization are done.
 
 Use [Roadmap Status](ROADMAP_STATUS.md) as the living status map before starting new feature work.
@@ -143,6 +146,7 @@ Acceptance criteria:
 
 - Wave 6 learning outputs are documented as review-only.
 - Manual journal, outcomes, catalyst follow-through, source usefulness, and decision-safety effectiveness have a coherent integration plan.
+- [Wave 7 Handoff](WAVE7_HANDOFF.md) is available before Wave 7 implementation starts.
 - Report-context schema/status validation is added later only if appropriate and scoped.
 - Dashboard/report context direction is aligned around long-term capital deployment and learning.
 - Review-only outputs remain review-only.
@@ -157,6 +161,8 @@ Do not move into Wave 7 before Wave 6.5 stabilization is done.
 ## Wave 7: Long-Term Capital Deployment
 
 Goal: improve long-term buy/add decisions and capital availability without broker writes or order preview.
+
+Read [Wave 7 Handoff](WAVE7_HANDOFF.md) before starting implementation.
 
 Likely scope:
 

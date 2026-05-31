@@ -10,8 +10,11 @@ Current state:
 
 - Recommendation-only daily research/reporting is established.
 - Decision safety, target confidence, allocation safety, watchlist-only enforcement, provider/source health, and AI synthesis guardrails are present.
+- Waves 1-5 are complete.
 - Wave 6 learning foundations are merged: manual journal, recommendation outcomes, decision-safety effectiveness, catalyst follow-through, and source usefulness.
-- The next step should be product integration and stabilization, not a jump into broad new feature work.
+- PR #38 is merged, so the product strategy, roadmap, decision-mode, learning, and local-app direction docs are now part of `main`.
+- Current Wave 6.5 work is product integration and stabilization, with Wave 7 handoff preparation as the immediate docs focus.
+- Wave 7 should be Long-Term Capital Deployment after Wave 6.5 stabilization is complete.
 
 ## Completed Waves
 
@@ -23,16 +26,17 @@ Current state:
 | Wave 4: Model Transparency And Allocation Safety | Complete | Technical/fundamental target transparency, target confidence calibration, watchlist-only enforcement, and allocation safety landed. |
 | Wave 5: AI Synthesis | Complete | AI prompt packets, evidence guardrails, synthesis readiness, AI brief review workflow, and LLM research brief drafting landed as explanatory outputs. |
 | Wave 6: Learning System Foundations | Complete | PRs #33, #34, #35, #36, and #37 are merged: manual journal, outcome tracking, decision-safety effectiveness, catalyst follow-through, and source usefulness. |
+| Strategy Docs Refresh | Complete | PR #38 is merged: product strategy, roadmap status, decision modes, model learning strategy, and local app strategy are documented. |
 
 ## Current / In-Progress Work
 
-No open PRs were present when this document was updated after PR #35 merged.
+No Wave 7 implementation PRs were present when this document was updated after PR #38 merged.
 
-Current active work should be considered Wave 6.5: product integration and stabilization.
+Current active work should be considered Wave 6.5: product integration and stabilization. The main deliverable for this status audit is [Wave 7 Handoff](WAVE7_HANDOFF.md), which prepares future agents for Long-Term Capital Deployment without authorizing app behavior changes.
 
 ## Next Recommended Wave
 
-### Wave 6.5: Product Integration And Stabilization
+### Current: Wave 6.5 Product Integration And Stabilization
 
 Goal: integrate Wave 6 learning outputs, update roadmap status, and align the product around long-term capital deployment and learning without changing model behavior.
 
@@ -45,7 +49,30 @@ Suggested scope:
 - Ensure manual journal, outcomes, catalyst follow-through, source usefulness, and decision-safety effectiveness remain review-only.
 - Prepare for Wave 7.
 
+Exit criteria:
+
+- Roadmap/status docs reflect PRs #33-#38.
+- [Wave 7 Handoff](WAVE7_HANDOFF.md) gives future agents a clear long-term capital deployment brief.
+- No learning output changes score, action, target, target confidence, suggested amount, decision gate, source weighting, provider behavior, broker behavior, or trading behavior.
+- Provider gap cleanup and ETF expected-gap work are left as scoped follow-up branches.
+
 Future development should not move into Wave 7 before Wave 6 integration and stabilization are done.
+
+### Next: Wave 7 Long-Term Capital Deployment
+
+Wave 7 should focus on the daily question:
+
+> What should I buy/add today for long-term holdings?
+
+Likely Wave 7 branches:
+
+- `codex/long-term-add-queue`
+- `codex/capital-deployment-context`
+- `codex/best-add-if-blocked`
+- `codex/long-term-holding-health-v1`
+- `codex/capital-deployment-dashboard`
+
+Wave 7 must remain recommendation-only. It should not add automatic trading, broker writes, order previews, tactical same-day trading, shorting, automatic model tuning, automatic source-weight changes, or AI-driven official recommendation changes.
 
 ## Integration Backlog
 

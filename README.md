@@ -158,6 +158,7 @@ Older or compatibility database files may exist in `data/`; confirm the active p
 - [REQUIREMENTS.md](REQUIREMENTS.md): product contract, recommendation labels, scoring model, target methodology, and recommendation-only constraints.
 - [docs/PRODUCT_STRATEGY.md](docs/PRODUCT_STRATEGY.md): product north star, portfolio strategy, risk posture, AI role, broker policy, and local app direction.
 - [docs/ROADMAP_STATUS.md](docs/ROADMAP_STATUS.md): completed waves, current integration needs, next recommended work, and deferred decisions.
+- [docs/WAVE7_HANDOFF.md](docs/WAVE7_HANDOFF.md): Wave 7 long-term capital deployment handoff and guardrails.
 - [docs/DECISION_MODES.md](docs/DECISION_MODES.md): decision modes, recommendation horizons, sleeves, and mode-specific guardrails.
 - [docs/MODEL_LEARNING_STRATEGY.md](docs/MODEL_LEARNING_STRATEGY.md): prediction records, outcome evaluation, model trust, source usefulness, and shadow-model rules.
 - [docs/LOCAL_APP_STRATEGY.md](docs/LOCAL_APP_STRATEGY.md): path from static reports to a local decision console.
