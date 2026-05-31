@@ -19,6 +19,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List, Set
 
+from stock_trading.allocation_safety import (
+    allocation_safety_for_candidate,
+    sleeve_market_values_for_ranked,
+)
 from stock_trading.provider_gap_summary import build_provider_gap_review
 from stock_trading.technical_targets import calculate_technical_target
 
@@ -5429,12 +5433,27 @@ def run_analysis(
 
     next_item = next_buy["input"]
     next_target = next_buy.get("target")
-    suggested_amount = default_buy_amount if decision_gate.get("safe_to_buy") else 0.0
     next_action = str(next_buy["action"])
-    actionable_next = next_action in BUY_ACTIONS and bool(decision_gate.get("safe_to_buy"))
+    allocation_safety = allocation_safety_for_candidate(
+        next_buy,
+        decision_gate,
+        positions=positions,
+        targets=targets,
+        account_value=account_value,
+        buy_capacity=default_buy_amount,
+        sleeve_market_values=sleeve_market_values_for_ranked(ranked, positions),
+    )
+    suggested_amount = allocation_safety.suggested_amount
+    actionable_next = (
+        next_action in BUY_ACTIONS
+        and bool(decision_gate.get("safe_to_buy"))
+        and suggested_amount > 0
+    )
     next_recommendation_label = "Recommended next buy" if actionable_next else "Top-ranked candidate"
     if not actionable_next and next_action in BUY_ACTIONS:
-        next_recommendation_label = "No decision-safe buy"
+        next_recommendation_label = (
+            "Buy capacity held" if decision_gate.get("safe_to_buy") else "No decision-safe buy"
+        )
     next_amount_label = "Suggested buy amount" if actionable_next else "Buy capacity held"
     next_display_action = next_action if actionable_next else f"{next_action} blocked" if next_action in BUY_ACTIONS else next_action
     html_score_rows = []
@@ -6091,6 +6110,8 @@ def run_analysis(
             "amount_label": next_amount_label,
             "suggested_amount": suggested_amount,
             "suggested_amount_text": fmt_money(suggested_amount),
+            "suggested_amount_reason": allocation_safety.reason,
+            "allocation_safety": allocation_safety.to_context(),
             "current_price_text": fmt_money(next_item.current_price) if next_item.current_price else "Needs refresh",
             "target_text": target_price_text(next_item, next_target),
             "upside_text": target_upside_text(next_item, next_target),
