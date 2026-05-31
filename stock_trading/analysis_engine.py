@@ -27,6 +27,7 @@ from stock_trading.fundamental_target_config import (
 from stock_trading.provider_gap_summary import build_provider_gap_review
 from stock_trading.target_confidence import calibrate_target_confidence
 from stock_trading.technical_targets import calculate_technical_target
+from stock_trading.watchlist_policy import evaluate_watchlist_policy
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -384,12 +385,8 @@ def action_for(
     position_after_buy_pct: float,
     targets: Dict[str, object],
 ) -> str:
-    speculative_config = targets.get("speculative_ai", {})
-    speculative_allows_buys = (
-        isinstance(speculative_config, dict)
-        and speculative_config.get("allow_buy_recommendations") is True
-    )
-    if item.sleeve == "speculative_ai" and not speculative_allows_buys:
+    watchlist_policy = evaluate_watchlist_policy(item.symbol, item.sleeve, targets)
+    if watchlist_policy.get("blocked"):
         return "Watch" if score >= 55 else "Avoid"
     if item.sleeve == "etf":
         return "Add" if score >= 78 else "Watch"
@@ -699,7 +696,11 @@ def action_rationale(
     breakdown: ScoreBreakdown,
     position_after_buy_pct: float,
     target: BlendedTarget | None = None,
+    targets: Dict[str, object] | None = None,
 ) -> str:
+    watchlist_policy = evaluate_watchlist_policy(item.symbol, item.sleeve, targets or {})
+    if watchlist_policy.get("blocked"):
+        return str(watchlist_policy.get("reason") or "Watchlist-only policy blocks buy-readiness.")
     if item.sleeve == "speculative_ai":
         return "Speculative AI is watchlist-only during the 2-3 week observation period."
     if position_after_buy_pct > 10:
@@ -727,6 +728,7 @@ DECISION_BLOCKING_INSIGHT_TYPES = {"Verification Needed", "Data Gap"}
 def decision_safety_gate(
     row: Dict[str, object],
     decision_insight: DecisionInsight | None = None,
+    targets: Dict[str, object] | None = None,
 ) -> Dict[str, object]:
     item = row.get("input")
     if not isinstance(item, ResearchInput):
@@ -743,9 +745,12 @@ def decision_safety_gate(
     target_status = data_status_for_target(item, target if isinstance(target, BlendedTarget) else None)
     confidence = target_confidence_text(item, target if isinstance(target, BlendedTarget) else None)
     reasons: List[str] = []
+    watchlist_policy = evaluate_watchlist_policy(item.symbol, item.sleeve, targets or {})
 
     if action not in BUY_ACTIONS:
         reasons.append(f"{action or 'Current'} action is not a buy action")
+    if watchlist_policy.get("blocked"):
+        reasons.append(str(watchlist_policy.get("reason") or "Watchlist-only policy blocks buy-readiness."))
     if item.current_price <= 0:
         reasons.append("Missing current price")
     if target_status.startswith("Needs"):
@@ -774,28 +779,30 @@ def decision_safety_gate(
         "candidate_action": action,
         "reasons": unique_reasons,
         "summary": summary,
+        "watchlist_policy": watchlist_policy,
     }
 
 
 def decision_summary_candidate(
     ranked: List[Dict[str, object]],
     decision_insights: Dict[str, DecisionInsight],
+    targets: Dict[str, object] | None = None,
 ) -> tuple[Dict[str, object], Dict[str, object]]:
     buy_candidates = [
         row for row in ranked if str(row.get("action") or "") in BUY_ACTIONS and row["input"].sleeve != "etf"
     ]
     for row in buy_candidates:
         symbol = row["input"].symbol
-        gate = decision_safety_gate(row, decision_insights.get(symbol))
+        gate = decision_safety_gate(row, decision_insights.get(symbol), targets)
         if gate["safe_to_buy"]:
             return row, gate
 
     if buy_candidates:
         row = buy_candidates[0]
-        return row, decision_safety_gate(row, decision_insights.get(row["input"].symbol))
+        return row, decision_safety_gate(row, decision_insights.get(row["input"].symbol), targets)
     if ranked:
         row = ranked[0]
-        return row, decision_safety_gate(row, decision_insights.get(row["input"].symbol))
+        return row, decision_safety_gate(row, decision_insights.get(row["input"].symbol), targets)
     return {}, {
         "safe_to_buy": False,
         "status": "Blocked",
@@ -5399,6 +5406,7 @@ def run_analysis(
                     row["breakdown"],
                     row["position_after_buy_pct"],
                     target,
+                    targets,
                 ),
             }
         )
@@ -5438,7 +5446,7 @@ def run_analysis(
         "score-trend-table",
         raw_columns={5},
     )
-    next_buy, decision_gate = decision_summary_candidate(ranked, decision_insights)
+    next_buy, decision_gate = decision_summary_candidate(ranked, decision_insights, targets)
 
     holdings_rows = []
     allocation_segments = []
@@ -5482,6 +5490,7 @@ def run_analysis(
                     row["breakdown"],
                     row["position_after_buy_pct"],
                     target,
+                    targets,
                 ),
                 target_confidence_text(item, target),
             ]
@@ -5523,6 +5532,7 @@ def run_analysis(
                     row["breakdown"],
                     row["position_after_buy_pct"],
                     target,
+                    targets,
                 ),
                 target_confidence_text(item, target),
             ]
@@ -5563,6 +5573,7 @@ def run_analysis(
             row["breakdown"],
             float(row["position_after_buy_pct"]),
             target,
+            targets,
         )
         return [
             rank,
@@ -5600,6 +5611,7 @@ def run_analysis(
                 row["breakdown"],
                 float(row["position_after_buy_pct"]),
                 target,
+                targets,
             )
             body.append(
                 f"""
@@ -6014,7 +6026,7 @@ def run_analysis(
                 target_price_text(item, target),
                 target_upside_text(item, target),
                 data_status_for_target(item, target),
-                action_rationale(item, row["action"], row["breakdown"], row["position_after_buy_pct"], target),
+                action_rationale(item, row["action"], row["breakdown"], row["position_after_buy_pct"], target, targets),
             ]
         )
         next_day_watchlist_html_rows.append(
@@ -6028,7 +6040,7 @@ def run_analysis(
                 target_price_text(item, target),
                 target_upside_text(item, target),
                 data_status_for_target(item, target),
-                action_rationale(item, row["action"], row["breakdown"], row["position_after_buy_pct"], target),
+                action_rationale(item, row["action"], row["breakdown"], row["position_after_buy_pct"], target, targets),
             ]
         )
     score_change_rows = []
@@ -6090,8 +6102,10 @@ def run_analysis(
             row["breakdown"],
             row["position_after_buy_pct"],
             target,
+            targets,
         )
         explanation = score_explanation(item, row["breakdown"], target, row.get("insight"), rationale)
+        watchlist_policy = evaluate_watchlist_policy(item.symbol, item.sleeve, targets)
         return {
             "rank": rank,
             "symbol": item.symbol,
@@ -6110,6 +6124,7 @@ def run_analysis(
             "sources": target_source_label(item, target),
             "score_breakdown": score_summary_with_insight(row["breakdown"], row["insight"]),
             "score_explanation": explanation,
+            "watchlist_policy": watchlist_policy,
             "why": rationale,
             "rationale": rationale,
             "confidence": target_confidence_text(item, target),
