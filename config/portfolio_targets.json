@@ -1,6 +1,13 @@
 {
   "account_value": 50000,
   "monthly_contribution": 2500,
+  "capital_availability": {
+    "monthly_buy_capacity": 2500,
+    "manual_available_cash": null,
+    "as_of_date": "",
+    "source": "configured",
+    "notes": "Manual/config capital availability foundation for recommendation-only deployment review; no broker access or order behavior."
+  },
   "daily_report_schedule": {
     "pre_market_time": "08:30",
     "after_close_time": "17:00",
