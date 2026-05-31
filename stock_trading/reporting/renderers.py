@@ -551,15 +551,21 @@ def target_detail_html(context: dict[str, object], summary: dict[str, Any]) -> s
             [
                 source.get("target_type", ""),
                 source.get("source_name", ""),
+                source.get("source_type", ""),
                 source.get("target_price_text", ""),
                 source.get("range_text", "n/a"),
+                source.get("as_of_date", ""),
                 source.get("freshness", ""),
                 source.get("confidence", ""),
                 source.get("notes", ""),
             ]
         )
     if source_rows:
-        return html_table(["Type", "Source", "Target", "Range", "Freshness", "Confidence", "Notes"], source_rows, "compact-table")
+        return html_table(
+            ["Type", "Source", "Source Type", "Target", "Range", "As Of", "Freshness", "Confidence", "Notes"],
+            source_rows,
+            "compact-table",
+        )
     headers, rows = matching_table_rows(queue(context, "source_drilldown"), text(summary.get("top_symbol")), limit=3)
     return html_table(headers, rows, "compact-table") if rows else "<p>No target source drilldown rows available.</p>"
 
@@ -843,7 +849,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
       <div class="metric"><span class="label">Decision Gate</span><strong>{html.escape(text(decision_gate.get("status"), "Ready"))}</strong><div class="thesis">{html.escape(decision_gate_detail(summary))}</div></div>
       <div class="metric"><span class="label">Score</span><strong>{html.escape(text(summary.get("top_score")))}</strong></div>
       <div class="metric"><span class="label">{html.escape(text(summary.get("amount_label"), "Buy Capacity"))}</span><strong>{html.escape(text(summary.get("suggested_amount_text"), money(summary.get("suggested_amount"))))}</strong></div>
-      <div class="metric"><span class="label">Blended Target</span><strong>{html.escape(text(summary.get("target_text"), money(summary.get("target_price"))))}</strong><div class="thesis">{html.escape(text(summary.get("confidence")))} confidence</div></div>
+      <div class="metric"><span class="label">Blended Target</span><strong>{html.escape(text(summary.get("target_text"), money(summary.get("target_price"))))}</strong><div class="thesis">{html.escape(text(summary.get("confidence")))} confidence · {html.escape(text(summary.get("target_quality")))}</div></div>
       <div class="metric"><span class="label">1Y Upside</span><strong>{html.escape(text(summary.get("upside_text"), pct(summary.get("upside_pct"))))}</strong><div class="thesis">{html.escape(text(summary.get("data_status")))}</div></div>
       <div class="metric"><span class="label">Reliability</span><strong>{html.escape(text(reliability.get("mode"), "n/a"))}</strong><div class="thesis">Fresh {html.escape(text(price_counts.get("fresh"), "0"))} · fallback {html.escape(text(price_counts.get("fallback"), "0"))} · missing {html.escape(text(price_counts.get("missing"), "0"))}</div></div>
       <div class="metric"><span class="label">Source Health</span><strong>{html.escape(text(source_summary.get("needs_attention"), "0"))}</strong><div class="thesis">{html.escape(text(source_summary.get("healthy"), "0"))} healthy · {html.escape(text(source_summary.get("stale"), "0"))} stale · {html.escape(text(source_summary.get("not_implemented"), "0"))} not implemented</div></div>
@@ -1393,6 +1399,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
         f"- Blended target: **{summary.get('target_text', '')}**",
         f"- One-year upside: **{summary.get('upside_text', '')}**",
         f"- Confidence: **{summary.get('confidence', '')}**",
+        f"- Target quality: **{summary.get('target_quality', '')}**",
         f"- Report reliability: **{reliability.get('mode', 'n/a')}**",
         f"- Latest successful provider refresh: **{reliability.get('latest_provider_refresh', 'n/a')}**",
         "",
