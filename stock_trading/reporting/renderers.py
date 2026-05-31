@@ -11,6 +11,10 @@ from pathlib import Path
 from typing import Any
 
 from stock_trading.ai_briefs import write_ai_brief_artifacts
+from stock_trading.reporting.provider_gaps import (
+    render_provider_gap_review_html,
+    render_provider_gap_review_markdown,
+)
 
 
 REQUIRED_CONTEXT_SECTIONS = (
@@ -456,6 +460,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     reliability = as_dict(context.get("reliability"))
     price_counts = as_dict(reliability.get("price_counts"))
     source_health = as_dict(context.get("source_health"))
+    provider_gap_review = as_dict(context.get("provider_gap_review"))
     source_quality = as_dict(context.get("source_quality"))
     source_depth = as_dict(context.get("source_depth"))
     ingestion_run_plan = as_dict(context.get("ingestion_run_plan"))
@@ -542,6 +547,15 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     .source-health-filter span { color:var(--text); margin-left:4px; }
     .source-health-filter[aria-pressed="true"] { background:#eef4ff; border-color:#b7cdf8; color:var(--blue); }
     .source-health-filter-summary { color:var(--muted); font-size:12px; margin-bottom:6px; }
+    .provider-gap-counts { display:grid; grid-template-columns:repeat(4,minmax(120px,1fr)); gap:8px; margin:0 0 10px; }
+    .provider-gap-count { border:1px solid var(--line); border-radius:8px; background:#fbfcfe; padding:9px 10px; }
+    .provider-gap-count span { display:block; color:var(--muted); font-size:12px; font-weight:800; text-transform:uppercase; }
+    .provider-gap-count strong { display:block; font-size:20px; margin-top:2px; }
+    .provider-gap-count-blocker strong,.provider-gap-severity-blocker td:first-child { color:var(--red); font-weight:800; }
+    .provider-gap-count-review-needed strong,.provider-gap-severity-review-needed td:first-child { color:var(--amber); font-weight:800; }
+    .provider-gap-count-stale-missing strong,.provider-gap-severity-stale-missing td:first-child { color:#7c3aed; font-weight:800; }
+    .provider-gap-count-informational strong,.provider-gap-severity-informational td:first-child { color:var(--muted); font-weight:800; }
+    .provider-gap-table { min-width:0; }
     .readiness-grid,.decision-brief-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; }
     .readiness-card,.decision-brief-card { border:1px solid var(--line); border-radius:8px; background:#fbfcfe; padding:12px; }
     .decision-brief-card p,.notes { color:var(--muted); }
@@ -680,6 +694,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
 
     <div id="healthTrendsTab" class="tab-panel" hidden>
       <section><div class="section-title"><h2>Report Reliability</h2><span class="section-note">Run {html.escape(text(metadata.get("workflow_run_id") or "direct"))} · recommendation run {html.escape(text(metadata.get("recommendation_run_id")))}</span></div><p><strong>Status:</strong> {html.escape(text(reliability.get("mode"), "n/a"))}. <strong>Latest successful provider refresh:</strong> {html.escape(text(reliability.get("latest_provider_refresh"), "n/a"))}.</p>{html_table(["Fresh Prices", "Fallback Prices", "Stale Prices", "Manual Prices", "Missing Prices", "Top Blocker"], [[price_counts.get("fresh", 0), price_counts.get("fallback", 0), price_counts.get("stale", 0), price_counts.get("manual", 0), price_counts.get("missing", 0), source_health.get("top_blocker") or "None"]], "compact-table")}</section>
+      {render_provider_gap_review_html(provider_gap_review)}
       <section><div class="section-title"><h2>Source Issue Groups</h2><span class="section-note">Grouped root causes; detailed alerts remain below</span></div>{html_table(as_list(source_issue_groups.get("headers")), as_list(source_issue_groups.get("rows")), "source-issue-group-table")}</section>
       <section><div class="section-title"><h2>Provider Blocker Review</h2><span class="section-note">Field-level blockers and concrete next actions</span></div>{html_table(as_list(provider_blockers.get("headers")), as_list(provider_blockers.get("rows")), "source-issue-group-table")}</section>
       <section><div class="section-title"><h2>Insight Themes</h2><span class="section-note">Common decision patterns across the ranked universe</span></div>{html_table(as_list(insight_themes.get("headers")), as_list(insight_themes.get("rows")), "compact-table")}</section>
@@ -1146,6 +1161,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
     summary = normalized_summary(context)
     reliability = as_dict(context.get("reliability"))
     source_health = as_dict(context.get("source_health"))
+    provider_gap_review = as_dict(context.get("provider_gap_review"))
     source_quality = as_dict(context.get("source_quality"))
     price_counts = as_dict(reliability.get("price_counts"))
     decision_gate = as_dict(summary.get("decision_gate"))
@@ -1198,6 +1214,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
     append_table_section(lines, "Next-Day Watchlist", queue(context, "next_day"), "No watchlist candidates available.")
     append_table_section(lines, "Top Decision Briefs", as_dict(context.get("decision_briefs")), "No decision briefs available.")
     append_table_section(lines, "Source Health Alerts", as_dict(source_health.get("alerts")), "No source health alerts.")
+    lines.extend(["## Provider Gap Review", "", render_provider_gap_review_markdown(provider_gap_review), ""])
     append_table_section(lines, "Provider Blocker Review", as_dict(source_health.get("provider_blockers")), "No active provider blockers.")
     append_table_section(lines, "Next Ingestion Runs", as_dict(context.get("ingestion_run_plan")), "No ingestion run plan available.")
     append_table_section(lines, "Backfill Queue", as_dict(context.get("ingestion_backfill")), "No source backfill items queued.")

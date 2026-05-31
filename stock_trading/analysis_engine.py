@@ -20,6 +20,8 @@ from pathlib import Path
 from statistics import stdev
 from typing import Dict, Iterable, List, Set
 
+from stock_trading.provider_gap_summary import build_provider_gap_review
+
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_DIR = ROOT / "config"
@@ -5589,6 +5591,7 @@ def run_analysis(
     health_summary = source_health_summary(source_rows)
     provider_gap_rows = latest_provider_gaps()
     provider_blocker_rows = provider_blocker_review_rows(provider_gap_rows, ranked)
+    provider_gap_review = build_provider_gap_review(provider_gap_rows, top_symbol=next_buy["input"].symbol)
     next_day_source_rows = action_queue_items[:8]
     next_day_status = next_day_readiness(next_day_source_rows, health_summary, health_alert_rows)
     readiness_items = pre_market_readiness_items(
@@ -5855,6 +5858,7 @@ def run_analysis(
                 provider_blocker_rows,
             ),
         },
+        "provider_gap_review": provider_gap_review,
         "data_ingestion": table_context(
             ["Source", "Tier", "Category", "Free/Paid", "Status", "Raw Payloads", "Curated Records", "Last Run", "Latest Issue", "Next Action"],
             data_ingestion_rows,
