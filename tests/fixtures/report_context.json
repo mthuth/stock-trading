@@ -146,8 +146,76 @@
     },
     "provider_blockers": {
       "headers": ["Severity", "Symbol", "Provider", "Field", "Blocks", "Likely Cause", "Decision Context", "Latest Detail", "Next Action"],
-      "rows": [["High", "NVDA", "Financial Modeling Prep", "analyst_targets", "Analyst target breadth", "Provider plan/access blocker", "Rank 1 / Add / 84.2", "Provider plan blocked analyst target endpoint", "Review provider access"]]
+      "rows": [
+        ["High", "NVDA", "Financial Modeling Prep", "analyst_targets", "Analyst target breadth", "Provider plan/access blocker", "Rank 1 / Add / 84.2", "Provider plan blocked analyst target endpoint", "Review provider access"],
+        ["Medium", "MSFT", "SEC EDGAR", "companyfacts", "Primary-source fundamentals", "Missing companyfacts", "Rank 2 / Watch / 79.4", "SEC companyfacts returned no supported fact concepts", "Run scripts/ingest_sec.py MSFT"],
+        ["Medium", "META", "Company investor relations", "official_ir_page", "Primary company evidence", "Rate limit / parser gap", "Rank 3 / Hold / 75.1", "HTTP 429 while fetching IR page", "Run scripts/ingest_official_ir.py --symbols META"]
+      ]
     }
+  },
+  "data_ingestion": {
+    "headers": ["Source", "Tier", "Category", "Free/Paid", "Status", "Raw Payloads", "Curated Records", "Last Run", "Latest Issue", "Next Action"],
+    "rows": [
+      ["SEC EDGAR companyfacts API", "Primary", "SEC", "Free", "Needs attention", 2, 0, "2026-05-28", "Missing companyfacts for MSFT", "Run scripts/ingest_sec.py MSFT"],
+      ["Company investor relations", "Primary", "Official IR", "Free", "Review", 1, 3, "2026-05-28", "META IR page rate-limited", "Run scripts/ingest_official_ir.py --symbols META"]
+    ]
+  },
+  "source_quality": {
+    "summary": {
+      "useful_source": 2,
+      "noisy_source": 1,
+      "parser_gap": 1
+    },
+    "table": {
+      "headers": ["Source", "Quality Label", "Evidence", "Tagged", "Latest Issue", "Notes"],
+      "rows": [
+        ["SEC EDGAR submissions API", "useful_source", 6, 6, "", "Primary filings support decision review."],
+        ["Company investor relations", "useful_context", 3, 3, "META IR page rate-limited", "Company-framed evidence needs corroboration."],
+        ["Low relevance public feed", "noisy_source", 8, 1, "Weak symbol matches", "Review before synthesis."]
+      ]
+    },
+    "low_relevance": {
+      "headers": ["Source", "Category", "Evidence", "Tagged", "Tag Rate", "Match Reasons", "Confidence Buckets", "Low Confidence", "Why Review"],
+      "rows": [["Low relevance public feed", "news", 8, 1, "12.5%", "generic AI mention", "low", 5, "Noisy source; do not rely on this without corroboration."]]
+    },
+    "low_confidence_matches": {
+      "headers": ["Source", "Symbol", "Reason", "Matched Text", "Bucket", "Confidence", "Title", "Timestamp"],
+      "rows": [["Low relevance public feed", "NVDA", "weak_alias", "AI", "low", "0.20", "Generic AI roundup", "2026-05-28"]]
+    }
+  },
+  "source_depth": {
+    "headers": ["Symbol", "Depth Type", "Signal", "Detail", "Confidence", "Corroboration", "As Of", "Source URL"],
+    "rows": [
+      ["NVDA", "sec_filing", "10-Q filing", "Recent 10-Q filing available from SEC submissions.", "high", "primary_source", "2026-05-01", "https://www.sec.gov/"],
+      ["NVDA", "official_ir_link", "Investor presentation", "Official IR presentation available for review.", "medium_high", "official_company_source", "2026-05-03", "https://investor.nvidia.com/"]
+    ]
+  },
+  "sec_coverage": {
+    "headers": ["Symbol", "Company", "CIK", "Submissions", "Companyfacts", "Latest Filing", "Latest SEC Refresh", "Issue", "Next Action"],
+    "rows": [
+      ["NVDA", "NVIDIA Corp.", "0001045810", "ok", "ok", "2026-05-01", "2026-05-28T18:00:00", "", "Monitor"],
+      ["MSFT", "Microsoft", "0000789019", "ok", "missing", "2026-04-25", "2026-05-28T18:00:00", "SEC companyfacts missing", "Run scripts/ingest_sec.py MSFT"]
+    ]
+  },
+  "official_ir_coverage": {
+    "headers": ["Symbol", "Company", "IR Source", "Coverage Status", "Latest Successful Fetch", "Latest Gap", "Evidence Types", "Next Action"],
+    "rows": [
+      ["NVDA", "NVIDIA Corp.", "NVIDIA Investor Relations", "covered", "2026-05-28T18:00:00", "", "investor_presentation, earnings_release", "Monitor"],
+      ["META", "Meta Platforms", "Meta Investor Relations", "rate_limited", "", "HTTP 429 while fetching IR page", "unknown", "Run scripts/ingest_official_ir.py --symbols META"]
+    ]
+  },
+  "ingestion_run_plan": {
+    "headers": ["Rank", "Source", "Category", "Status", "Cadence Days", "Records", "Raw Payloads", "Latest Success", "Next Run", "Cooldown Until", "Issue", "Reason", "Command"],
+    "rows": [
+      [1, "SEC EDGAR companyfacts API", "SEC", "stale", 1, 0, 2, "2026-05-28", "2026-05-29", "", "Missing companyfacts for MSFT", "Primary-source fundamentals need refresh", "python3 scripts/ingest_sec.py MSFT"],
+      [2, "Company investor relations", "Official IR", "cooldown", 1, 3, 1, "2026-05-28", "2026-05-30", "2026-05-29", "META IR page rate-limited", "Wait for cooldown then retry", "python3 scripts/ingest_official_ir.py --symbols META"]
+    ]
+  },
+  "ingestion_backfill": {
+    "headers": ["Rank", "Source", "Symbol", "Backfill Type", "Status", "Window Days", "Covered Since", "Covered Until", "Records", "Next Action", "Command", "Reason"],
+    "rows": [
+      [1, "SEC EDGAR submissions API", "MSFT", "primary_source_history", "backfill_needed", 365, "2026-01-01", "2026-05-28", 2, "Fill recent filings", "python3 scripts/ingest_sec.py MSFT", "Need deeper filing history for primary-source review"]
+    ]
   },
   "decision_briefs": {
     "headers": ["Symbol", "Type", "Headline", "Why It Matters", "Next Check"],
