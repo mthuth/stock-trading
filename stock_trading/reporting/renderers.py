@@ -12,6 +12,7 @@ from typing import Any
 
 from stock_trading.ai_briefs import write_ai_brief_artifacts
 from stock_trading.reporting import decision_safety as safety_review
+from stock_trading.reporting.capital_deployment import build_long_term_capital_deployment_view
 from stock_trading.reporting.data_reliability import build_data_reliability_review
 from stock_trading.reporting.provider_gaps import (
     render_provider_gap_review_html,
@@ -40,9 +41,11 @@ REQUIRED_CONTEXT_SECTIONS = (
     "research_sources",
     "feedback",
     "learning_review",
+    "long_term_capital_deployment",
     "artifacts",
 )
 REPORT_SECTION_LABELS = (
+    "Long-Term Capital Deployment Review",
     "Product Review Path",
     "Learning Review",
     "Wave 7 Capital Deployment Prep",
@@ -793,24 +796,160 @@ def _coherence_cards_html(cards: object) -> str:
     return "".join(rendered)
 
 
-def render_product_review_path(context: dict[str, object]) -> str:
+def product_review_cards(context: dict[str, object]) -> list[dict[str, object]]:
     review_path = build_review_path(context)
+    cards: list[dict[str, object]] = []
+    for card in as_list(review_path.get("cards")):
+        item = dict(as_dict(card))
+        label = text(item.get("label"))
+        if label.startswith("5. Learning"):
+            item["label"] = "5. Learning review"
+            item["value"] = "Review-only"
+            item["detail"] = "Learning loops remain secondary; Long-Term Capital Deployment Review owns the Wave 7 buy/add context."
+        cards.append(item)
+    return cards
+
+
+def render_product_review_path(context: dict[str, object]) -> str:
     return (
         '<section class="product-review-path">'
         '<div class="section-title"><h2>Product Review Path</h2>'
         '<span class="section-note">Current decision first; audit, synthesis, and learning stay non-impacting</span></div>'
-        f'<div class="coherence-grid">{_coherence_cards_html(review_path.get("cards"))}</div>'
+        f'<div class="coherence-grid">{_coherence_cards_html(product_review_cards(context))}</div>'
         "</section>"
     )
 
 
 def product_review_path_markdown_lines(context: dict[str, object]) -> list[str]:
-    review_path = build_review_path(context)
     lines = ["## Product Review Path", ""]
-    for card in as_list(review_path.get("cards")):
+    for card in product_review_cards(context):
         item = as_dict(card)
         lines.append(f"- {item.get('label', '')}: **{item.get('value', '')}** - {item.get('detail', '')}")
     lines.append("")
+    return lines
+
+
+def _candidate_review_html(candidate: dict[str, object], empty: str) -> str:
+    if not candidate.get("available"):
+        return f"<p>{html.escape(empty)}</p>"
+    rationale = as_list(candidate.get("rationale"))
+    blockers = as_list(candidate.get("blockers"))
+    rationale_html = "".join(f"<li>{html.escape(text(item))}</li>" for item in rationale) or "<li>No rationale available yet.</li>"
+    blockers_html = "".join(f"<li>{html.escape(text(item))}</li>" for item in blockers) or "<li>No active blockers listed.</li>"
+    return (
+        '<div class="action-detail-card">'
+        f'<p><strong>{html.escape(text(candidate.get("label")))}:</strong> '
+        f'{html.escape(text(candidate.get("symbol")))} · {html.escape(text(candidate.get("action")))} · '
+        f'{html.escape(text(candidate.get("decision_safety")))} safety · '
+        f'{html.escape(text(candidate.get("target_confidence")))} confidence · '
+        f'{html.escape(text(candidate.get("suggested_amount")))} suggested.</p>'
+        f"<p><strong>Key rationale:</strong></p><ul>{rationale_html}</ul>"
+        f"<p><strong>Key blockers:</strong></p><ul>{blockers_html}</ul>"
+        "</div>"
+    )
+
+
+def render_long_term_capital_deployment(context: dict[str, object]) -> str:
+    review = build_long_term_capital_deployment_view(context)
+    primary = as_dict(review.get("primary"))
+    fallback = as_dict(review.get("fallback"))
+    holding_health = as_dict(review.get("holding_health"))
+    health_summary = as_dict(holding_health.get("summary"))
+    health_rows = [
+        [
+            row.get("symbol", ""),
+            row.get("health_label", ""),
+            row.get("confidence", ""),
+            "; ".join(str(item) for item in as_list(row.get("review_actions"))[:2]),
+        ]
+        for row in as_list(holding_health.get("top_review_rows"))
+        if isinstance(row, dict)
+    ]
+    health_table = html_table(
+        ["Symbol", "Health", "Confidence", "Review Action"],
+        health_rows,
+        "compact-table",
+    ) if health_rows else ""
+    blockers = as_list(review.get("blockers"))
+    blocker_html = "".join(f"<li>{html.escape(text(item))}</li>" for item in blockers) or "<li>No active blockers listed for the displayed long-term add review.</li>"
+    health_counts = ", ".join(f"{key}: {value}" for key, value in health_summary.items() if value) or "No flagged holding-health buckets."
+    fallback_empty = text(review.get("hold_capacity_message")) or "No fallback candidate is needed or available yet."
+    return (
+        '<section class="capital-deployment-review">'
+        '<div class="section-title"><h2>Long-Term Capital Deployment Review</h2>'
+        '<span class="section-note">Review-only answer to today\'s long-term buy/add question</span></div>'
+        f'<p><strong>{html.escape(text(review.get("question")))}</strong></p>'
+        f'<p class="section-note">{html.escape(text(review.get("note")))}</p>'
+        f'<div class="coherence-grid">{_coherence_cards_html(review.get("cards"))}</div>'
+        '<div class="table-pair">'
+        f'<section><h3>Primary Add Review</h3>{_candidate_review_html(primary, "No primary long-term add candidate is available yet.")}</section>'
+        f'<section><h3>Fallback / Hold Review</h3>{_candidate_review_html(fallback, fallback_empty)}</section>'
+        "</div>"
+        f'<section><h3>Key Blockers</h3><ul>{blocker_html}</ul></section>'
+        f'<section><h3>Long-Term Holding Health</h3><p>{html.escape(text(holding_health.get("message")))}</p><p class="section-note">{html.escape(health_counts)}</p>{health_table}</section>'
+        f'<p class="section-note">{html.escape(text(review.get("ai_synthesis_note")))}</p>'
+        "</section>"
+    )
+
+
+def long_term_capital_deployment_markdown_lines(context: dict[str, object]) -> list[str]:
+    review = build_long_term_capital_deployment_view(context)
+    primary = as_dict(review.get("primary"))
+    fallback = as_dict(review.get("fallback"))
+    holding_health = as_dict(review.get("holding_health"))
+    lines = [
+        "## Long-Term Capital Deployment Review",
+        "",
+        f"**{review.get('question', 'What should I buy/add today for long-term holdings?')}**",
+        "",
+        text(review.get("note"), "Review-only and recommendation-only; official recommendations are unchanged."),
+        "",
+    ]
+    for card in as_list(review.get("cards")):
+        item = as_dict(card)
+        lines.append(f"- {item.get('label', '')}: **{item.get('value', '')}** - {item.get('detail', '')}")
+    lines.extend(["", "### Primary Add Review", ""])
+    if primary.get("available"):
+        lines.extend(
+            [
+                f"- Candidate: **{primary.get('symbol', '')} {primary.get('action', '')}**",
+                f"- Decision safety: **{primary.get('decision_safety', '')}**",
+                f"- Target confidence: **{primary.get('target_confidence', '')}**",
+                f"- Suggested/deployable amount: **{primary.get('suggested_amount', '')}**",
+            ]
+        )
+        for item in as_list(primary.get("rationale")):
+            lines.append(f"- Rationale: {item}")
+    else:
+        lines.append("No primary long-term add candidate is available yet.")
+    lines.extend(["", "### Fallback / Hold Review", ""])
+    if fallback.get("available"):
+        lines.extend(
+            [
+                f"- Fallback candidate: **{fallback.get('symbol', '')} {fallback.get('action', '')}**",
+                f"- Decision safety: **{fallback.get('decision_safety', '')}**",
+                f"- Target confidence: **{fallback.get('target_confidence', '')}**",
+            ]
+        )
+    else:
+        lines.append(text(review.get("hold_capacity_message")) or "No fallback candidate is needed or available yet.")
+    blockers = as_list(review.get("blockers"))
+    lines.extend(["", "### Key Blockers", ""])
+    if blockers:
+        lines.extend(f"- {item}" for item in blockers)
+    else:
+        lines.append("No active blockers listed for the displayed long-term add review.")
+    lines.extend(
+        [
+            "",
+            "### Long-Term Holding Health",
+            "",
+            text(holding_health.get("message"), "No long-term holding health rows are available yet."),
+            "",
+            text(review.get("ai_synthesis_note"), "AI synthesis is explanatory only."),
+            "",
+        ]
+    )
     return lines
 
 
@@ -1283,6 +1422,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     </div>
 
     {render_daily_decision_review(context)}
+    {render_long_term_capital_deployment(context)}
     {render_product_review_path(context)}
     {render_data_reliability_review(context)}
 
@@ -1363,7 +1503,6 @@ def render_dashboard_html(context: dict[str, object]) -> str:
 
     <div id="learningReviewTab" class="tab-panel" hidden>
       {render_learning_review_html(context)}
-      {render_capital_deployment_prep(context)}
     </div>
 
     <div id="feedbackTab" class="tab-panel" hidden>
@@ -1519,6 +1658,7 @@ def render_print_review(context: dict[str, object]) -> str:
       </section>
       {render_print_summary(context)}
       {render_daily_decision_review(context)}
+      {render_long_term_capital_deployment(context)}
       {render_decision_safety_review(context)}
       {render_readiness(as_dict(context.get("readiness")))}
       <section>
@@ -1824,10 +1964,10 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
     coherence_lines = data_reliability_review_markdown_lines(context)
     if kind in {"daily", "end_of_day"}:
         coherence_lines = [
+            *long_term_capital_deployment_markdown_lines(context),
             *product_review_path_markdown_lines(context),
             *coherence_lines,
             *learning_review_markdown_lines(context),
-            *capital_deployment_prep_markdown_lines(context),
         ]
     lines = [
         f"# {title_by_kind.get(kind, title_by_kind['daily'])}",

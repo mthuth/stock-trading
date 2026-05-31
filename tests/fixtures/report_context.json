@@ -30,6 +30,73 @@
       "summary": "Decision-safe buy candidate."
     }
   },
+  "long_term_capital_deployment": {
+    "review_only": true,
+    "recommendation_only": true,
+    "decision_mode": "long_term_buy_add",
+    "question": "What should I buy/add today for long-term holdings?",
+    "status": "deployable",
+    "primary_candidate": {
+      "candidate_role": "top_candidate",
+      "rank": 1,
+      "symbol": "NVDA",
+      "company": "NVIDIA Corp.",
+      "action": "Add",
+      "score": 84.2,
+      "sleeve": "long_term",
+      "trade_type": "Long term",
+      "decision_safe": true,
+      "decision_gate_status": "Ready",
+      "target_confidence": "Medium",
+      "data_status": "Blended",
+      "suggested_amount": 2500.0,
+      "suggested_amount_text": "$2,500.00",
+      "key_rationale": ["Score is high enough to add and the proposed buy stays within position caps."],
+      "key_blockers": [],
+      "ai_synthesis_readiness": {
+        "status": "ready"
+      }
+    },
+    "decision_safety_status": "Ready",
+    "target_confidence": "Medium",
+    "key_rationale": ["Score is high enough to add and the proposed buy stays within position caps."],
+    "key_blockers": [],
+    "fallback_candidate": null,
+    "hold_capacity_message": "",
+    "capital_availability": {
+      "source": "configured",
+      "status": "current",
+      "as_of_date": "2026-05-28",
+      "freshness": "fresh",
+      "available_capital": 2500.0,
+      "available_capital_text": "$2,500.00",
+      "monthly_buy_capacity": 2500.0,
+      "manual_available_cash": null,
+      "deployable_amount": 2500.0,
+      "deployable_amount_text": "$2,500.00",
+      "held_amount": 0.0,
+      "held_amount_text": "$0.00",
+      "reason": "Capital is available for manual long-term add review.",
+      "reduction_reasons": [],
+      "long_term_core_sleeve": {
+        "sleeve": "long_term",
+        "label": "Long-term/core",
+        "status": "below_target"
+      }
+    },
+    "long_term_holding_health_summary": {
+      "available": true,
+      "holding_count": 1,
+      "summary": {
+        "healthy": 1
+      },
+      "message": "Long-term holding health is constructive; continue routine review.",
+      "top_review_rows": [],
+      "review_only": true
+    },
+    "ai_synthesis_note": "AI synthesis is explanatory only and does not change the official recommendation.",
+    "note": "Review-only and recommendation-only; official recommendations, scores, targets, gates, and allocation rules are unchanged."
+  },
   "reliability": {
     "mode": "Fresh provider data",
     "price_counts": {

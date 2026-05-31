@@ -23,6 +23,8 @@ from stock_trading.allocation_safety import (
     allocation_safety_for_candidate,
     sleeve_market_values_for_ranked,
 )
+from stock_trading.best_add_fallback import build_best_add_fallback_review
+from stock_trading.capital_deployment import capital_deployment_context
 from stock_trading.catalyst_outcomes import build_catalyst_follow_through_review
 from stock_trading.decision_safety_outcomes import build_decision_safety_effectiveness_review
 from stock_trading.fundamental_target_config import (
@@ -31,6 +33,7 @@ from stock_trading.fundamental_target_config import (
     source_config as fundamental_source_config,
 )
 from stock_trading.long_term_add_queue import build_long_term_add_queue
+from stock_trading.long_term_holding_health import build_holding_health_review
 from stock_trading.manual_trade_journal import list_manual_journal_entries
 from stock_trading.provider_gap_summary import build_provider_gap_review
 from stock_trading.recommendation_outcomes import build_recommendation_outcome_review
@@ -6237,6 +6240,160 @@ def run_analysis(
             return [safe_json(item) for item in value]
         return str(value)
 
+    def context_dict(value: object) -> Dict[str, object]:
+        return value if isinstance(value, dict) else {}
+
+    def context_list(value: object) -> List[object]:
+        if isinstance(value, list):
+            return value
+        if isinstance(value, tuple):
+            return list(value)
+        if isinstance(value, str):
+            return [value] if value else []
+        return []
+
+    def capital_candidate_context(row: Dict[str, object] | None, review: Dict[str, object] | None, role: str) -> Dict[str, object] | None:
+        source = row or review
+        if not source:
+            return None
+        review = review or {}
+        blocked_reasons = context_list(source.get("blocked_reasons")) or context_list(review.get("blocked_reasons"))
+        rationale_values = [
+            source.get("why_this_is_in_queue"),
+            source.get("rationale"),
+            source.get("why"),
+            review.get("rationale"),
+        ]
+        rationale = [str(value) for value in rationale_values if str(value or "").strip()]
+        provider_blockers = context_list(source.get("provider_data_blockers"))
+        if provider_blockers:
+            blocked_reasons = list(dict.fromkeys([*blocked_reasons, *provider_blockers]))
+        suggested = source.get("suggested_amount")
+        if suggested is None:
+            suggested = review.get("suggested_amount")
+        return {
+            "candidate_role": role,
+            "rank": source.get("rank") or review.get("rank"),
+            "symbol": source.get("symbol") or review.get("symbol"),
+            "company": source.get("company") or review.get("company"),
+            "action": source.get("action") or review.get("action"),
+            "score": source.get("score") or review.get("score"),
+            "sleeve": source.get("sleeve") or review.get("sleeve"),
+            "trade_type": source.get("trade_type") or review.get("trade_type"),
+            "decision_safe": bool(source.get("safe_to_buy") if "safe_to_buy" in source else review.get("decision_safe")),
+            "decision_gate_status": source.get("decision_gate_status") or review.get("decision_gate_status"),
+            "target_confidence": source.get("target_confidence") or source.get("confidence") or review.get("target_confidence"),
+            "data_status": source.get("data_status") or review.get("data_status"),
+            "suggested_amount": suggested,
+            "suggested_amount_text": fmt_money(to_float(suggested)) if suggested is not None else "",
+            "key_rationale": rationale[:3],
+            "key_blockers": [str(reason) for reason in blocked_reasons if str(reason)],
+            "ai_synthesis_readiness": source.get("ai_synthesis_readiness") or {},
+        }
+
+    def holding_health_summary_context(review: Dict[str, object]) -> Dict[str, object]:
+        metadata = context_dict(review.get("metadata"))
+        summary = context_dict(review.get("summary"))
+        rows = [row for row in context_list(review.get("holdings")) if isinstance(row, dict)]
+        review_rows = [row for row in rows if str(row.get("health_label") or "") not in {"", "healthy"}]
+        if not rows:
+            message = "No long-term holding health rows are available yet."
+        elif review_rows:
+            message = f"{len(review_rows)} long-term holding(s) need review; current add decisions are unchanged."
+        else:
+            message = "Long-term holding health is constructive; continue routine review."
+        return {
+            "available": bool(rows),
+            "holding_count": metadata.get("holding_count", len(rows)),
+            "summary": summary,
+            "message": message,
+            "top_review_rows": review_rows[:3],
+            "review_only": True,
+        }
+
+    def long_term_capital_deployment_context(
+        *,
+        add_queue: Dict[str, object],
+        fallback_review: Dict[str, object],
+        capital_context: Dict[str, object],
+        holding_health_review: Dict[str, object],
+    ) -> Dict[str, object]:
+        queue_rows = [row for row in context_list(add_queue.get("rows")) if isinstance(row, dict)]
+        queue_by_symbol = {str(row.get("symbol") or "").upper(): row for row in queue_rows}
+        primary_review = context_dict(fallback_review.get("primary_add"))
+        fallback_candidate_review = context_dict(fallback_review.get("fallback_add"))
+        blocked_top_review = context_dict(fallback_review.get("blocked_top_candidate"))
+        top_queue_row = queue_rows[0] if queue_rows else {}
+        top_symbol = str(top_queue_row.get("symbol") or blocked_top_review.get("symbol") or primary_review.get("symbol") or "").upper()
+        fallback_symbol = str(fallback_candidate_review.get("symbol") or "").upper()
+        primary_role = "top_candidate"
+        if blocked_top_review:
+            primary_role = "blocked_candidate"
+        primary_candidate = capital_candidate_context(
+            queue_by_symbol.get(top_symbol) or top_queue_row or None,
+            blocked_top_review or primary_review or None,
+            primary_role,
+        )
+        fallback_candidate = capital_candidate_context(
+            queue_by_symbol.get(fallback_symbol),
+            fallback_candidate_review or None,
+            "fallback_candidate",
+        )
+        capital_status = str(capital_context.get("status") or "")
+        deployable_amount = capital_context.get("deployable_amount")
+        held_amount = capital_context.get("held_amount")
+        blockers = []
+        if primary_candidate:
+            blockers.extend(primary_candidate.get("key_blockers", []))
+        if capital_status in {"needs_manual_update", "held_no_safe_add", "held_by_allocation"}:
+            blockers.append(str(capital_context.get("reason") or "Capital deployment is held for review."))
+        blockers = list(dict.fromkeys(str(item) for item in blockers if str(item)))
+        hold_capacity = context_dict(fallback_review.get("hold_capacity"))
+        hold_message = ""
+        if bool(hold_capacity.get("recommended")):
+            hold_message = str(hold_capacity.get("reason") or "Hold buy capacity for review.")
+        elif capital_status == "needs_manual_update":
+            hold_message = "Buy capacity held until capital availability is configured or refreshed."
+        elif capital_status.startswith("held"):
+            hold_message = str(capital_context.get("reason") or "Buy capacity held for review.")
+        status = "hold_capacity" if hold_message else "fallback_add" if fallback_candidate else capital_status or "review"
+        return {
+            "review_only": True,
+            "recommendation_only": True,
+            "decision_mode": "long_term_buy_add",
+            "question": "What should I buy/add today for long-term holdings?",
+            "status": status,
+            "primary_candidate": primary_candidate,
+            "decision_safety_status": (
+                primary_candidate.get("decision_gate_status") if primary_candidate else "No long-term add candidate"
+            ),
+            "target_confidence": primary_candidate.get("target_confidence") if primary_candidate else "",
+            "key_rationale": context_list(primary_candidate.get("key_rationale")) if primary_candidate else [],
+            "key_blockers": blockers,
+            "fallback_candidate": fallback_candidate,
+            "hold_capacity_message": hold_message,
+            "capital_availability": {
+                "source": capital_context.get("capital_source") or "not_configured",
+                "status": capital_context.get("capital_status") or capital_status,
+                "as_of_date": capital_context.get("capital_as_of_date"),
+                "freshness": capital_context.get("capital_freshness"),
+                "available_capital": capital_context.get("available_capital"),
+                "available_capital_text": fmt_money(to_float(capital_context.get("available_capital"))) if capital_context.get("available_capital") is not None else "Needs manual update",
+                "monthly_buy_capacity": capital_context.get("monthly_buy_capacity"),
+                "manual_available_cash": capital_context.get("manual_available_cash"),
+                "deployable_amount": deployable_amount,
+                "deployable_amount_text": fmt_money(to_float(deployable_amount)) if deployable_amount is not None else "Needs manual update",
+                "held_amount": held_amount,
+                "held_amount_text": fmt_money(to_float(held_amount)) if held_amount is not None else "Needs manual update",
+                "reason": capital_context.get("reason"),
+                "reduction_reasons": capital_context.get("reduction_reasons", []),
+                "long_term_core_sleeve": capital_context.get("long_term_core_sleeve", {}),
+            },
+            "long_term_holding_health_summary": holding_health_summary_context(holding_health_review),
+            "ai_synthesis_note": "AI synthesis is explanatory only and does not change the official recommendation.",
+            "note": "Review-only and recommendation-only; official recommendations, scores, targets, gates, and allocation rules are unchanged.",
+        }
+
     def recommendation_context(rank: int, row: Dict[str, object]) -> Dict[str, object]:
         item = row["input"]
         target = row.get("target")
@@ -6295,6 +6452,9 @@ def run_analysis(
     }
     long_term_queue_candidates = []
     sleeve_market_values = sleeve_market_values_for_ranked(ranked, positions)
+    decision_gates_by_symbol: Dict[str, Dict[str, object]] = {}
+    allocation_by_symbol: Dict[str, Dict[str, object]] = {}
+    ranked_row_by_symbol: Dict[str, Dict[str, object]] = {}
     for rank, row in enumerate(ranked, start=1):
         item = row["input"]
         symbol = item.symbol
@@ -6309,6 +6469,9 @@ def run_analysis(
             buy_capacity=default_buy_amount,
             sleeve_market_values=sleeve_market_values,
         )
+        decision_gates_by_symbol[symbol.upper()] = gate
+        allocation_by_symbol[symbol.upper()] = allocation.to_context()
+        ranked_row_by_symbol[symbol.upper()] = row
         candidate.update(
             {
                 "decision_mode": "long_term_buy_add" if item.sleeve == "long_term" else "",
@@ -6337,6 +6500,86 @@ def run_analysis(
     source_names = [row["source_name"] for row in source_rows]
     queue_headers = decision_headers
     learning_review = build_learning_review_context(source_quality_rows)
+    best_add_fallback_review = build_best_add_fallback_review(
+        long_term_queue_candidates,
+        decision_gates_by_symbol=decision_gates_by_symbol,
+        provider_gap_records=[row for row in provider_gap_rows if isinstance(row, dict)],
+    )
+    deploy_review = (
+        context_dict(best_add_fallback_review.get("primary_add"))
+        or context_dict(best_add_fallback_review.get("fallback_add"))
+        or context_dict(best_add_fallback_review.get("blocked_top_candidate"))
+    )
+    deploy_symbol = str(deploy_review.get("symbol") or "").upper()
+    deploy_row = ranked_row_by_symbol.get(deploy_symbol)
+    if deploy_row is not None:
+        deploy_candidate: object = recommendation_context(int(deploy_review.get("rank") or 1), deploy_row)
+    else:
+        deploy_candidate = deploy_review
+    if not deploy_symbol:
+        deploy_gate = {
+            "safe_to_buy": False,
+            "status": "Blocked",
+            "reasons": ["No long-term buy/add candidate is available."],
+        }
+        deploy_allocation = {
+            "suggested_amount": 0.0,
+            "reduction_reasons": ["No long-term buy/add candidate is available."],
+            "reason": "No long-term buy/add candidate is available.",
+        }
+    else:
+        deploy_gate = decision_gates_by_symbol.get(deploy_symbol, {})
+        deploy_allocation = allocation_by_symbol.get(deploy_symbol, {})
+    capital_context = capital_deployment_context(
+        targets,
+        candidate=deploy_candidate,
+        decision_gate=deploy_gate,
+        allocation_safety=deploy_allocation,
+        sleeve_market_values=sleeve_market_values,
+        account_value=account_value,
+    )
+    recommendations_by_symbol = {
+        str(row.get("symbol") or "").upper(): row
+        for row in recommendations
+        if isinstance(row, dict)
+    }
+    holding_health_inputs = []
+    for symbol, position in sorted(positions.items()):
+        normalized_symbol = symbol.upper()
+        recommendation = recommendations_by_symbol.get(normalized_symbol, {})
+        research_item = research_by_symbol.get(normalized_symbol)
+        sleeve = str(recommendation.get("sleeve") or getattr(research_item, "sleeve", ""))
+        if sleeve not in {"long_term", "long_term_core"}:
+            continue
+        market_value = float(position.get("market_value", 0) or 0)
+        holding_health_inputs.append(
+            {
+                "symbol": normalized_symbol,
+                "company": recommendation.get("company") or getattr(research_item, "company", ""),
+                "sleeve": sleeve,
+                "quantity": position.get("quantity"),
+                "market_value": market_value,
+                "portfolio_pct": round((market_value / account_value) * 100, 4) if account_value else 0.0,
+                "source": position.get("source"),
+            }
+        )
+    holding_health_review = build_holding_health_review(
+        holding_health_inputs,
+        recommendations_by_symbol=recommendations_by_symbol,
+        score_trends_by_symbol=score_history_by_symbol,
+        provider_gaps=[row for row in provider_gap_rows if isinstance(row, dict)],
+        catalyst_follow_through=context_list(context_dict(learning_review.get("catalyst_follow_through")).get("top_outcomes")),
+        recommendation_outcomes=context_list(context_dict(learning_review.get("recommendation_outcomes")).get("top_outcomes")),
+        source_usefulness=context_list(context_dict(learning_review.get("source_usefulness")).get("top_sources")),
+        ai_status_by_symbol=synthesis_readiness_by_symbol,
+        allocation_by_symbol=allocation_by_symbol,
+    )
+    long_term_capital_deployment = long_term_capital_deployment_context(
+        add_queue=long_term_add_queue,
+        fallback_review=best_add_fallback_review,
+        capital_context=capital_context,
+        holding_health_review=holding_health_review,
+    )
     report_date = f"{now:%Y-%m-%d}"
     report_context = {
         "metadata": {
@@ -6372,6 +6615,7 @@ def run_analysis(
             "verification_queue_items": stored_verification_queue_items,
         },
         "decision_safety": decision_gate,
+        "long_term_capital_deployment": long_term_capital_deployment,
         "long_term_add_queue": long_term_add_queue,
         "reliability": {
             "mode": reliability_status,
