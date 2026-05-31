@@ -96,12 +96,18 @@ class AiInsightBriefTests(unittest.TestCase):
         self.assertIn("evidence_events:MSFT", brief["audit_refs"])
         self.assertIn("synthesis_readiness:MSFT", brief["audit_refs"])
         self.assertIn("provider_blockers:MSFT", brief["audit_refs"])
+        self.assertTrue(brief["guardrails"]["passed"])
+        self.assertEqual(brief["guardrails"]["recommended_action"], "accept")
+        self.assertIn("Recommendation-only", brief["recommendation_only_disclaimer"])
+        self.assertIn("Finnhub", brief["data_gaps"])
 
     def test_markdown_mentions_no_llm_and_next_check(self) -> None:
         markdown = render_ai_briefs_markdown(build_ai_insight_briefs(brief_context()))
 
         self.assertIn("No LLM generated these briefs", markdown)
         self.assertIn("scripts/show_provider_gaps.py", markdown)
+        self.assertIn("Recommendation-only", markdown)
+        self.assertIn("Guardrails: accept", markdown)
 
     def test_report_render_writes_ai_brief_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
