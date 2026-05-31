@@ -1,0 +1,88 @@
+{
+  "scenario_id": "long_term_underperforms_benchmark",
+  "scenario_label": "Long-term recommendation underperforms benchmark",
+  "evaluation_mode": "model_evaluation",
+  "review_only": true,
+  "recommendation_only": true,
+  "prediction_record": {
+    "prediction_id": "pred-lt-adbe-2026-01-02",
+    "recommendation_run_id": "run-2026-01-02",
+    "symbol": "ADBE",
+    "company": "Adobe",
+    "model_name": "official_recommendation_model",
+    "model_version": "v1.0.0",
+    "model_role": "official",
+    "decision_mode": "long_term_buy_add",
+    "horizon": "60_trading_days",
+    "created_at": "2026-01-02T08:00:00",
+    "decision_date": "2026-01-02",
+    "official_action": "Add",
+    "score": 82.1,
+    "target_price": 620.0,
+    "target_confidence": "Medium",
+    "decision_gate_status": "Ready",
+    "expected_direction": "up",
+    "expected_return_low": 0.03,
+    "expected_return_high": 0.10,
+    "confidence": "medium",
+    "thesis": "Long-term add expected to recover as fundamentals stabilize.",
+    "risks": ["growth_deceleration", "multiple_compression"],
+    "invalidation_conditions": ["guidance_weakens", "source_depth_falls"],
+    "evidence_ids": ["ev-adbe-earnings-2026-01"],
+    "source_ids": ["earnings_release", "price_history"],
+    "data_available_as_of": "2026-01-02T08:00:00",
+    "outcome_status": "evaluated",
+    "evaluated_at": "2026-04-01T08:00:00"
+  },
+  "benchmark_comparison": {
+    "benchmark_id": "qqq-60d",
+    "benchmark_symbol": "QQQ",
+    "benchmark_name": "Nasdaq 100 ETF",
+    "benchmark_return": 0.06,
+    "comparison_window_start": "2026-01-02",
+    "comparison_window_end": "2026-04-01",
+    "excess_return": -0.10,
+    "benchmark_data_status": "available",
+    "benchmark_warning": ""
+  },
+  "outcome": {
+    "actual_return": -0.04,
+    "drawdown": -0.14,
+    "target_progress": "off_track",
+    "worked": false,
+    "outcome_label": "underperformed_benchmark"
+  },
+  "validity_guardrails": {
+    "no_lookahead_data": true,
+    "stored_historical_recommendation": true,
+    "official_vs_shadow_distinguished": true,
+    "benchmark_same_window": true,
+    "missing_data_warns_not_optimistic": true,
+    "survivorship_bias_reviewed": true,
+    "review_only_results": true
+  },
+  "model_trust_score_v1": {
+    "trust_score": 0.42,
+    "trust_level": "observe",
+    "sample_size": 24,
+    "confidence": "medium",
+    "warnings": ["underperformed_benchmark"],
+    "drivers": ["negative_excess_return", "drawdown"],
+    "review_only": true
+  },
+  "expected_behavior": {
+    "evaluation_result": "underperformance_review",
+    "scenario_assertions": ["underperforms_benchmark", "warning_visible", "official_recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_automatic_score_changes": true,
+    "no_automatic_target_changes": true,
+    "no_automatic_decision_safety_changes": true,
+    "no_automatic_source_weight_changes": true,
+    "no_automatic_recommendation_changes_from_feedback_or_outcomes": true,
+    "no_model_promotion_into_official_recommendations": true
+  }
+}

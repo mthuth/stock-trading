@@ -1,0 +1,88 @@
+{
+  "scenario_id": "benchmark_data_missing",
+  "scenario_label": "Benchmark data missing",
+  "evaluation_mode": "model_evaluation",
+  "review_only": true,
+  "recommendation_only": true,
+  "prediction_record": {
+    "prediction_id": "pred-bench-tsm-2026-01-02",
+    "recommendation_run_id": "run-2026-01-02",
+    "symbol": "TSM",
+    "company": "Taiwan Semiconductor",
+    "model_name": "official_recommendation_model",
+    "model_version": "v1.0.0",
+    "model_role": "official",
+    "decision_mode": "long_term_buy_add",
+    "horizon": "60_trading_days",
+    "created_at": "2026-01-02T08:00:00",
+    "decision_date": "2026-01-02",
+    "official_action": "Hold",
+    "score": 78.4,
+    "target_price": 210.0,
+    "target_confidence": "Medium",
+    "decision_gate_status": "Ready",
+    "expected_direction": "up",
+    "expected_return_low": 0.02,
+    "expected_return_high": 0.09,
+    "confidence": "medium",
+    "thesis": "Long-term review requires benchmark comparison before trust inference.",
+    "risks": ["foreign_issuer", "benchmark_missing"],
+    "invalidation_conditions": ["benchmark_unavailable"],
+    "evidence_ids": ["ev-tsm-ir-2026-01"],
+    "source_ids": ["official_ir"],
+    "data_available_as_of": "2026-01-02T08:00:00",
+    "outcome_status": "benchmark_missing",
+    "evaluated_at": "2026-04-01T08:00:00"
+  },
+  "benchmark_comparison": {
+    "benchmark_id": "semiconductor-60d",
+    "benchmark_symbol": "SMH",
+    "benchmark_name": "Semiconductor ETF",
+    "benchmark_return": null,
+    "comparison_window_start": "2026-01-02",
+    "comparison_window_end": "2026-04-01",
+    "excess_return": null,
+    "benchmark_data_status": "missing",
+    "benchmark_warning": "benchmark_data_missing"
+  },
+  "outcome": {
+    "actual_return": 0.06,
+    "drawdown": -0.04,
+    "target_progress": "on_track",
+    "worked": null,
+    "outcome_label": "benchmark_missing_inconclusive"
+  },
+  "validity_guardrails": {
+    "no_lookahead_data": true,
+    "stored_historical_recommendation": true,
+    "official_vs_shadow_distinguished": true,
+    "benchmark_same_window": true,
+    "missing_data_warns_not_optimistic": true,
+    "survivorship_bias_reviewed": true,
+    "review_only_results": true
+  },
+  "model_trust_score_v1": {
+    "trust_score": 0.0,
+    "trust_level": "observe",
+    "sample_size": 20,
+    "confidence": "low",
+    "warnings": ["benchmark_data_missing"],
+    "drivers": ["benchmark_missing_blocks_excess_return"],
+    "review_only": true
+  },
+  "expected_behavior": {
+    "evaluation_result": "benchmark_missing",
+    "scenario_assertions": ["benchmark_missing_warning", "no_zero_benchmark_assumption", "official_recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_automatic_score_changes": true,
+    "no_automatic_target_changes": true,
+    "no_automatic_decision_safety_changes": true,
+    "no_automatic_source_weight_changes": true,
+    "no_automatic_recommendation_changes_from_feedback_or_outcomes": true,
+    "no_model_promotion_into_official_recommendations": true
+  }
+}

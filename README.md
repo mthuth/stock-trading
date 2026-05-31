@@ -173,6 +173,7 @@ Older or compatibility database files may exist in `data/`; confirm the active p
 - [docs/WAVE7_REQUIREMENTS.md](docs/WAVE7_REQUIREMENTS.md): Wave 7 long-term capital deployment requirements and fixture scenarios.
 - [docs/WAVE8_EARNINGS_REVIEW_REQUIREMENTS.md](docs/WAVE8_EARNINGS_REVIEW_REQUIREMENTS.md): Wave 8 earnings event review requirements and fixture scenarios.
 - [docs/WAVE10_TACTICAL_REVIEW_REQUIREMENTS.md](docs/WAVE10_TACTICAL_REVIEW_REQUIREMENTS.md): Wave 10 tactical trade review requirements and fixture scenarios.
+- [docs/WAVE11_MODEL_EVALUATION_REQUIREMENTS.md](docs/WAVE11_MODEL_EVALUATION_REQUIREMENTS.md): Wave 11 model evaluation, prediction record, benchmark comparison, and backtesting requirements.
 - [docs/DECISION_MODES.md](docs/DECISION_MODES.md): decision modes, recommendation horizons, sleeves, and mode-specific guardrails.
 - [docs/MODEL_LEARNING_STRATEGY.md](docs/MODEL_LEARNING_STRATEGY.md): prediction records, outcome evaluation, model trust, source usefulness, and shadow-model rules.
 - [docs/LOCAL_APP_STRATEGY.md](docs/LOCAL_APP_STRATEGY.md): path from static reports to a local decision console.

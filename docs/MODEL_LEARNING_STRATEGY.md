@@ -76,6 +76,8 @@ A future Model Trust Score should consider:
 
 Trust score should be conservative when sample size is small or results are concentrated in one market regime.
 
+See [Wave 11 Model Evaluation Requirements](WAVE11_MODEL_EVALUATION_REQUIREMENTS.md) before implementing prediction records, backtest summaries, benchmark comparisons, or model trust score v1 behavior.
+
 ## Model Trust Levels
 
 1. Observe

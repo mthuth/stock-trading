@@ -1,0 +1,88 @@
+{
+  "scenario_id": "earnings_review_improves_after_post_earnings",
+  "scenario_label": "Earnings review improves after post-earnings evidence",
+  "evaluation_mode": "model_evaluation",
+  "review_only": true,
+  "recommendation_only": true,
+  "prediction_record": {
+    "prediction_id": "pred-earn-amzn-2026-01-02",
+    "recommendation_run_id": "run-2026-01-02",
+    "symbol": "AMZN",
+    "company": "Amazon",
+    "model_name": "official_earnings_review",
+    "model_version": "v1.0.0",
+    "model_role": "official",
+    "decision_mode": "earnings_event",
+    "horizon": "20_trading_days",
+    "created_at": "2026-01-02T08:00:00",
+    "decision_date": "2026-01-02",
+    "official_action": "Hold",
+    "score": 79.2,
+    "target_price": 210.0,
+    "target_confidence": "Medium",
+    "decision_gate_status": "Ready",
+    "expected_direction": "up",
+    "expected_return_low": 0.02,
+    "expected_return_high": 0.09,
+    "confidence": "medium",
+    "thesis": "Post-earnings evidence improves thesis quality after initial reaction.",
+    "risks": ["margin_pressure", "guidance_risk"],
+    "invalidation_conditions": ["guidance_weakens"],
+    "evidence_ids": ["ev-amzn-earnings-2026-01"],
+    "source_ids": ["earnings_release", "official_ir"],
+    "data_available_as_of": "2026-01-02T08:00:00",
+    "outcome_status": "evaluated",
+    "evaluated_at": "2026-02-01T08:00:00"
+  },
+  "benchmark_comparison": {
+    "benchmark_id": "qqq-20d",
+    "benchmark_symbol": "QQQ",
+    "benchmark_name": "Nasdaq 100 ETF",
+    "benchmark_return": 0.02,
+    "comparison_window_start": "2026-01-02",
+    "comparison_window_end": "2026-02-01",
+    "excess_return": 0.06,
+    "benchmark_data_status": "available",
+    "benchmark_warning": ""
+  },
+  "outcome": {
+    "actual_return": 0.08,
+    "drawdown": -0.03,
+    "target_progress": "improved",
+    "worked": true,
+    "outcome_label": "earnings_review_useful"
+  },
+  "validity_guardrails": {
+    "no_lookahead_data": true,
+    "stored_historical_recommendation": true,
+    "official_vs_shadow_distinguished": true,
+    "benchmark_same_window": true,
+    "missing_data_warns_not_optimistic": true,
+    "survivorship_bias_reviewed": true,
+    "review_only_results": true
+  },
+  "model_trust_score_v1": {
+    "trust_score": 0.50,
+    "trust_level": "observe",
+    "sample_size": 10,
+    "confidence": "low",
+    "warnings": ["small_sample_size"],
+    "drivers": ["earnings_review_useful"],
+    "review_only": true
+  },
+  "expected_behavior": {
+    "evaluation_result": "earnings_review_useful",
+    "scenario_assertions": ["post_earnings_evidence_reviewed", "earnings_review_improved", "official_recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_automatic_score_changes": true,
+    "no_automatic_target_changes": true,
+    "no_automatic_decision_safety_changes": true,
+    "no_automatic_source_weight_changes": true,
+    "no_automatic_recommendation_changes_from_feedback_or_outcomes": true,
+    "no_model_promotion_into_official_recommendations": true
+  }
+}
