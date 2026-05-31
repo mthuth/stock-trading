@@ -95,6 +95,49 @@ class ProviderGapSummaryTests(unittest.TestCase):
         self.assertEqual(review["provider_groups"], [])
         self.assertEqual(review["symbol_groups"], [])
 
+    def test_etf_operating_company_gaps_are_expected_informational(self) -> None:
+        review = build_provider_gap_review(
+            [
+                gap("SEC EDGAR", "cik_mapping", "QQQM", "missing", "No SEC ticker CIK mapping found."),
+                gap("SEC EDGAR", "companyfacts", "VGT", "missing", "SEC companyfacts returned no supported fact concepts"),
+                gap("Company investor relations", "official_ir_page", "SMH", "missing_source", "No official company IR source is configured."),
+                gap("Benzinga", "analyst_targets", "QQQM", "missing", "No company analyst target returned"),
+            ]
+        )
+
+        summary = review["summary"]
+        self.assertEqual(summary["total"], 4)
+        self.assertEqual(summary["blocker"], 0)
+        self.assertEqual(summary["stale_missing"], 0)
+        self.assertEqual(summary["informational"], 4)
+        self.assertTrue(all(record["expected_gap"] for record in review["records"]))
+        self.assertEqual({record["issue_type"] for record in review["records"]}, {"Expected / non-operating-company"})
+        self.assertEqual({record["gap_scope"] for record in review["records"]}, {"non_operating_company"})
+
+    def test_etf_missing_current_price_remains_real_gap(self) -> None:
+        review = build_provider_gap_review(
+            [
+                gap("Alpha Vantage", "current_price", "QQQM", "missing", "No current price returned"),
+            ]
+        )
+
+        record = review["records"][0]
+        self.assertFalse(record["expected_gap"])
+        self.assertEqual(record["severity"], "stale/missing")
+        self.assertEqual(record["issue_type"], "Missing field")
+
+    def test_operating_company_missing_cik_remains_real_gap(self) -> None:
+        review = build_provider_gap_review(
+            [
+                gap("SEC EDGAR", "cik_mapping", "SNOW", "missing", "No SEC ticker CIK mapping found."),
+            ]
+        )
+
+        record = review["records"][0]
+        self.assertFalse(record["expected_gap"])
+        self.assertEqual(record["severity"], "stale/missing")
+        self.assertEqual(record["issue_type"], "Missing field")
+
     def test_rendered_review_distinguishes_blockers_from_stale_missing_data(self) -> None:
         review = build_provider_gap_review(
             [
