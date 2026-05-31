@@ -57,13 +57,14 @@ Expected flow:
 1. Read the top recommendation summary.
 2. Confirm the Daily Decision Review for decision safety, score explainability, target confidence, and provider-gap context.
 3. Review Long-Term Capital Deployment to answer what to buy/add today for long-term holdings, including deployable amount, safety blockers, fallback, or held capacity.
-4. Scan Product Review Path to understand which sections are decision-bearing, explanatory, or review-only.
-5. Review the Pre-Market Readiness checklist for price data, target trust, source health, holdings context, and feedback review.
-6. Open the Action Queue.
-7. Hover or focus the action label for quick rationale.
-8. Click the row for score explanation, target sources, research brief, and evidence.
-9. Check Data Gaps, Health & Trends, or Data Reliability Review if confidence is low, target range is wide, or the source health count is elevated.
-10. Record Agree, Disagree, or Too Risky feedback.
+4. Review Earnings Review for event-driven pre-earnings waits, post-earnings follow-up, missing earnings data, or ETF not-applicable rows.
+5. Scan Product Review Path to understand which sections are decision-bearing, explanatory, or review-only.
+6. Review the Pre-Market Readiness checklist for price data, target trust, source health, holdings context, and feedback review.
+7. Open the Action Queue.
+8. Hover or focus the action label for quick rationale.
+9. Click the row for score explanation, target sources, research brief, and evidence.
+10. Check Data Gaps, Health & Trends, or Data Reliability Review if confidence is low, target range is wide, or the source health count is elevated.
+11. Record Agree, Disagree, or Too Risky feedback.
 
 Success criteria:
 
@@ -186,6 +187,20 @@ Required content:
 - Fallback add candidate when the top candidate is blocked.
 - Hold-capacity message when no decision-safe add exists or capital availability is missing.
 - Long-term holding health summary when available.
+- Clear review-only and recommendation-only wording; no official recommendation, score, target, gate, allocation, or execution behavior changes.
+
+### Earnings Review
+
+Purpose: surface Wave 8 event-driven review opportunities without overriding the long-term capital deployment decision.
+
+Required content:
+
+- Upcoming earnings queue with review posture such as wait for earnings, verify data first, or not applicable.
+- Recent earnings queue with review-after-earnings opportunities.
+- Pre-earnings setup review that preserves the current decision-safety status.
+- Post-earnings reaction review that separates evidence, price reaction, and thesis impact.
+- Earnings signal summary for guidance, estimates, margins, revenue, EPS, AI/capex commentary, risk language, market reaction, and thesis impact.
+- Earnings-specific provider/data gaps, including missing date, missing evidence, missing price reaction, provider gap, foreign issuer pattern, and ETF not-applicable states.
 - Clear review-only and recommendation-only wording; no official recommendation, score, target, gate, allocation, or execution behavior changes.
 
 ### Recommendations
@@ -349,6 +364,7 @@ Already present:
 - Dashboard tabs for Recommendations, Current Holdings, Health & Trends, Data Ingestion, Learning Review, Research Sources, and Feedback.
 - Product Review Path keeps the current decision, reliability checks, explanatory AI synthesis, and review-only learning in one hierarchy.
 - Long-Term Capital Deployment Review sits directly after the current decision surface with primary add, fallback, deployable amount, capital source/status, blockers, and holding-health summary.
+- Earnings Review sits after long-term capital deployment as an event-driven review section for pre-earnings, post-earnings, earnings signals, and earnings data gaps.
 - Recommendation subtabs for Action Queue, Long-Term Queue, Short-Term Queue, Next-Day Watchlist, Speculative AI Watchlist, and Data Gaps.
 - Header summary and recommendation tables expose target confidence and data status before drilldown.
 - Daily Decision Review keeps decision safety and target confidence near the recommendation before operational audit sections.

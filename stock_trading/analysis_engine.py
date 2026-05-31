@@ -27,6 +27,8 @@ from stock_trading.best_add_fallback import build_best_add_fallback_review
 from stock_trading.capital_deployment import capital_deployment_context
 from stock_trading.catalyst_outcomes import build_catalyst_follow_through_review
 from stock_trading.decision_safety_outcomes import build_decision_safety_effectiveness_review
+from stock_trading.earnings_events import build_earnings_event_queue
+from stock_trading.earnings_signals import extract_earnings_signals, summarize_earnings_signals
 from stock_trading.fundamental_target_config import (
     assumptions_for_symbol,
     peer_group_for_symbol as configured_peer_group_for_symbol,
@@ -35,6 +37,8 @@ from stock_trading.fundamental_target_config import (
 from stock_trading.long_term_add_queue import build_long_term_add_queue
 from stock_trading.long_term_holding_health import build_holding_health_review
 from stock_trading.manual_trade_journal import list_manual_journal_entries
+from stock_trading.post_earnings_review import build_post_earnings_reviews
+from stock_trading.pre_earnings_review import review_pre_earnings_setup
 from stock_trading.provider_gap_summary import build_provider_gap_review
 from stock_trading.recommendation_outcomes import build_recommendation_outcome_review
 from stock_trading.source_usefulness import build_source_usefulness, summarize_source_usefulness
@@ -6394,6 +6398,255 @@ def run_analysis(
             "note": "Review-only and recommendation-only; official recommendations, scores, targets, gates, and allocation rules are unchanged.",
         }
 
+    def earnings_related(value: object) -> bool:
+        if not isinstance(value, dict):
+            return False
+        fields = (
+            "provider",
+            "source",
+            "source_name",
+            "field",
+            "field_name",
+            "endpoint",
+            "provider_endpoint",
+            "evidence_type",
+            "event_type",
+            "message",
+            "latest_issue",
+            "title",
+            "summary",
+        )
+        return "earnings" in " ".join(str(value.get(field) or "").lower() for field in fields)
+
+    def compact_earnings_provider_gap(row: Dict[str, object]) -> Dict[str, object]:
+        return {
+            "symbol": str(row.get("symbol") or "").upper(),
+            "provider": row.get("provider") or row.get("source") or "",
+            "field": row.get("field_name") or row.get("field") or row.get("endpoint") or row.get("provider_endpoint") or "",
+            "status": row.get("status") or "",
+            "latest_issue": row.get("latest_issue") or row.get("message") or row.get("notes") or "",
+            "review_only": True,
+        }
+
+    def earnings_provider_gaps_for_symbol(rows: List[Dict[str, object]], symbol: str) -> List[Dict[str, object]]:
+        wanted = symbol.upper()
+        return [
+            compact_earnings_provider_gap(row)
+            for row in rows
+            if earnings_related(row) and str(row.get("symbol") or "").upper() in {"", wanted, "MARKET"}
+        ]
+
+    def price_history_summary_for_symbol(symbol: str) -> Dict[str, object]:
+        rows = price_history.get(symbol.upper(), [])
+        if not rows:
+            return {
+                "status": "missing",
+                "history_days": 0,
+                "max_daily_move_pct": None,
+            }
+        ordered = list(reversed(rows))
+        moves = []
+        previous_close = None
+        for row in ordered:
+            close = to_float(row.get("adjusted_close") or row.get("close"))
+            if close <= 0:
+                continue
+            if previous_close and previous_close > 0:
+                moves.append(abs(((close - previous_close) / previous_close) * 100))
+            previous_close = close
+        return {
+            "status": "available",
+            "history_days": len(rows),
+            "max_daily_move_pct": round(max(moves), 4) if moves else 0.0,
+            "recent_daily_move_pct": round(moves[-1], 4) if moves else 0.0,
+        }
+
+    def scrub_earnings_review_row(row: Dict[str, object]) -> Dict[str, object]:
+        cleaned = dict(row)
+        cleaned["recommendation_only_note"] = "Recommendation-only earnings review; official recommendation outputs are unchanged."
+        return cleaned
+
+    def signal_direction_to_review_label(direction: str) -> str:
+        normalized = direction.lower()
+        if normalized in {"positive", "improved"}:
+            return "improved"
+        if normalized in {"negative", "weakened"}:
+            return "weakened"
+        if normalized == "mixed":
+            return "mixed"
+        if normalized in {"neutral"}:
+            return "neutral"
+        return "missing"
+
+    def update_signal_category(categories: Dict[str, str], category: str, direction: str) -> None:
+        current = categories.get(category, "missing")
+        candidate = signal_direction_to_review_label(direction)
+        priority = {"weakened": 4, "mixed": 3, "improved": 2, "neutral": 1, "missing": 0}
+        if priority.get(candidate, 0) > priority.get(current, 0):
+            categories[category] = candidate
+
+    def earnings_signal_category_summary(signals: List[Dict[str, object]], post_rows: List[Dict[str, object]]) -> Dict[str, object]:
+        categories = {
+            "guidance": "missing",
+            "estimates": "missing",
+            "margins": "missing",
+            "revenue": "missing",
+            "eps": "missing",
+            "ai_capex_commentary": "missing",
+            "risk_language": "missing",
+            "market_reaction": "missing",
+            "thesis_impact": "missing",
+        }
+        mapping = {
+            "guidance_raise": "guidance",
+            "guidance_cut": "guidance",
+            "revenue_beat": "revenue",
+            "revenue_miss": "revenue",
+            "eps_beat": "eps",
+            "eps_miss": "eps",
+            "margin_expansion": "margins",
+            "margin_pressure": "margins",
+            "ai_demand_strength": "ai_capex_commentary",
+            "capex_risk": "ai_capex_commentary",
+            "customer_growth": "estimates",
+            "churn_or_demand_risk": "risk_language",
+            "cybersecurity_or_operational_risk": "risk_language",
+            "valuation_risk": "risk_language",
+        }
+        for signal in signals:
+            signal_type = str(signal.get("signal_type") or "")
+            category = mapping.get(signal_type)
+            if category:
+                update_signal_category(categories, category, str(signal.get("signal_direction") or "unknown"))
+        for row in post_rows:
+            thesis = str(row.get("thesis_impact") or "")
+            if thesis:
+                categories["thesis_impact"] = signal_direction_to_review_label(thesis)
+            if row.get("price_reaction_pct") is not None:
+                reaction = to_float(row.get("price_reaction_pct"))
+                categories["market_reaction"] = "improved" if reaction >= 3 else "weakened" if reaction <= -3 else "neutral"
+        return {
+            "categories": categories,
+            "review_only": True,
+            "recommendation_impact": "none",
+        }
+
+    def build_earnings_review_context(
+        *,
+        universe_rows: List[Dict[str, object]],
+        recommendations_by_symbol: Dict[str, Dict[str, object]],
+        decision_gates_by_symbol: Dict[str, Dict[str, object]],
+        provider_gap_rows: List[Dict[str, object]],
+        stored_evidence_rows: List[Dict[str, object]],
+        source_usefulness_rows: List[Dict[str, object]],
+        score_history_rows: List[Dict[str, object]],
+        ai_context_by_symbol: Dict[str, Dict[str, object]],
+        as_of_date: str,
+    ) -> Dict[str, object]:
+        event_queue = build_earnings_event_queue(
+            universe_rows,
+            stored_evidence_rows=stored_evidence_rows,
+            provider_gap_rows=provider_gap_rows,
+            report_date=as_of_date,
+        )
+        queue_rows = [dict(row) for row in context_list(event_queue.get("rows")) if isinstance(row, dict)]
+        upcoming_rows = [row for row in queue_rows if row.get("event_type") == "upcoming_earnings"]
+        recent_rows = [row for row in queue_rows if row.get("event_type") == "recent_earnings"]
+        data_gap_rows = [
+            row
+            for row in queue_rows
+            if row.get("event_type") in {"unknown_earnings_date", "earnings_data_gap"}
+            or row.get("provider_gap_status") not in {"", "ok", "expected"}
+            or row.get("source_status") not in {"", "ok", "unknown", "expected", "non_operating_company"}
+        ]
+        pre_candidates = [
+            row
+            for row in queue_rows
+            if row.get("review_window") in {"pre_earnings", "unknown"}
+            and row.get("recommended_review_action") != "ignore_for_now"
+        ][:10]
+        pre_rows = []
+        for row in pre_candidates:
+            symbol = str(row.get("symbol") or "").upper()
+            pre_rows.append(
+                scrub_earnings_review_row(
+                    review_pre_earnings_setup(
+                        earnings_event=row,
+                        recommendation=recommendations_by_symbol.get(symbol, {}),
+                        decision_safety=decision_gates_by_symbol.get(symbol, {}),
+                        target_confidence=str(recommendations_by_symbol.get(symbol, {}).get("confidence") or recommendations_by_symbol.get(symbol, {}).get("target_confidence") or ""),
+                        price_history_summary=price_history_summary_for_symbol(symbol),
+                        provider_gaps=earnings_provider_gaps_for_symbol(provider_gap_rows, symbol),
+                        ai_synthesis_readiness=ai_context_by_symbol.get(symbol, {}),
+                        as_of_date=as_of_date,
+                    )
+                )
+            )
+        post_candidates = [
+            row
+            for row in queue_rows
+            if row.get("event_type") == "recent_earnings"
+            and row.get("recommended_review_action") in {"review_post_earnings", "monitor_after_report"}
+        ][:10]
+        post_rows = [
+            scrub_earnings_review_row(row)
+            for row in build_post_earnings_reviews(
+                post_candidates,
+                evidence_rows=stored_evidence_rows,
+                price_history_by_symbol=price_history,
+                recommendation_rows=score_history_rows,
+                ai_context_by_symbol=ai_context_by_symbol,
+                provider_gaps=provider_gap_rows,
+                source_usefulness=source_usefulness_rows,
+                as_of=as_of_date,
+            )
+        ]
+        signals = [
+            dict(signal)
+            for signal in extract_earnings_signals(stored_evidence_rows)
+        ]
+        signal_summary = summarize_earnings_signals(signals)
+        signal_summary.update(earnings_signal_category_summary(signals, post_rows))
+        provider_gap_review_rows = [
+            compact_earnings_provider_gap(row)
+            for row in provider_gap_rows
+            if earnings_related(row)
+        ]
+        return {
+            "review_only": True,
+            "recommendation_only": True,
+            "decision_mode": "earnings_event",
+            "note": "Recommendation-only earnings review; official recommendation outputs are unchanged.",
+            "upcoming_earnings_queue": {
+                "rows": upcoming_rows[:12],
+                "empty_state": "No upcoming earnings dates are available in the review window.",
+            },
+            "recent_earnings_queue": {
+                "rows": recent_rows[:12],
+                "empty_state": "No recent earnings events are available for post-earnings review.",
+            },
+            "pre_earnings_setup_review": {
+                "review_only": True,
+                "rows": pre_rows,
+                "empty_state": "No pre-earnings setup review rows are available.",
+            },
+            "post_earnings_reaction_review": {
+                "review_only": True,
+                "rows": post_rows,
+                "empty_state": "No post-earnings reaction review rows are available.",
+            },
+            "earnings_signal_summary": {
+                **signal_summary,
+                "signals": signals[:12],
+                "empty_state": "No earnings evidence signals are available yet.",
+            },
+            "provider_data_gaps": {
+                "rows": provider_gap_review_rows[:12],
+                "event_rows": data_gap_rows[:12],
+                "empty_state": "No earnings-specific provider/data gaps are visible.",
+            },
+        }
+
     def recommendation_context(rank: int, row: Dict[str, object]) -> Dict[str, object]:
         item = row["input"]
         target = row.get("target")
@@ -6580,6 +6833,42 @@ def run_analysis(
         capital_context=capital_context,
         holding_health_review=holding_health_review,
     )
+    earnings_universe_rows = []
+    for rec in recommendations:
+        symbol = str(rec.get("symbol") or "").upper()
+        item = research_by_symbol.get(symbol)
+        earnings_universe_rows.append(
+            {
+                "symbol": symbol,
+                "company": rec.get("company") or getattr(item, "company", ""),
+                "category": getattr(item, "category", ""),
+                "sleeve": rec.get("sleeve") or getattr(item, "sleeve", ""),
+                "trade_type": rec.get("trade_type") or getattr(item, "trade_type", ""),
+            }
+        )
+    stored_evidence_rows = [
+        dict(row)
+        for rows in stored_evidence_by_symbol.values()
+        for row in rows
+        if isinstance(row, dict)
+    ]
+    score_history_rows_flat = [
+        dict(row)
+        for rows in score_history_by_symbol.values()
+        for row in rows
+        if isinstance(row, dict)
+    ]
+    earnings_review = build_earnings_review_context(
+        universe_rows=earnings_universe_rows,
+        recommendations_by_symbol=recommendations_by_symbol,
+        decision_gates_by_symbol=decision_gates_by_symbol,
+        provider_gap_rows=[row for row in provider_gap_rows if isinstance(row, dict)],
+        stored_evidence_rows=stored_evidence_rows,
+        source_usefulness_rows=source_quality_rows,
+        score_history_rows=score_history_rows_flat,
+        ai_context_by_symbol=synthesis_readiness_by_symbol,
+        as_of_date=report_date,
+    )
     report_date = f"{now:%Y-%m-%d}"
     report_context = {
         "metadata": {
@@ -6616,6 +6905,7 @@ def run_analysis(
         },
         "decision_safety": decision_gate,
         "long_term_capital_deployment": long_term_capital_deployment,
+        "earnings_review": earnings_review,
         "long_term_add_queue": long_term_add_queue,
         "reliability": {
             "mode": reliability_status,

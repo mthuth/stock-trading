@@ -97,6 +97,138 @@
     "ai_synthesis_note": "AI synthesis is explanatory only and does not change the official recommendation.",
     "note": "Review-only and recommendation-only; official recommendations, scores, targets, gates, and allocation rules are unchanged."
   },
+  "earnings_review": {
+    "review_only": true,
+    "recommendation_only": true,
+    "decision_mode": "earnings_event",
+    "note": "Recommendation-only earnings review; official recommendation outputs are unchanged.",
+    "upcoming_earnings_queue": {
+      "rows": [
+        {
+          "symbol": "MSFT",
+          "company": "Microsoft",
+          "event_type": "upcoming_earnings",
+          "earnings_date": "2026-06-05",
+          "days_until_earnings": 8,
+          "source": "fixture earnings calendar",
+          "source_status": "ok",
+          "provider_gap_status": "ok",
+          "review_window": "pre_earnings",
+          "recommended_review_action": "review_pre_earnings",
+          "review_only": true
+        },
+        {
+          "symbol": "QQQM",
+          "company": "Invesco NASDAQ 100 ETF",
+          "event_type": "unknown_earnings_date",
+          "earnings_date": "",
+          "days_until_earnings": null,
+          "source": "not_applicable",
+          "source_status": "non_operating_company",
+          "provider_gap_status": "expected",
+          "review_window": "unknown",
+          "recommended_review_action": "ignore_for_now",
+          "review_only": true
+        }
+      ],
+      "empty_state": "No upcoming earnings dates are available in the review window."
+    },
+    "recent_earnings_queue": {
+      "rows": [
+        {
+          "symbol": "AMZN",
+          "company": "Amazon.com",
+          "event_type": "recent_earnings",
+          "earnings_date": "2026-05-29",
+          "days_since_earnings": 1,
+          "source": "official IR earnings release",
+          "source_status": "ok",
+          "provider_gap_status": "ok",
+          "review_window": "post_earnings",
+          "recommended_review_action": "review_post_earnings",
+          "review_only": true
+        }
+      ],
+      "empty_state": "No recent earnings events are available for post-earnings review."
+    },
+    "pre_earnings_setup_review": {
+      "review_only": true,
+      "rows": [
+        {
+          "symbol": "MSFT",
+          "company": "Microsoft",
+          "earnings_date": "2026-06-05",
+          "days_until_earnings": 8,
+          "setup_label": "wait_for_earnings",
+          "setup_score": 68,
+          "recommended_review_action": "wait_until_after_report",
+          "reasons": ["Strong candidate, but earnings are close enough to review after the report."],
+          "blockers": [],
+          "data_gaps": [],
+          "review_only": true,
+          "recommendation_only_note": "Recommendation-only earnings review; official recommendation outputs are unchanged."
+        }
+      ],
+      "empty_state": "No pre-earnings setup review rows are available."
+    },
+    "post_earnings_reaction_review": {
+      "review_only": true,
+      "rows": [
+        {
+          "symbol": "AMZN",
+          "company": "Amazon.com",
+          "earnings_date": "2026-05-29",
+          "days_since_earnings": 1,
+          "price_reaction_pct": 4.2,
+          "reaction_label": "market_confirmation",
+          "thesis_impact": "improved",
+          "recommended_review_action": "review_for_add_after_earnings",
+          "evidence_summary": ["Revenue and guidance improved after earnings."],
+          "risk_summary": [],
+          "data_gaps": [],
+          "review_only": true,
+          "recommendation_only_note": "Recommendation-only earnings review; official recommendation outputs are unchanged."
+        }
+      ],
+      "empty_state": "No post-earnings reaction review rows are available."
+    },
+    "earnings_signal_summary": {
+      "overall_direction": "positive",
+      "positive_count": 3,
+      "negative_count": 0,
+      "unknown_count": 0,
+      "signal_count": 3,
+      "review_only": true,
+      "recommendation_impact": "none",
+      "categories": {
+        "guidance": "improved",
+        "estimates": "missing",
+        "margins": "neutral",
+        "revenue": "improved",
+        "eps": "neutral",
+        "ai_capex_commentary": "improved",
+        "risk_language": "neutral",
+        "market_reaction": "improved",
+        "thesis_impact": "improved"
+      },
+      "signals": [],
+      "empty_state": "No earnings evidence signals are available yet."
+    },
+    "provider_data_gaps": {
+      "rows": [
+        {
+          "symbol": "PANW",
+          "provider": "Finnhub",
+          "field": "earnings_calendar",
+          "status": "blocked",
+          "latest_issue": "Fixture blocked earnings calendar.",
+          "review_only": true
+        }
+      ],
+      "event_rows": [],
+      "empty_state": "No earnings-specific provider/data gaps are visible."
+    }
+  },
   "reliability": {
     "mode": "Fresh provider data",
     "price_counts": {

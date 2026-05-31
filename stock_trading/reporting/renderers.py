@@ -14,6 +14,7 @@ from stock_trading.ai_briefs import write_ai_brief_artifacts
 from stock_trading.reporting import decision_safety as safety_review
 from stock_trading.reporting.capital_deployment import build_long_term_capital_deployment_view
 from stock_trading.reporting.data_reliability import build_data_reliability_review
+from stock_trading.reporting.earnings_review import build_earnings_review_view
 from stock_trading.reporting.provider_gaps import (
     render_provider_gap_review_html,
     render_provider_gap_review_markdown,
@@ -42,10 +43,12 @@ REQUIRED_CONTEXT_SECTIONS = (
     "feedback",
     "learning_review",
     "long_term_capital_deployment",
+    "earnings_review",
     "artifacts",
 )
 REPORT_SECTION_LABELS = (
     "Long-Term Capital Deployment Review",
+    "Earnings Review",
     "Product Review Path",
     "Learning Review",
     "Wave 7 Capital Deployment Prep",
@@ -953,6 +956,74 @@ def long_term_capital_deployment_markdown_lines(context: dict[str, object]) -> l
     return lines
 
 
+def render_review_table(table: dict[str, object], class_name: str = "compact-table") -> str:
+    rows = as_list(table.get("rows"))
+    if not rows:
+        return f"<p>{html.escape(text(table.get('empty_state'), 'No rows available.'))}</p>"
+    return html_table(as_list(table.get("headers")), rows, class_name)
+
+
+def render_earnings_review(context: dict[str, object]) -> str:
+    review = build_earnings_review_view(context)
+    signals = as_dict(review.get("signals"))
+    categories = as_dict(signals.get("categories"))
+    signal_text = ", ".join(f"{key}: {value}" for key, value in categories.items()) or "No earnings signals available yet."
+    return (
+        '<section class="earnings-review">'
+        '<div class="section-title"><h2>Earnings Review</h2>'
+        '<span class="section-note">Event-driven review-only opportunities; official recommendations stay unchanged</span></div>'
+        f'<p class="section-note">{html.escape(text(review.get("note")))}</p>'
+        f'<div class="coherence-grid">{_coherence_cards_html(review.get("cards"))}</div>'
+        '<div class="table-pair">'
+        f'<section><h3>Upcoming Earnings Queue</h3>{render_review_table(as_dict(review.get("upcoming")))}</section>'
+        f'<section><h3>Recent Earnings Queue</h3>{render_review_table(as_dict(review.get("recent")))}</section>'
+        "</div>"
+        '<div class="table-pair">'
+        f'<section><h3>Pre-Earnings Setup Review</h3>{render_review_table(as_dict(review.get("pre")))}</section>'
+        f'<section><h3>Post-Earnings Reaction Review</h3>{render_review_table(as_dict(review.get("post")))}</section>'
+        "</div>"
+        f'<section><h3>Earnings Signal Summary</h3><p class="section-note">{html.escape(signal_text)}</p></section>'
+        f'<section><h3>Earnings Provider/Data Gaps</h3>{render_review_table(as_dict(review.get("gaps")))}</section>'
+        "</section>"
+    )
+
+
+def earnings_review_markdown_lines(context: dict[str, object]) -> list[str]:
+    review = build_earnings_review_view(context)
+    signals = as_dict(review.get("signals"))
+    categories = as_dict(signals.get("categories"))
+    lines = [
+        "## Earnings Review",
+        "",
+        text(review.get("note"), "Recommendation-only earnings review; official recommendation outputs are unchanged."),
+        "",
+    ]
+    for card in as_list(review.get("cards")):
+        item = as_dict(card)
+        lines.append(f"- {item.get('label', '')}: **{item.get('value', '')}** - {item.get('detail', '')}")
+    lines.append("")
+    for title, key in (
+        ("Upcoming Earnings Queue", "upcoming"),
+        ("Recent Earnings Queue", "recent"),
+        ("Pre-Earnings Setup Review", "pre"),
+        ("Post-Earnings Reaction Review", "post"),
+        ("Earnings Provider/Data Gaps", "gaps"),
+    ):
+        append_table_section(lines, title, as_dict(review.get(key)), text(as_dict(review.get(key)).get("empty_state"), "No rows available."))
+    lines.extend(
+        [
+            "### Earnings Signal Summary",
+            "",
+            f"- Overall direction: **{signals.get('overall_direction', 'missing')}**",
+            f"- Signal rows: **{signals.get('signal_count', 0)}**",
+        ]
+    )
+    for key, value in categories.items():
+        lines.append(f"- {key}: **{value}**")
+    lines.append("")
+    return lines
+
+
 def learning_review_summary_value(section: dict[str, Any], *keys: str) -> object:
     summary = as_dict(section.get("summary"))
     for key in keys:
@@ -1423,6 +1494,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
 
     {render_daily_decision_review(context)}
     {render_long_term_capital_deployment(context)}
+    {render_earnings_review(context)}
     {render_product_review_path(context)}
     {render_data_reliability_review(context)}
 
@@ -1659,6 +1731,7 @@ def render_print_review(context: dict[str, object]) -> str:
       {render_print_summary(context)}
       {render_daily_decision_review(context)}
       {render_long_term_capital_deployment(context)}
+      {render_earnings_review(context)}
       {render_decision_safety_review(context)}
       {render_readiness(as_dict(context.get("readiness")))}
       <section>
@@ -1965,6 +2038,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
     if kind in {"daily", "end_of_day"}:
         coherence_lines = [
             *long_term_capital_deployment_markdown_lines(context),
+            *earnings_review_markdown_lines(context),
             *product_review_path_markdown_lines(context),
             *coherence_lines,
             *learning_review_markdown_lines(context),
