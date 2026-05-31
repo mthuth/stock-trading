@@ -14,6 +14,7 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from engine_common import (  # noqa: E402
@@ -24,23 +25,14 @@ from engine_common import (  # noqa: E402
     record_provider_payload,
     record_source_quality_metrics,
 )
+from stock_trading.source_health import (  # noqa: E402
+    classify_source_health,
+    is_local_derived_source,
+    notes_for_source_health,
+    quality_sort,
+)
 
 
-CONTEXT_CATEGORIES = {
-    "ai_research",
-    "newsletter",
-    "podcast",
-    "semiconductor_news",
-    "tech_news",
-}
-EXCLUDED_SOURCES = {
-    "Local deterministic tagger",
-    "Local evidence event clusterer",
-    "Local ingestion planner",
-    "Local synthesis readiness preparer",
-    "Local source depth curator",
-    "Local source quality scorer",
-}
 BLOCKED_TERMS = ("blocked", "forbidden", "unauthorized", "payment required", "rate limit", "quota")
 ERROR_STATUSES = {"error", "failed", "missing", "parser_gap"}
 OK_STATUSES = {"ok", "rss_ok", "page_links_ok"}
@@ -105,6 +97,8 @@ def normalize_status(status: object, message: object = "") -> str:
         return "ok"
     if raw_status == "blocked" or any(term in raw_message for term in BLOCKED_TERMS):
         return "blocked"
+    if raw_status == "parser_gap" or "parser_gap" in raw_message or "no parseable" in raw_message:
+        return "parser_gap"
     if raw_status in ERROR_STATUSES or raw_status:
         return "error"
     return ""
@@ -150,6 +144,7 @@ def empty_state(source_name: str, category: str = "") -> dict[str, Any]:
         "ok_runs": 0,
         "error_runs": 0,
         "blocked_runs": 0,
+        "parser_gap_count": 0,
         "total_evidence": 0,
         "tagged_evidence": 0,
         "tag_count": 0,
@@ -204,7 +199,7 @@ def load_metrics(source_filter: str = "", days: int = 30) -> list[dict[str, Any]
             config.get("source_category") or config.get("source_type") or "",
         )
         for name, config in configs.items()
-        if name not in EXCLUDED_SOURCES and (not source_filter or name == source_filter)
+        if not is_local_derived_source(name) and (not source_filter or name == source_filter)
     }
 
     conn = init_db()
@@ -212,18 +207,20 @@ def load_metrics(source_filter: str = "", days: int = 30) -> list[dict[str, Any]
 
     for row in conn.execute(
         """
-        SELECT source_name, COUNT(*) AS count, MAX(fetched_at) AS latest_fetched,
+        SELECT source_name, MAX(source_type) AS source_type, COUNT(*) AS count, MAX(fetched_at) AS latest_fetched,
                MAX(source_timestamp) AS latest_source
         FROM research_evidence
         GROUP BY source_name
         """
     ):
         name = str(row["source_name"] or "")
-        if name in EXCLUDED_SOURCES:
+        if is_local_derived_source(name):
             continue
         if source_filter and name != source_filter:
             continue
         state = state_for(states, name, configs)
+        if not state.get("source_category"):
+            state["source_category"] = str(row["source_type"] or "")
         count = int(row["count"] or 0)
         state["total_evidence"] += count
         state["records_inserted"] += count
@@ -239,7 +236,7 @@ def load_metrics(source_filter: str = "", days: int = 30) -> list[dict[str, Any]
         """
     ):
         name = str(row["source_name"] or "")
-        if name in EXCLUDED_SOURCES:
+        if is_local_derived_source(name):
             continue
         if source_filter and name != source_filter:
             continue
@@ -255,7 +252,7 @@ def load_metrics(source_filter: str = "", days: int = 30) -> list[dict[str, Any]
         """
     ):
         name = str(row["source_name"] or "")
-        if name in EXCLUDED_SOURCES:
+        if is_local_derived_source(name):
             continue
         if source_filter and name != source_filter:
             continue
@@ -288,7 +285,7 @@ def load_metrics(source_filter: str = "", days: int = 30) -> list[dict[str, Any]
         """
     ):
         name = str(row["source_name"] or "")
-        if name in EXCLUDED_SOURCES:
+        if is_local_derived_source(name):
             continue
         if source_filter and name != source_filter:
             continue
@@ -312,7 +309,7 @@ def load_metrics(source_filter: str = "", days: int = 30) -> list[dict[str, Any]
         (f"-{max(1, int(days))} days",),
     ):
         name = str(row["provider"] or "")
-        if name in EXCLUDED_SOURCES:
+        if is_local_derived_source(name):
             continue
         if source_filter and name != source_filter:
             continue
@@ -325,6 +322,11 @@ def load_metrics(source_filter: str = "", days: int = 30) -> list[dict[str, Any]
         elif status == "blocked":
             state["blocked_runs"] += 1
             update_latest_status(state, "blocked", row["created_at"])
+            state["latest_issue"] = str(row["message"] or row["status"] or "")
+        elif status == "parser_gap":
+            state["parser_gap_count"] += 1
+            state["error_runs"] += 1
+            update_latest_status(state, "parser_gap", row["created_at"])
             state["latest_issue"] = str(row["message"] or row["status"] or "")
         elif status == "error":
             state["error_runs"] += 1
@@ -344,7 +346,7 @@ def load_metrics(source_filter: str = "", days: int = 30) -> list[dict[str, Any]
         """
     ):
         name = str(row["provider"] or "")
-        if name in EXCLUDED_SOURCES:
+        if is_local_derived_source(name):
             continue
         if source_filter and name != source_filter:
             continue
@@ -359,6 +361,11 @@ def load_metrics(source_filter: str = "", days: int = 30) -> list[dict[str, Any]
             state["blocked_runs"] += count
             update_latest_status(state, "blocked", row["latest"])
             state["latest_issue"] = str(row["message"] or row["status"] or "")
+        elif status == "parser_gap":
+            state["parser_gap_count"] += count
+            state["error_runs"] += count
+            update_latest_status(state, "parser_gap", row["latest"])
+            state["latest_issue"] = str(row["message"] or row["status"] or "")
         elif status == "error":
             state["error_runs"] += count
             update_latest_status(state, "error", row["latest"])
@@ -372,7 +379,7 @@ def load_metrics(source_filter: str = "", days: int = 30) -> list[dict[str, Any]
         """
     ):
         name = str(row["source_name"] or "")
-        if name in EXCLUDED_SOURCES:
+        if is_local_derived_source(name):
             continue
         if source_filter and name != source_filter:
             continue
@@ -396,8 +403,16 @@ def load_metrics(source_filter: str = "", days: int = 30) -> list[dict[str, Any]
         )
         tag_rate = round(tagged_evidence / total_evidence, 3) if total_evidence else 0.0
         days_since = age_days(state.get("latest_success"))
-        quality_label = label_for_state(
+        quality_label = classify_source_health(
             state,
+            total_evidence=total_evidence,
+            tag_rate=tag_rate,
+            avg_confidence=avg_confidence,
+            days_since_success=days_since,
+        )
+        notes = notes_for_source_health(
+            state,
+            label=quality_label,
             total_evidence=total_evidence,
             tag_rate=tag_rate,
             avg_confidence=avg_confidence,
@@ -415,6 +430,8 @@ def load_metrics(source_filter: str = "", days: int = 30) -> list[dict[str, Any]
                 "ok_runs": int(state.get("ok_runs") or 0),
                 "error_runs": int(state.get("error_runs") or 0),
                 "blocked_runs": int(state.get("blocked_runs") or 0),
+                "blocked_count": int(state.get("blocked_runs") or 0),
+                "parser_gap_count": int(state.get("parser_gap_count") or 0),
                 "total_evidence": total_evidence,
                 "tagged_evidence": tagged_evidence,
                 "tag_count": tag_count,
@@ -437,70 +454,10 @@ def load_metrics(source_filter: str = "", days: int = 30) -> list[dict[str, Any]
                 "low_confidence_matches": int(state.get("low_confidence_matches") or 0),
                 "feedback_delta": round(float(state.get("feedback_delta") or 0), 3),
                 "quality_label": quality_label,
-                "notes": notes_for_state(state, total_evidence, tag_rate, avg_confidence, days_since),
+                "notes": notes,
             }
         )
     return sorted(rows, key=lambda row: (quality_sort(row["quality_label"]), str(row["source_name"])))
-
-
-def label_for_state(
-    state: dict[str, Any],
-    total_evidence: int,
-    tag_rate: float,
-    avg_confidence: float | None,
-    days_since_success: float | None,
-) -> str:
-    category = str(state.get("source_category") or "")
-    latest_status_blocked = str(state.get("latest_status") or "") == "blocked"
-    if latest_status_blocked or (
-        int(state.get("blocked_runs") or 0) + int(state.get("error_runs") or 0) >= 3
-        and not state.get("latest_success")
-    ):
-        return "blocked"
-    if days_since_success is not None and days_since_success > 7:
-        return "stale"
-    if total_evidence < 3:
-        return "not_enough_data"
-    if tag_rate >= 0.50 and (avg_confidence or 0) >= 0.80 and (days_since_success is None or days_since_success <= 7):
-        return "high_signal"
-    if total_evidence >= 5 and (tag_rate < 0.20 or (avg_confidence is not None and avg_confidence < 0.70)):
-        return "needs_review"
-    if total_evidence >= 3 and (tag_rate >= 0.20 or category in CONTEXT_CATEGORIES):
-        return "useful_context"
-    return "needs_review"
-
-
-def notes_for_state(
-    state: dict[str, Any],
-    total_evidence: int,
-    tag_rate: float,
-    avg_confidence: float | None,
-    days_since_success: float | None,
-) -> str:
-    notes: list[str] = []
-    if state.get("latest_issue"):
-        notes.append(f"latest issue: {state['latest_issue']}")
-    if tag_rate < 0.20 and total_evidence >= 5:
-        notes.append("low symbol-match coverage")
-    if avg_confidence is not None and avg_confidence < 0.70:
-        notes.append("low average match confidence")
-    if days_since_success is not None and days_since_success > 7:
-        notes.append(f"last success {days_since_success:.1f}d ago")
-    if not notes:
-        notes.append("measurement only; no score impact")
-    return "; ".join(notes)[:500]
-
-
-def quality_sort(label: object) -> int:
-    order = {
-        "blocked": 0,
-        "needs_review": 1,
-        "stale": 2,
-        "not_enough_data": 3,
-        "useful_context": 4,
-        "high_signal": 5,
-    }
-    return order.get(str(label), 9)
 
 
 def main() -> int:
