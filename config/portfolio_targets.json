@@ -54,7 +54,18 @@
   "speculative_ai": {
     "watchlist_only_days": 21,
     "allow_buy_recommendations": false,
-    "symbols": ["SOUN", "AEHR", "BBAI", "ALAB", "PLAB"]
+    "symbols": ["SOUN", "AEHR", "BBAI", "ALAB", "PLAB"],
+    "eligibility_reason": "Speculative AI names remain watchlist-only until observation time, evidence quality, and target confidence are strong enough for buy-readiness.",
+    "eligibility_requirements": [
+      "Complete the configured observation period.",
+      "Refresh primary-source and company evidence.",
+      "Resolve material provider gaps."
+    ],
+    "confidence_requirements": [
+      "Medium or High target confidence.",
+      "No decision-safety blocking insight.",
+      "No missing current price."
+    ]
   },
   "provider_decisions": {
     "selected_second_analyst_estimate_provider": "finnhub",
