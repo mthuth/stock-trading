@@ -1,0 +1,22 @@
+[
+  {
+    "symbol": "MSFT",
+    "setup_date": "2026-05-01",
+    "setup_label": "breakout",
+    "tactical_horizon": "5_trading_days",
+    "review_action": "tactical_buy_review",
+    "setup_confidence": "medium",
+    "original_price": 100.0,
+    "invalidation_price": 96.0
+  },
+  {
+    "symbol": "NVDA",
+    "setup_date": "2026-05-01",
+    "setup_label": "post_earnings_reaction",
+    "tactical_horizon": "1_day",
+    "review_action": "watch",
+    "setup_confidence": "low",
+    "original_price": 200.0,
+    "invalidation_price": 190.0
+  }
+]
