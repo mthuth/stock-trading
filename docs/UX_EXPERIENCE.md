@@ -37,6 +37,9 @@ Key needs:
 5. Feedback should be low-friction and auditable.
    The current static dashboard can generate local save commands. A later local app can convert the same workflow into direct SQLite writes.
 
+6. Learning stays review-only until the product says otherwise.
+   Manual journal, recommendation outcomes, decision-safety effectiveness, catalyst follow-through, and source usefulness should be visible as review context without changing current scores, actions, targets, gates, allocation, or broker behavior.
+
 ## Core Journey
 
 ### 1. Pre-Market Review
@@ -52,12 +55,14 @@ User intent:
 Expected flow:
 
 1. Read the top recommendation summary.
-2. Review the Pre-Market Readiness checklist for price data, target trust, source health, holdings context, and feedback review.
-3. Open the Action Queue.
-4. Hover or focus the action label for quick rationale.
-5. Click the row for score explanation, target sources, research brief, and evidence.
-6. Check Data Gaps or Health & Trends if confidence is low, target range is wide, or the source health count is elevated.
-7. Record Agree, Disagree, or Too Risky feedback.
+2. Confirm the Daily Decision Review for decision safety, score explainability, target confidence, and provider-gap context.
+3. Scan Product Review Path to understand which sections are decision-bearing, explanatory, review-only, or Wave 7 prep.
+4. Review the Pre-Market Readiness checklist for price data, target trust, source health, holdings context, and feedback review.
+5. Open the Action Queue.
+6. Hover or focus the action label for quick rationale.
+7. Click the row for score explanation, target sources, research brief, and evidence.
+8. Check Data Gaps, Health & Trends, or Data Reliability Review if confidence is low, target range is wide, or the source health count is elevated.
+9. Record Agree, Disagree, or Too Risky feedback.
 
 Success criteria:
 
@@ -156,6 +161,18 @@ Required content:
 - Upside.
 - Source health count.
 
+### Product Review Path
+
+Purpose: keep the post-Wave-6.5 sections coherent.
+
+Required content:
+
+- Current buy/add decision stays first.
+- Decision safety and target confidence are explicitly connected to the recommendation.
+- Provider and data reliability are visible before deeper audit tabs.
+- AI synthesis is marked explanatory with no recommendation impact.
+- Learning review and Wave 7 capital deployment prep are marked review-only or prep-only.
+
 ### Recommendations
 
 Primary tab for trading review.
@@ -204,6 +221,31 @@ Required content:
 - Source health rollups and useful/noisy source signals.
 - SEC coverage and company investor-relations coverage when available.
 - Next ingestion refresh and backfill priorities.
+
+### Learning Review
+
+Purpose: show learning loops without implying model or recommendation changes.
+
+Required content:
+
+- Manual journal status.
+- Recommendation outcome review status.
+- Decision-safety effectiveness review status.
+- Catalyst follow-through review status.
+- Source usefulness and noise review status.
+- Clear review-only wording: no score, target, action, gate, allocation, or broker impact.
+
+### Wave 7 Capital Deployment Prep
+
+Purpose: prepare the future capital deployment workflow before any broker expansion.
+
+Required content:
+
+- Current suggested amount or buy-capacity label when available.
+- Holdings and allocation context used by the current recommendation.
+- Missing manual/configured cash and as-of-date inputs.
+- Monthly buy-capacity separation from per-symbol suggested amount.
+- Explicit no order previews, no broker writes, and no automated trading wording.
 
 ### Research Sources
 
@@ -301,9 +343,15 @@ Requirements:
 
 Already present:
 
-- Dashboard tabs for Recommendations, Current Holdings, Health & Trends, Research Sources, and Feedback.
+- Dashboard tabs for Recommendations, Current Holdings, Health & Trends, Data Ingestion, Learning Review, Research Sources, and Feedback.
+- Product Review Path keeps the current decision, reliability checks, explanatory AI synthesis, review-only learning, and Wave 7 prep in one hierarchy.
 - Recommendation subtabs for Action Queue, Long-Term Queue, Short-Term Queue, Next-Day Watchlist, Speculative AI Watchlist, and Data Gaps.
 - Header summary and recommendation tables expose target confidence and data status before drilldown.
+- Daily Decision Review keeps decision safety and target confidence near the recommendation before operational audit sections.
+- Data Reliability Review keeps provider/data health visible but collapsed into summary cards and details.
+- Explanatory Decision Briefs make AI synthesis context visible without implying a recommendation impact.
+- Learning Review marks manual journal, outcomes, catalyst follow-through, and source usefulness as review-only.
+- Wave 7 Capital Deployment Prep shows the capital-availability inputs still needed before broker expansion.
 - Pre-Market Readiness checklist exposes advisory checks for price data, target trust, source health, holdings context, feedback review, and next-day setup above the Action Queue.
 - Top next-day watch preview appears inside Pre-Market Readiness with a direct jump to the Next-Day Watchlist.
 - Compact print/PDF review mode keeps Pre-Market Readiness, Action Queue, Data Gaps, and Next-Day Watchlist usable as a browser-exported phone review.
@@ -319,10 +367,12 @@ Already present:
 Primary UX gaps:
 
 - Target confidence still needs to carry through CSV and end-of-day Markdown summaries.
+- Wave 7 still needs an explicit capital-availability source: manual/configured cash, monthly buy capacity, and as-of date.
 
 ## Near-Term UX Backlog
 
 1. Add target confidence to CSV and end-of-day Markdown summaries.
+2. Define the Wave 7 capital availability schema before adding broker read paths.
 
 ## Acceptance Criteria
 
