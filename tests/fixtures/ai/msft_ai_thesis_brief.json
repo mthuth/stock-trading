@@ -1,0 +1,33 @@
+{
+  "brief_id": "brief-msft-2026-05-01-1",
+  "symbol": "MSFT",
+  "report_date": "2026-05-01",
+  "artifact_ref": "llm-research-briefs-2026-05-01.json",
+  "summary": "MSFT has source-backed AI platform evidence, but this remains recommendation-only decision support.",
+  "bull_case": "Bull case: Azure AI demand and platform margins support the long-term thesis.",
+  "bear_case": "Bear case: valuation and capex intensity could pressure returns.",
+  "risk_or_uncertainty": "Risk or uncertainty: valuation and capex intensity need continued review.",
+  "key_evidence": [
+    "Company IR and independent channel checks support Azure AI demand."
+  ],
+  "open_data_gaps": [
+    "No major data gaps found."
+  ],
+  "what_would_change_the_view": "A material AI demand slowdown or margin guide-down would change the view.",
+  "source_references": [
+    {
+      "source_name": "Company IR",
+      "source_table": "evidence_events"
+    }
+  ],
+  "audit_refs": [
+    "ai_prompt_packet:MSFT",
+    "prompt_packet_evidence:MSFT"
+  ],
+  "guardrails": {
+    "passed": true,
+    "warnings": [],
+    "failures": [],
+    "recommended_action": "accept"
+  }
+}
