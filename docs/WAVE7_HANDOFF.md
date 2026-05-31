@@ -2,6 +2,8 @@
 
 This handoff prepares future Codex agents for Wave 7: Long-Term Capital Deployment. It is documentation-only and does not authorize app behavior changes.
 
+For detailed scenario requirements and fixture contracts, read [Wave 7 Requirements](WAVE7_REQUIREMENTS.md).
+
 ## Product Goal
 
 Wave 7 should make the app better at answering:

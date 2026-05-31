@@ -1,0 +1,72 @@
+{
+  "scenario_id": "all_candidates_blocked",
+  "scenario_label": "All candidates blocked",
+  "decision_mode": "long_term_buy_add",
+  "recommendation_only": true,
+  "capital_availability": {
+    "status": "available",
+    "monthly_buy_capacity": 2500.0,
+    "manual_available_cash": 2500.0,
+    "as_of_date": "2026-05-31",
+    "source": "manual",
+    "suggested_deployment": 0.0,
+    "hold_reason": "Hold buy capacity because no candidate is decision-safe."
+  },
+  "long_term_add_queue": [
+    {
+      "rank": 1,
+      "symbol": "NVDA",
+      "sleeve": "long_term_core",
+      "action": "Add",
+      "candidate_role": "blocked_candidate",
+      "decision_gate": {
+        "safe_to_buy": false,
+        "status": "Blocked",
+        "reasons": ["Low target confidence"]
+      },
+      "target_confidence": "Low",
+      "allocation_safety": {
+        "status": "blocked_by_decision_gate",
+        "suggested_amount": 0.0,
+        "reason": "Decision gate blocked the candidate."
+      },
+      "provider_gaps": ["low_target_confidence"],
+      "ai_summary_status": "needs_review"
+    },
+    {
+      "rank": 2,
+      "symbol": "SNOW",
+      "sleeve": "long_term_core",
+      "action": "Add",
+      "candidate_role": "blocked_candidate",
+      "decision_gate": {
+        "safe_to_buy": false,
+        "status": "Blocked",
+        "reasons": ["Partial target blend"]
+      },
+      "target_confidence": "Low",
+      "allocation_safety": {
+        "status": "blocked_by_decision_gate",
+        "suggested_amount": 0.0,
+        "reason": "Decision gate blocked the candidate."
+      },
+      "provider_gaps": ["partial_target_blend"],
+      "ai_summary_status": "needs_review"
+    }
+  ],
+  "holding_health": [],
+  "expected_behavior": {
+    "top_symbol": "NVDA",
+    "fallback_symbol": "",
+    "deployment_decision": "hold_capacity",
+    "suggested_amount": 0.0,
+    "scenario_assertions": ["all_candidates_blocked", "no_safe_fallback", "hold_capacity"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "ai_explanatory_only": true,
+    "no_model_tuning": true
+  }
+}

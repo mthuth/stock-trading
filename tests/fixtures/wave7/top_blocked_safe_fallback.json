@@ -1,0 +1,72 @@
+{
+  "scenario_id": "top_blocked_safe_fallback",
+  "scenario_label": "Top candidate blocked with safe fallback",
+  "decision_mode": "long_term_buy_add",
+  "recommendation_only": true,
+  "capital_availability": {
+    "status": "available",
+    "monthly_buy_capacity": 2500.0,
+    "manual_available_cash": 2500.0,
+    "as_of_date": "2026-05-31",
+    "source": "manual",
+    "suggested_deployment": 1800.0,
+    "hold_reason": "Top candidate blocked; review fallback instead."
+  },
+  "long_term_add_queue": [
+    {
+      "rank": 1,
+      "symbol": "NVDA",
+      "sleeve": "long_term_core",
+      "action": "Add",
+      "candidate_role": "blocked_candidate",
+      "decision_gate": {
+        "safe_to_buy": false,
+        "status": "Blocked",
+        "reasons": ["Wide target range", "Verification check is still open"]
+      },
+      "target_confidence": "Low",
+      "allocation_safety": {
+        "status": "blocked_by_decision_gate",
+        "suggested_amount": 0.0,
+        "reason": "Decision gate blocked the candidate."
+      },
+      "provider_gaps": ["verification_needed"],
+      "ai_summary_status": "needs_review"
+    },
+    {
+      "rank": 2,
+      "symbol": "MSFT",
+      "sleeve": "long_term_core",
+      "action": "Add",
+      "candidate_role": "fallback_candidate",
+      "decision_gate": {
+        "safe_to_buy": true,
+        "status": "Ready",
+        "reasons": []
+      },
+      "target_confidence": "Medium",
+      "allocation_safety": {
+        "status": "available",
+        "suggested_amount": 1800.0,
+        "reason": "Fallback candidate is within allocation rules."
+      },
+      "provider_gaps": [],
+      "ai_summary_status": "explanatory_ready"
+    }
+  ],
+  "holding_health": [],
+  "expected_behavior": {
+    "top_symbol": "NVDA",
+    "fallback_symbol": "MSFT",
+    "deployment_decision": "fallback_review",
+    "suggested_amount": 1800.0,
+    "scenario_assertions": ["top_candidate_blocked", "fallback_candidate_safe", "blocked_amount_zero"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "ai_explanatory_only": true,
+    "no_model_tuning": true
+  }
+}
