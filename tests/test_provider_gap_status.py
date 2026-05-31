@@ -19,6 +19,9 @@ class ProviderGapStatusTests(unittest.TestCase):
             subject.PROVIDER_STATUSES,
             {
                 "ok",
+                "expected",
+                "informational",
+                "non_operating_company",
                 "missing",
                 "stale",
                 "blocked",
@@ -32,6 +35,11 @@ class ProviderGapStatusTests(unittest.TestCase):
     def test_normalizes_ok(self) -> None:
         self.assertEqual(subject.normalize_provider_status("ok"), "ok")
         self.assertEqual(subject.normalize_provider_status("success"), "ok")
+
+    def test_normalizes_expected_non_operating_statuses(self) -> None:
+        self.assertEqual(subject.normalize_provider_status("expected"), "expected")
+        self.assertEqual(subject.normalize_provider_status("not_applicable"), "expected")
+        self.assertEqual(subject.normalize_provider_status("non_operating_company"), "non_operating_company")
 
     def test_normalizes_blocked(self) -> None:
         self.assertEqual(subject.normalize_provider_status("error", "HTTP 403 forbidden"), "blocked")

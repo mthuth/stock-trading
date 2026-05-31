@@ -7,6 +7,9 @@ import re
 
 
 OK = "ok"
+EXPECTED = "expected"
+INFORMATIONAL = "informational"
+NON_OPERATING_COMPANY = "non_operating_company"
 MISSING = "missing"
 STALE = "stale"
 BLOCKED = "blocked"
@@ -17,6 +20,9 @@ ERROR = "error"
 
 PROVIDER_STATUSES = {
     OK,
+    EXPECTED,
+    INFORMATIONAL,
+    NON_OPERATING_COMPANY,
     MISSING,
     STALE,
     BLOCKED,
@@ -27,6 +33,7 @@ PROVIDER_STATUSES = {
 }
 
 SUCCESS_ALIASES = {"success", "passed", "healthy", "implemented"}
+EXPECTED_ALIASES = {"not_applicable", "not applicable", "non-operating-company", "non operating company"}
 
 STATUS_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
@@ -123,6 +130,8 @@ def normalize_provider_status(status: object = "", message: object = "") -> str:
         return value
     if value in SUCCESS_ALIASES:
         return OK
+    if value in EXPECTED_ALIASES:
+        return EXPECTED
 
     for normalized, patterns in STATUS_PATTERNS:
         if any(re.search(pattern, haystack) for pattern in patterns):

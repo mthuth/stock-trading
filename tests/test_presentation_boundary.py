@@ -83,6 +83,7 @@ class PresentationBoundaryTests(unittest.TestCase):
             self.assertIn("Official IR Coverage", markdown_text)
             self.assertIn("Refresh Plan", markdown_text)
             self.assertIn("Provider gap review", markdown_text)
+            self.assertIn("Learning Review", markdown_text)
             self.assertIn("NVDA", markdown_text)
             json.loads(context_path.read_text())
             fetch_json_url.assert_not_called()

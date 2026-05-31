@@ -61,6 +61,32 @@ def approved_operating_companies(rows: Iterable[Mapping[str, object]]) -> list[d
     return companies
 
 
+def security_type_for_row(row: Mapping[str, object]) -> str:
+    tokens = " ".join(
+        str(row.get(key, "")).strip().lower()
+        for key in ("category", "sleeve", "trade_type", "company", "company_name")
+    )
+    return "non_operating_company" if "etf" in tokens or "non_operating" in tokens or "non-operating" in tokens else "operating_company"
+
+
+def approved_ir_subjects(rows: Iterable[Mapping[str, object]]) -> list[dict[str, str]]:
+    subjects: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for row in rows:
+        symbol = str(row.get("symbol", "")).strip().upper()
+        if not symbol or symbol in seen:
+            continue
+        subjects.append(
+            {
+                "symbol": symbol,
+                "company": str(row.get("company", "") or row.get("company_name", "")).strip(),
+                "security_type": security_type_for_row(row),
+            }
+        )
+        seen.add(symbol)
+    return subjects
+
+
 def ir_source_map(rows: Iterable[Mapping[str, object]]) -> dict[str, dict[str, str]]:
     sources: dict[str, dict[str, str]] = {}
     for row in rows:
@@ -180,8 +206,23 @@ def build_official_ir_coverage(
     latest_issue = _latest_issue_by_symbol(status_rows)
     evidence_types = _evidence_types_by_symbol(evidence_rows)
     coverage: list[dict[str, object]] = []
-    for company in approved_operating_companies(approved_companies):
+    for company in approved_ir_subjects(approved_companies):
         symbol = company["symbol"]
+        if company.get("security_type") == "non_operating_company":
+            coverage.append(
+                {
+                    "symbol": symbol,
+                    "company": str(company.get("company") or ""),
+                    "security_type": "non_operating_company",
+                    "configured_ir_url": "",
+                    "ir_source_status": "expected",
+                    "latest_successful_fetch": "",
+                    "latest_issue": "ETF/non-operating symbol; official company IR source is not required.",
+                    "evidence_types_found": [],
+                    "source_focus": "non_operating_company",
+                }
+            )
+            continue
         source = sources.get(symbol, {})
         latest = latest_status.get(symbol)
         success = latest_success.get(symbol)
@@ -204,6 +245,7 @@ def build_official_ir_coverage(
             {
                 "symbol": symbol,
                 "company": str(source.get("company") or company.get("company") or ""),
+                "security_type": "operating_company",
                 "configured_ir_url": configured_url,
                 "ir_source_status": status,
                 "latest_successful_fetch": str(success.get("refreshed_at") or "") if success else "",

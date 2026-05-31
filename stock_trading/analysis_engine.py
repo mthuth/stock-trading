@@ -23,12 +23,17 @@ from stock_trading.allocation_safety import (
     allocation_safety_for_candidate,
     sleeve_market_values_for_ranked,
 )
+from stock_trading.catalyst_outcomes import build_catalyst_follow_through_review
+from stock_trading.decision_safety_outcomes import build_decision_safety_effectiveness_review
 from stock_trading.fundamental_target_config import (
     assumptions_for_symbol,
     peer_group_for_symbol as configured_peer_group_for_symbol,
     source_config as fundamental_source_config,
 )
+from stock_trading.manual_trade_journal import list_manual_journal_entries
 from stock_trading.provider_gap_summary import build_provider_gap_review
+from stock_trading.recommendation_outcomes import build_recommendation_outcome_review
+from stock_trading.source_usefulness import build_source_usefulness, summarize_source_usefulness
 from stock_trading.target_confidence import calibrate_target_confidence
 from stock_trading.technical_targets import calculate_technical_target
 from stock_trading.watchlist_policy import evaluate_watchlist_policy
@@ -2140,6 +2145,125 @@ def source_quality_summary(rows: List[Dict[str, object]]) -> Dict[str, int]:
         label = str(row.get("quality_label") or "")
         summary[label] = summary.get(label, 0) + 1
     return summary
+
+
+LEARNING_REVIEW_NOTE = (
+    "Review-only learning outputs. Manual journal entries, recommendation outcomes, "
+    "catalyst follow-through, source usefulness, decision-safety effectiveness, and AI "
+    "synthesis review do not change scores, actions, targets, target confidence, "
+    "suggested amounts, decision gates, source weights, broker behavior, or trading."
+)
+
+
+def count_by_label(rows: Iterable[Dict[str, object]], key: str) -> Dict[str, int]:
+    counts: Dict[str, int] = {}
+    for row in rows:
+        label = str(row.get(key) or "unknown")
+        counts[label] = counts.get(label, 0) + 1
+    return counts
+
+
+def latest_rows(rows: Iterable[Dict[str, object]], limit: int = 8) -> List[Dict[str, object]]:
+    visible = [dict(row) for row in rows]
+    return list(reversed(visible[-limit:]))
+
+
+def learning_section_error(section: str, exc: Exception) -> Dict[str, object]:
+    return {
+        "review_only": True,
+        "available": False,
+        "summary": {"error": str(exc)},
+        "rows": [],
+        "note": f"{section} learning data could not be loaded; current recommendations are unaffected.",
+    }
+
+
+def manual_journal_learning(limit: int = 12) -> Dict[str, object]:
+    entries = list_manual_journal_entries(limit=limit)
+    return {
+        "review_only": True,
+        "available": bool(entries),
+        "summary": {
+            "entry_count": len(entries),
+            "actions": count_by_label(entries, "action_taken"),
+        },
+        "recent_actions": latest_rows(entries, limit),
+        "empty_state": "No manual journal entries recorded yet.",
+    }
+
+
+def recommendation_outcome_learning(limit: int = 80) -> Dict[str, object]:
+    review = build_recommendation_outcome_review(limit=limit, windows=(20,))
+    outcomes = [dict(row) for row in review.get("outcomes", []) if isinstance(row, dict)]
+    return {
+        "review_only": True,
+        "available": bool(outcomes),
+        "summary": {
+            **dict(review.get("metadata", {}) if isinstance(review.get("metadata"), dict) else {}),
+            "outcomes_by_status": count_by_label(outcomes, "outcome_status"),
+        },
+        "top_outcomes": latest_rows(outcomes),
+        "empty_state": "Not enough recommendation outcome history yet.",
+    }
+
+
+def catalyst_learning(limit: int = 80) -> Dict[str, object]:
+    review = build_catalyst_follow_through_review(limit=limit, windows=(20,))
+    outcomes = [dict(row) for row in review.get("outcomes", []) if isinstance(row, dict)]
+    return {
+        "review_only": True,
+        "available": bool(outcomes),
+        "summary": {
+            **dict(review.get("metadata", {}) if isinstance(review.get("metadata"), dict) else {}),
+            "outcomes_by_label": count_by_label(outcomes, "outcome_label"),
+        },
+        "top_outcomes": latest_rows(outcomes),
+        "empty_state": "No catalyst follow-through rows available yet.",
+    }
+
+
+def source_usefulness_learning(source_quality_rows: List[Dict[str, object]]) -> Dict[str, object]:
+    rows = build_source_usefulness(source_quality_rows)
+    return {
+        "review_only": True,
+        "available": bool(rows),
+        "summary": summarize_source_usefulness(rows),
+        "top_sources": rows[:8],
+        "empty_state": "No source usefulness history available yet.",
+    }
+
+
+def decision_safety_learning(limit: int = 80) -> Dict[str, object]:
+    review = build_decision_safety_effectiveness_review(limit=limit, windows=(20,))
+    rows = [dict(row) for row in review.get("rows", []) if isinstance(row, dict)]
+    return {
+        "review_only": True,
+        "available": bool(rows),
+        "summary": review.get("summary", {}),
+        "top_rows": latest_rows(rows),
+        "empty_state": "No decision-safety effectiveness history available yet.",
+    }
+
+
+def build_learning_review_context(source_quality_rows: List[Dict[str, object]]) -> Dict[str, object]:
+    sections = {
+        "manual_journal": lambda: manual_journal_learning(),
+        "recommendation_outcomes": lambda: recommendation_outcome_learning(),
+        "catalyst_follow_through": lambda: catalyst_learning(),
+        "source_usefulness": lambda: source_usefulness_learning(source_quality_rows),
+        "decision_safety_effectiveness": lambda: decision_safety_learning(),
+    }
+    review: Dict[str, object] = {
+        "review_only": True,
+        "title": "Learning Review",
+        "note": LEARNING_REVIEW_NOTE,
+    }
+    for name, builder in sections.items():
+        try:
+            review[name] = builder()
+        except Exception as exc:  # pragma: no cover - defensive report-only fallback
+            review[name] = learning_section_error(name, exc)
+    return review
 
 
 def source_quality_table_rows(rows: List[Dict[str, object]], limit: int = 24) -> List[List[object]]:
@@ -6165,6 +6289,7 @@ def run_analysis(
     ]
     source_names = [row["source_name"] for row in source_rows]
     queue_headers = decision_headers
+    learning_review = build_learning_review_context(source_quality_rows)
     report_date = f"{now:%Y-%m-%d}"
     report_context = {
         "metadata": {
@@ -6302,6 +6427,7 @@ def run_analysis(
             "low_confidence_matches": low_confidence_matches_table,
             "rows": source_quality_rows,
         },
+        "learning_review": learning_review,
         "source_depth": source_depth_table,
         "ingestion_run_plan": ingestion_run_plan_table,
         "ingestion_backfill": ingestion_backfill_table,
