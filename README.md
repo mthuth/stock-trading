@@ -71,6 +71,12 @@ Render the checked-in report-context fixture:
 python3 scripts/render_report_context.py --fixture tests/fixtures/report_context.json --output-dir /private/tmp/stock-report-context-render
 ```
 
+Export review-only alert artifacts from a local fixture:
+
+```bash
+python3 scripts/export_alerts.py --fixture tests/fixtures/alerts/sample_alerts.json --output-dir reports/
+```
+
 Generate analysis without persisting or rendering context:
 
 ```bash
@@ -157,6 +163,7 @@ Provider failures, blocked endpoints, missing fields, and stale data should be r
 - `reports/ai-analysis-context-YYYY-MM-DD.json`: deterministic context package for future AI summaries.
 - `reports/ai-insight-briefs-YYYY-MM-DD.*`: deterministic insight brief artifacts.
 - `reports/synthesis-packets-YYYY-MM-DD.json`: evidence synthesis readiness packets.
+- `reports/alerts.json` and `reports/alerts.md`: optional local review-trigger artifacts exported from fixture/local alert rows.
 - `reports/local-console-manifest.json`: local decision console manifest with artifact index, panel summaries, and read-only run history.
 - `reports/local-console.html`: static local decision console shell for manual review.
 - `data/stock_trading.sqlite`: canonical SQLite database used by current storage paths.
