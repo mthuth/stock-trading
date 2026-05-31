@@ -41,7 +41,7 @@ The app should reduce friction in review, not increase automation risk.
 
 2. Local Decision Console Shell
    - Add a durable local navigation shell.
-   - Show latest recommendation review, best long-term add, provider gaps, decision safety, target confidence, AI briefs, manual journal, outcomes, model trust, and run history.
+   - Show latest recommendation review, best long-term add, earnings review, tactical review, provider gaps, decision safety, target confidence, AI briefs, manual journal, outcomes, model trust, and run history.
    - Keep all behavior local and recommendation-only.
    - Current Wave 9 implementation target: build a JSON manifest from existing local artifacts, render a static `reports/local-console.html` shell, and require the user to open it manually.
    - The shell must not include run buttons, real-time refreshes, broker access, order previews, or trading actions.
@@ -110,6 +110,12 @@ Earnings review should eventually support:
 - Source/catalyst usefulness.
 
 Earnings mode should be separate from normal long-term buy/add mode.
+
+## Tactical Review
+
+Tactical review should appear as a separate review-only section after long-term capital deployment and earnings review. It can summarize setup labels, horizons, review actions, risk zones, invalidation conditions, provider/data gaps, earnings/event context, and tactical outcome history when available.
+
+Tactical review should not override the current buy/add decision, long-term capital deployment, official recommendation labels, scoring, target confidence, allocation, AI generation, provider ingestion, or broker behavior.
 
 ## Intraday Signal Review
 

@@ -42,6 +42,10 @@ from stock_trading.pre_earnings_review import review_pre_earnings_setup
 from stock_trading.provider_gap_summary import build_provider_gap_review
 from stock_trading.recommendation_outcomes import build_recommendation_outcome_review
 from stock_trading.source_usefulness import build_source_usefulness, summarize_source_usefulness
+from stock_trading.tactical_outcomes import summarize_tactical_outcomes, tactical_outcome_rows
+from stock_trading.tactical_risk import tactical_risk_zones
+from stock_trading.tactical_setups import classify_tactical_setup
+from stock_trading.tactical_watchlist import build_tactical_watchlist_queue
 from stock_trading.target_confidence import calibrate_target_confidence
 from stock_trading.technical_targets import calculate_technical_target
 from stock_trading.watchlist_policy import evaluate_watchlist_policy
@@ -6647,6 +6651,234 @@ def run_analysis(
             },
         }
 
+    def compact_tactical_provider_gap(row: Dict[str, object]) -> Dict[str, object]:
+        return {
+            "symbol": str(row.get("symbol") or "").upper(),
+            "provider": row.get("provider") or row.get("source") or "",
+            "field": row.get("field_name") or row.get("field") or row.get("endpoint") or row.get("provider_endpoint") or "",
+            "status": row.get("status") or "",
+            "latest_issue": row.get("latest_issue") or row.get("message") or row.get("notes") or "",
+            "review_only": True,
+        }
+
+    def tactical_provider_gaps_for_symbol(rows: List[Dict[str, object]], symbol: str) -> List[Dict[str, object]]:
+        wanted = symbol.upper()
+        return [
+            compact_tactical_provider_gap(row)
+            for row in rows
+            if str(row.get("symbol") or "").upper() in {"", wanted, "MARKET"}
+        ]
+
+    def latest_event_context_for_symbol(rows: List[Dict[str, object]], symbol: str) -> List[Dict[str, object]]:
+        wanted = symbol.upper()
+        selected = []
+        for row in rows:
+            if str(row.get("symbol") or "").upper() != wanted:
+                continue
+            event_text = " ".join(
+                str(row.get(field) or "").lower()
+                for field in ("event_type", "headline", "title", "summary", "notes")
+            )
+            if not any(token in event_text for token in ("earnings", "catalyst", "launch", "guidance", "revenue", "ai", "demand", "news")):
+                continue
+            selected.append(
+                {
+                    "symbol": wanted,
+                    "event_date": row.get("event_date")
+                    or row.get("latest_evidence_at")
+                    or row.get("published_at")
+                    or row.get("source_timestamp")
+                    or row.get("created_at")
+                    or row.get("date"),
+                    "event_type": row.get("event_type") or row.get("evidence_type") or row.get("source_type") or "",
+                    "headline": row.get("headline") or row.get("title") or row.get("summary") or "",
+                    "corroboration_label": row.get("corroboration_label") or row.get("confidence_bucket") or row.get("confidence") or "",
+                    "review_only": True,
+                }
+            )
+        selected.sort(key=lambda item: str(item.get("event_date") or ""), reverse=True)
+        return selected[:3]
+
+    def first_symbol_row(section: Dict[str, object]) -> Dict[str, Dict[str, object]]:
+        rows = [row for row in context_list(section.get("rows")) if isinstance(row, dict)]
+        result: Dict[str, Dict[str, object]] = {}
+        for row in rows:
+            symbol = str(row.get("symbol") or "").upper()
+            if symbol and symbol not in result:
+                result[symbol] = row
+        return result
+
+    def tactical_label_counts(rows: List[Dict[str, object]], field: str) -> List[Dict[str, object]]:
+        counts: Dict[str, int] = {}
+        for row in rows:
+            label = str(row.get(field) or "missing")
+            counts[label] = counts.get(label, 0) + 1
+        return [
+            {"label": label, "count": count, "review_only": True}
+            for label, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+        ]
+
+    def build_tactical_review_context(
+        *,
+        recommendations: List[Dict[str, object]],
+        recommendations_by_symbol: Dict[str, Dict[str, object]],
+        earnings_review: Dict[str, object],
+        provider_gap_rows: List[Dict[str, object]],
+        stored_evidence_rows: List[Dict[str, object]],
+        ai_context_by_symbol: Dict[str, Dict[str, object]],
+        as_of_date: str,
+    ) -> Dict[str, object]:
+        upcoming = first_symbol_row(context_dict(earnings_review.get("upcoming_earnings_queue")))
+        recent = first_symbol_row(context_dict(earnings_review.get("recent_earnings_queue")))
+        pre = first_symbol_row(context_dict(earnings_review.get("pre_earnings_setup_review")))
+        post = first_symbol_row(context_dict(earnings_review.get("post_earnings_reaction_review")))
+        setup_rows: List[Dict[str, object]] = []
+        risk_inputs: List[Dict[str, object]] = []
+        provider_gap_review_rows: List[Dict[str, object]] = []
+        earnings_event_context_rows: List[Dict[str, object]] = []
+        for rec in recommendations:
+            symbol = str(rec.get("symbol") or "").upper()
+            if not symbol:
+                continue
+            current_price = to_float(rec.get("current_price"))
+            event = upcoming.get(symbol) or recent.get(symbol) or {}
+            symbol_provider_gaps = tactical_provider_gaps_for_symbol(provider_gap_rows, symbol)
+            provider_gap_review_rows.extend(symbol_provider_gaps)
+            symbol_events = latest_event_context_for_symbol(stored_evidence_rows, symbol)
+            setup = classify_tactical_setup(
+                symbol=symbol,
+                current_price=current_price or None,
+                price_history=price_history.get(symbol, []),
+                technical_context=context_dict(context_dict(rec.get("target_drilldown")).get("technical")),
+                earnings_event=event,
+                pre_earnings_review=pre.get(symbol, {}),
+                post_earnings_review=post.get(symbol, {}),
+                catalyst_events=symbol_events,
+                provider_gaps=symbol_provider_gaps,
+                source_usefulness=(),
+                ai_synthesis_readiness=ai_context_by_symbol.get(symbol, {}),
+                recommendation=recommendations_by_symbol.get(symbol, {}),
+                as_of_date=as_of_date,
+            )
+            setup = dict(setup)
+            technical_summary = context_dict(setup.get("technical_summary"))
+            setup_label = str(setup.get("setup_label") or "")
+            risk_zone_label = "not_applicable" if setup_label in {"no_tactical_setup", "none"} else "moderate"
+            if symbol_provider_gaps or setup_label == "data_insufficient":
+                risk_zone_label = "data_gap"
+            setup.update(
+                {
+                    "report_date": as_of_date,
+                    "setup_date": as_of_date,
+                    "current_price": current_price or technical_summary.get("current_price"),
+                    "support_estimate": setup.get("support_level") or technical_summary.get("support_level"),
+                    "resistance_estimate": setup.get("resistance_level") or technical_summary.get("resistance_level"),
+                    "risk_zone_label": risk_zone_label,
+                    "recent_volatility_pct": technical_summary.get("volatility_pct"),
+                    "price_history_quality": technical_summary.get("status") or "missing",
+                    "earnings_event_context": event,
+                    "catalyst_context": {"row_count": len(symbol_events), "latest": symbol_events[0] if symbol_events else {}},
+                    "provider_gaps": symbol_provider_gaps,
+                    "long_term_context": {
+                        "action": rec.get("action"),
+                        "decision_gate_status": rec.get("decision_gate_status"),
+                        "target_confidence": rec.get("target_confidence") or rec.get("confidence"),
+                    },
+                    "recommendation_only_note": "Recommendation-only tactical review; official long-term recommendations are unchanged.",
+                }
+            )
+            setup_rows.append(setup)
+            risk_inputs.append(
+                {
+                    "symbol": symbol,
+                    "tactical_horizon": setup.get("tactical_horizon"),
+                    "setup_label": setup.get("setup_label"),
+                    "current_price": setup.get("current_price"),
+                    "support_estimate": setup.get("support_estimate"),
+                    "resistance_estimate": setup.get("resistance_estimate"),
+                    "recent_volatility_pct": setup.get("recent_volatility_pct"),
+                    "earnings_event": event,
+                    "price_history_quality": setup.get("price_history_quality"),
+                    "notes": context_list(setup.get("reasons"))[:2],
+                }
+            )
+            if event:
+                earnings_event_context_rows.append(
+                    {
+                        "symbol": symbol,
+                        "event_type": event.get("event_type") or "",
+                        "earnings_date": event.get("earnings_date") or event.get("event_date") or "",
+                        "recommended_review_action": event.get("recommended_review_action") or "",
+                        "review_only": True,
+                    }
+                )
+        watchlist_queue = build_tactical_watchlist_queue(setup_rows, as_of_date=as_of_date, limit=12)
+        watchlist_queue["note"] = "Recommendation-only tactical review; it does not override long-term capital deployment or official recommendations."
+        for row in context_list(watchlist_queue.get("rows")):
+            if isinstance(row, dict):
+                row["note"] = "Review-only tactical context."
+        risk_rows = tactical_risk_zones(risk_inputs)
+        outcome_rows = tactical_outcome_rows(setup_rows, price_history)
+        visible_outcomes = [
+            row
+            for row in outcome_rows
+            if row.get("outcome_status") not in {"not_enough_history", ""}
+        ]
+        return {
+            "review_only": True,
+            "recommendation_only": True,
+            "does_not_override_long_term": True,
+            "decision_mode": "tactical_trade",
+            "note": "Recommendation-only tactical review; it is separate from and does not override long-term capital deployment or official recommendations.",
+            "tactical_watchlist_queue": {
+                **watchlist_queue,
+                "empty_state": "No tactical review setups are available yet.",
+            },
+            "setup_labels": {
+                "rows": tactical_label_counts(setup_rows, "setup_label"),
+                "empty_state": "No tactical setup labels are available yet.",
+            },
+            "tactical_horizons": {
+                "rows": tactical_label_counts(setup_rows, "tactical_horizon"),
+                "empty_state": "No tactical horizons are available yet.",
+            },
+            "review_actions": {
+                "rows": tactical_label_counts([row for row in context_list(watchlist_queue.get("rows")) if isinstance(row, dict)], "review_action"),
+                "empty_state": "No tactical review actions are available yet.",
+            },
+            "risk_zones": {
+                "rows": risk_rows,
+                "empty_state": "No tactical risk-zone rows are available yet.",
+            },
+            "invalidation_conditions": {
+                "rows": [
+                    {
+                        "symbol": row.get("symbol"),
+                        "setup_label": row.get("setup_label"),
+                        "tactical_horizon": row.get("tactical_horizon"),
+                        "invalidation_condition": row.get("invalidation_condition"),
+                        "review_only": True,
+                    }
+                    for row in context_list(watchlist_queue.get("rows"))
+                    if isinstance(row, dict)
+                ],
+                "empty_state": "No tactical invalidation conditions are available yet.",
+            },
+            "provider_data_gaps": {
+                "rows": provider_gap_review_rows[:20],
+                "empty_state": "No tactical provider/data gaps are visible.",
+            },
+            "earnings_event_context": {
+                "rows": earnings_event_context_rows[:12],
+                "empty_state": "No earnings/event context is attached to tactical review rows.",
+            },
+            "tactical_outcome_history": {
+                "summary": summarize_tactical_outcomes(visible_outcomes),
+                "rows": visible_outcomes[:20],
+                "empty_state": "No tactical outcome history is available yet.",
+            },
+        }
+
     def recommendation_context(rank: int, row: Dict[str, object]) -> Dict[str, object]:
         item = row["input"]
         target = row.get("target")
@@ -6869,6 +7101,15 @@ def run_analysis(
         ai_context_by_symbol=synthesis_readiness_by_symbol,
         as_of_date=report_date,
     )
+    tactical_review = build_tactical_review_context(
+        recommendations=recommendations,
+        recommendations_by_symbol=recommendations_by_symbol,
+        earnings_review=earnings_review,
+        provider_gap_rows=[row for row in provider_gap_rows if isinstance(row, dict)],
+        stored_evidence_rows=stored_evidence_rows,
+        ai_context_by_symbol=synthesis_readiness_by_symbol,
+        as_of_date=report_date,
+    )
     report_date = f"{now:%Y-%m-%d}"
     report_context = {
         "metadata": {
@@ -6906,6 +7147,7 @@ def run_analysis(
         "decision_safety": decision_gate,
         "long_term_capital_deployment": long_term_capital_deployment,
         "earnings_review": earnings_review,
+        "tactical_review": tactical_review,
         "long_term_add_queue": long_term_add_queue,
         "reliability": {
             "mode": reliability_status,

@@ -23,6 +23,7 @@ from stock_trading.reporting.product_coherence import (
     build_capital_deployment_prep,
     build_review_path,
 )
+from stock_trading.reporting.tactical_review import build_tactical_review_view
 
 
 REQUIRED_CONTEXT_SECTIONS = (
@@ -44,11 +45,13 @@ REQUIRED_CONTEXT_SECTIONS = (
     "learning_review",
     "long_term_capital_deployment",
     "earnings_review",
+    "tactical_review",
     "artifacts",
 )
 REPORT_SECTION_LABELS = (
     "Long-Term Capital Deployment Review",
     "Earnings Review",
+    "Tactical Review",
     "Product Review Path",
     "Learning Review",
     "Wave 7 Capital Deployment Prep",
@@ -1024,6 +1027,50 @@ def earnings_review_markdown_lines(context: dict[str, object]) -> list[str]:
     return lines
 
 
+def render_tactical_review(context: dict[str, object]) -> str:
+    review = build_tactical_review_view(context)
+    return (
+        '<section class="tactical-review">'
+        '<div class="section-title"><h2>Tactical Review</h2>'
+        '<span class="section-note">Separate review-only setup context; long-term decisions stay first</span></div>'
+        f'<p class="section-note">{html.escape(text(review.get("note")))}</p>'
+        f'<div class="coherence-grid">{_coherence_cards_html(review.get("cards"))}</div>'
+        '<div class="table-pair">'
+        f'<section><h3>Tactical Watchlist Queue</h3>{render_review_table(as_dict(review.get("watchlist")))}</section>'
+        f'<section><h3>Tactical Risk Zones</h3>{render_review_table(as_dict(review.get("risk_zones")))}</section>'
+        "</div>"
+        '<div class="table-pair">'
+        f'<section><h3>Tactical Provider/Data Gaps</h3>{render_review_table(as_dict(review.get("gaps")))}</section>'
+        f'<section><h3>Earnings/Event Context</h3>{render_review_table(as_dict(review.get("events")))}</section>'
+        "</div>"
+        f'<section><h3>Tactical Outcome History</h3>{render_review_table(as_dict(review.get("outcomes")))}</section>'
+        "</section>"
+    )
+
+
+def tactical_review_markdown_lines(context: dict[str, object]) -> list[str]:
+    review = build_tactical_review_view(context)
+    lines = [
+        "## Tactical Review",
+        "",
+        text(review.get("note"), "Recommendation-only tactical review; official recommendations are unchanged."),
+        "",
+    ]
+    for card in as_list(review.get("cards")):
+        item = as_dict(card)
+        lines.append(f"- {item.get('label', '')}: **{item.get('value', '')}** - {item.get('detail', '')}")
+    lines.append("")
+    for title, key in (
+        ("Tactical Watchlist Queue", "watchlist"),
+        ("Tactical Risk Zones", "risk_zones"),
+        ("Tactical Provider/Data Gaps", "gaps"),
+        ("Earnings/Event Context", "events"),
+        ("Tactical Outcome History", "outcomes"),
+    ):
+        append_table_section(lines, title, as_dict(review.get(key)), text(as_dict(review.get(key)).get("empty_state"), "No rows available."))
+    return lines
+
+
 def learning_review_summary_value(section: dict[str, Any], *keys: str) -> object:
     summary = as_dict(section.get("summary"))
     for key in keys:
@@ -1495,6 +1542,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     {render_daily_decision_review(context)}
     {render_long_term_capital_deployment(context)}
     {render_earnings_review(context)}
+    {render_tactical_review(context)}
     {render_product_review_path(context)}
     {render_data_reliability_review(context)}
 
@@ -1732,6 +1780,7 @@ def render_print_review(context: dict[str, object]) -> str:
       {render_daily_decision_review(context)}
       {render_long_term_capital_deployment(context)}
       {render_earnings_review(context)}
+      {render_tactical_review(context)}
       {render_decision_safety_review(context)}
       {render_readiness(as_dict(context.get("readiness")))}
       <section>
@@ -2039,6 +2088,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
         coherence_lines = [
             *long_term_capital_deployment_markdown_lines(context),
             *earnings_review_markdown_lines(context),
+            *tactical_review_markdown_lines(context),
             *product_review_path_markdown_lines(context),
             *coherence_lines,
             *learning_review_markdown_lines(context),
