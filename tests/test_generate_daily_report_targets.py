@@ -36,6 +36,53 @@ def research_input(symbol: str, target_price: float = 0, target_source: str = ""
     )
 
 
+def target_row(
+    symbol: str,
+    target_type: str,
+    source_name: str,
+    target_price: float,
+    *,
+    source_type: str = "model",
+    current_price: float = 100.0,
+    target_low: float | None = None,
+    target_high: float | None = None,
+    freshness_days: int = 0,
+    confidence: str = "medium",
+    notes: str = "",
+) -> dict[str, object]:
+    return {
+        "symbol": symbol,
+        "target_type": target_type,
+        "source_name": source_name,
+        "source_type": source_type,
+        "target_price": target_price,
+        "target_low": target_low,
+        "target_high": target_high,
+        "current_price": current_price,
+        "freshness_days": freshness_days,
+        "confidence": confidence,
+        "as_of_date": "2026-05-28",
+        "notes": notes,
+    }
+
+
+def drilldown_for(
+    item: subject.ResearchInput,
+    target_rows: list[dict[str, object]],
+) -> dict[str, object]:
+    blended, _ = subject.blended_target_rows(
+        target_rows,
+        42,
+        {"blended_target_model": {"long_term_weights": {"analyst": 0.45, "fundamental": 0.45, "technical": 0.10}}},
+        {item.symbol: item},
+    )
+    target = blended.get(item.symbol)
+    return subject.target_drilldowns_by_symbol(
+        [{"input": item, "target": target}],
+        target_rows,
+    )[item.symbol]
+
+
 class GenerateDailyReportTargetTests(unittest.TestCase):
     def test_manual_analyst_targets_create_source_rows(self) -> None:
         item = research_input("SNOW")
@@ -165,6 +212,96 @@ class GenerateDailyReportTargetTests(unittest.TestCase):
 
         self.assertEqual(blended["MSFT"].confidence, "low")
         self.assertIn("stale price", blended["MSFT"].blend_status)
+
+    def test_target_drilldown_labels_one_source_target(self) -> None:
+        item = research_input("NVDA")
+        drilldown = drilldown_for(
+            item,
+            [target_row("NVDA", "analyst", "Financial Modeling Prep", 140.0, source_type="data_provider")],
+        )
+
+        self.assertEqual(drilldown["blend_label"], "single-source target")
+        self.assertEqual(drilldown["confidence"], "low")
+        self.assertIn("missing input: fundamental", drilldown["labels"])
+        self.assertIn("missing input: technical", drilldown["labels"])
+        self.assertEqual(drilldown["sources"][0]["target_type"], "analyst")
+
+    def test_target_drilldown_labels_two_source_partial_blend(self) -> None:
+        item = research_input("MSFT")
+        drilldown = drilldown_for(
+            item,
+            [
+                target_row("MSFT", "analyst", "Analyst consensus", 120.0, source_type="data_provider"),
+                target_row("MSFT", "fundamental", "Internal fundamental model", 125.0),
+            ],
+        )
+
+        self.assertEqual(drilldown["blend_label"], "partial blend")
+        self.assertEqual(drilldown["confidence"], "medium")
+        self.assertIn("missing input: technical", drilldown["labels"])
+        self.assertEqual(drilldown["source_count"], 2)
+
+    def test_target_drilldown_labels_stale_target_source(self) -> None:
+        item = research_input("AMZN")
+        drilldown = drilldown_for(
+            item,
+            [
+                target_row("AMZN", "analyst", "Analyst consensus", 145.0, freshness_days=120),
+                target_row("AMZN", "fundamental", "Internal fundamental model", 135.0),
+            ],
+        )
+
+        self.assertTrue(drilldown["stale_target"])
+        self.assertIn("stale target", drilldown["labels"])
+        self.assertEqual(drilldown["sources"][0]["freshness"], "Stale (120 days)")
+
+    def test_target_drilldown_labels_missing_target_input(self) -> None:
+        item = research_input("ALAB")
+        drilldowns = subject.target_drilldowns_by_symbol(
+            [{"input": item, "target": None}],
+            [],
+        )
+
+        drilldown = drilldowns["ALAB"]
+        self.assertEqual(drilldown["blend_label"], "missing input")
+        self.assertEqual(drilldown["target_price_text"], "Needs target")
+        self.assertIn("missing input: analyst", drilldown["labels"])
+        self.assertIn("missing input: fundamental", drilldown["labels"])
+        self.assertIn("missing input: technical", drilldown["labels"])
+
+    def test_target_drilldown_labels_wide_range(self) -> None:
+        item = research_input("META")
+        drilldown = drilldown_for(
+            item,
+            [
+                target_row("META", "analyst", "Analyst consensus", 130.0, target_low=80.0, target_high=170.0),
+                target_row("META", "fundamental", "Internal fundamental model", 128.0),
+            ],
+        )
+
+        self.assertTrue(drilldown["wide_range"])
+        self.assertIn("wide range", drilldown["labels"])
+
+    def test_target_drilldown_preserves_manual_target_note(self) -> None:
+        item = research_input("SNOW")
+        drilldown = drilldown_for(
+            item,
+            [
+                target_row(
+                    "SNOW",
+                    "analyst",
+                    "Manual analyst target",
+                    250.0,
+                    source_type="manual_analyst_target",
+                    notes="Broker target captured manually.",
+                )
+            ],
+        )
+
+        source = drilldown["sources"][0]
+        self.assertEqual(source["target_type"], "manual")
+        self.assertEqual(source["source_type"], "manual_analyst_target")
+        self.assertEqual(source["notes"], "Broker target captured manually.")
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ import sqlite3
 from pathlib import Path
 from typing import List, Mapping
 
+from stock_trading.provider_gap_status import normalize_provider_status
 from stock_trading.storage import connection
 from stock_trading.storage.connection import init_db
 
@@ -65,6 +66,7 @@ def record_provider_payload(
     payload_ref: str = "",
     payload_json: object | None = None,
 ) -> int:
+    status = normalize_provider_status(status, message)
     conn = init_db()
     payload_text = json.dumps(payload_json) if payload_json is not None else None
     raw_payload_ref = record_raw_ingestion_payload(
@@ -117,6 +119,7 @@ def record_raw_ingestion_payload(
     request_hash: str = "",
     content_type: str = "",
 ) -> str:
+    status = normalize_provider_status(status, message)
     payload_bytes = (payload_text or "").encode("utf-8")
     payload_size = len(payload_bytes)
     content_hash = hashlib.sha256(payload_bytes).hexdigest() if payload_bytes else ""
@@ -161,6 +164,7 @@ def record_provider_run(
     message: str,
     field_rows: List[Mapping[str, object]],
 ) -> int:
+    run_status = normalize_provider_status(status, message)
     conn = init_db()
     with conn:
         cursor = conn.execute(
@@ -168,7 +172,7 @@ def record_provider_run(
             INSERT INTO provider_refresh_runs (provider, status, message)
             VALUES (?, ?, ?)
             """,
-            (provider, status, message),
+            (provider, run_status, message),
         )
         run_id = int(cursor.lastrowid)
         for row in field_rows:
@@ -184,14 +188,14 @@ def record_provider_run(
                     row.get("symbol"),
                     row.get("provider", provider),
                     row.get("field_name"),
-                    row.get("status"),
+                    normalize_provider_status(row.get("status"), row.get("message", "")),
                     row.get("message", ""),
                 ),
             )
     conn.close()
     return run_id
 
-def latest_provider_gaps(limit: int = 200) -> List[sqlite3.Row]:
+def latest_provider_gaps(limit: int = 200) -> List[Mapping[str, object]]:
     conn = init_db()
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
@@ -221,5 +225,12 @@ def latest_provider_gaps(limit: int = 200) -> List[sqlite3.Row]:
         """,
         (limit,),
     ).fetchall()
+    normalized_rows = []
+    for row in rows:
+        item = dict(row)
+        item["status"] = normalize_provider_status(item.get("status"), item.get("message"))
+        if item["status"] == "ok":
+            continue
+        normalized_rows.append(item)
     conn.close()
-    return rows
+    return normalized_rows

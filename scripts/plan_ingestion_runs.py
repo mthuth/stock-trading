@@ -21,16 +21,24 @@ PUBLIC_CATEGORIES = {
     "ai_research",
     "company_blog",
     "company_newsroom",
+    "company_ir",
     "newsletter",
     "podcast",
     "press_wire",
     "semiconductor_news",
     "tech_news",
 }
-BLOCKED_STATUSES = {"blocked", "error", "failed", "missing", "parser_gap"}
+OFFICIAL_CATEGORIES = {"sec", "company_ir", "company_blog", "company_newsroom"}
+NEWS_CATEGORIES = {"press_wire", "semiconductor_news", "tech_news", "ai_research"}
+SLOW_CONTEXT_CATEGORIES = {"newsletter", "podcast"}
+BLOCKED_STATUSES = {"blocked", "error", "failed", "missing", "parser_gap", "rate_limited"}
 COOLDOWN_DAYS = {
     "blocked": 7,
+    "rate_limited": 1,
     "error": 2,
+    "failed": 2,
+    "missing": 2,
+    "parser_gap": 2,
     "stale": 0,
     "not_due": 0,
     "due": 0,
@@ -175,6 +183,25 @@ def latest_source_state(conn: sqlite3.Connection) -> dict[str, dict[str, Any]]:
 
     for row in conn.execute(
         """
+        SELECT r.provider, r.status, r.message, r.created_at
+        FROM raw_ingestion_payloads r
+        JOIN (
+            SELECT provider, MAX(id) AS latest_id
+            FROM raw_ingestion_payloads
+            GROUP BY provider
+        ) latest ON latest.latest_id = r.id
+        """
+    ):
+        state = ensure(clean(row["provider"]))
+        state["latest_attempt"] = latest_time(state["latest_attempt"], row["created_at"])
+        state["latest_status"] = clean(row["status"]).lower()
+        if clean(row["status"]).lower() == "ok":
+            state["latest_success"] = latest_time(state["latest_success"], row["created_at"])
+        else:
+            state["latest_issue"] = clean(row["message"]) or clean(row["status"])
+
+    for row in conn.execute(
+        """
         SELECT p.provider, p.status, p.message, p.created_at
         FROM provider_payloads p
         JOIN (
@@ -194,7 +221,9 @@ def latest_source_state(conn: sqlite3.Connection) -> dict[str, dict[str, Any]]:
 
     for row in conn.execute(
         """
-        SELECT q.source_name, q.duplicate_records
+        SELECT q.source_name, q.duplicate_records, q.raw_payloads, q.total_evidence,
+               q.latest_success, q.latest_issue, q.latest_evidence_at,
+               q.error_runs, q.blocked_runs
         FROM source_quality_metrics q
         JOIN (
             SELECT source_name, MAX(metric_date) AS metric_date
@@ -205,7 +234,16 @@ def latest_source_state(conn: sqlite3.Connection) -> dict[str, dict[str, Any]]:
          AND latest.metric_date = q.metric_date
         """
     ):
-        ensure(clean(row["source_name"]))["duplicates"] = int(row["duplicate_records"] or 0)
+        state = ensure(clean(row["source_name"]))
+        state["duplicates"] = int(row["duplicate_records"] or 0)
+        state["raw_payloads"] = max(int(state.get("raw_payloads") or 0), int(row["raw_payloads"] or 0))
+        state["records"] = max(int(state.get("records") or 0), int(row["total_evidence"] or 0))
+        state["latest_success"] = latest_time(state["latest_success"], row["latest_success"] or row["latest_evidence_at"])
+        state["latest_issue"] = clean(row["latest_issue"]) or clean(state.get("latest_issue"))
+        if int(row["blocked_runs"] or 0) > 0:
+            state["latest_status"] = "blocked"
+        elif int(row["error_runs"] or 0) > 0 and not clean(state.get("latest_status")):
+            state["latest_status"] = "error"
 
     return states
 
@@ -245,10 +283,19 @@ def quality_by_source(conn: sqlite3.Connection) -> dict[str, str]:
 
 def classify_due(
     state: dict[str, Any],
+    config: dict[str, str],
     cadence: int,
     quality_label: str,
+    needs_backfill: bool,
     now: datetime,
 ) -> tuple[str, datetime | None, datetime | None, str]:
+    implementation_status = clean(config.get("implementation_status")).lower()
+    access_model = clean(config.get("access_model")).lower()
+    if implementation_status == "not_implemented":
+        return "not_implemented", None, None, "Source is configured but ingestion is not implemented yet."
+    if access_model == "paid_api_candidate":
+        return "not_implemented", None, None, "Source requires a paid/API access decision before automation."
+
     latest_success = parse_time(state.get("latest_success"))
     latest_attempt = parse_time(state.get("latest_attempt"))
     latest_issue = clean(state.get("latest_issue"))
@@ -257,21 +304,28 @@ def classify_due(
     next_run = (base_time + timedelta(days=cadence)) if base_time else now
 
     if latest_status in BLOCKED_STATUSES or quality_label == "blocked":
-        cooldown_days = COOLDOWN_DAYS["blocked" if latest_status == "blocked" or quality_label == "blocked" else "error"]
+        cooldown_key = "blocked" if latest_status == "blocked" or quality_label == "blocked" else latest_status
+        cooldown_days = COOLDOWN_DAYS.get(cooldown_key, COOLDOWN_DAYS["error"])
         cooldown_until = (latest_attempt or now) + timedelta(days=cooldown_days)
         if cooldown_until > now:
             return "cooldown", next_run, cooldown_until, latest_issue or "Recent blocked/error status; cooling down before retry."
+        return "blocked", next_run, cooldown_until, latest_issue or "Blocked or failing source needs review before retry."
     if not base_time:
         return "due", now, None, "No successful source run recorded yet."
     if next_run <= now:
-        return "due", next_run, None, "Cadence elapsed; source is ready to refresh."
+        return "stale", next_run, None, "Cadence elapsed; source data is stale and ready to refresh."
+    if needs_backfill:
+        return "backfill_needed", next_run, None, "Current data is fresh, but stored history does not cover the desired backfill window."
     return "not_due", next_run, None, "Recently refreshed; skip until cadence elapses."
 
 
 def priority_for(row: dict[str, Any], quality_label: str) -> int:
     base = {
         "due": 100,
-        "stale": 130,
+        "stale": 90,
+        "backfill_needed": 180,
+        "blocked": 650,
+        "not_implemented": 900,
         "not_due": 500,
         "cooldown": 800,
     }.get(row["due_status"], 600)
@@ -282,13 +336,16 @@ def priority_for(row: dict[str, Any], quality_label: str) -> int:
         "not_enough_data": -10,
         "blocked": 100,
     }.get(quality_label, 0)
-    category_bonus = {
-        "company_blog": -20,
-        "company_newsroom": -20,
-        "press_wire": -10,
-        "semiconductor_news": -10,
-        "tech_news": -5,
-    }.get(clean(row.get("source_category")), 0)
+    category = clean(row.get("source_category"))
+    tier = clean(row.get("source_tier"))
+    if category in OFFICIAL_CATEGORIES or "official" in tier:
+        category_bonus = -35
+    elif category in NEWS_CATEGORIES:
+        category_bonus = -15
+    elif category in SLOW_CONTEXT_CATEGORIES:
+        category_bonus = 40
+    else:
+        category_bonus = 0
     record_penalty = 20 if int(row.get("records") or 0) == 0 else 0
     return max(1, base + quality_bonus + category_bonus + record_penalty)
 
@@ -302,6 +359,19 @@ def backfill_window_days(config: dict[str, str]) -> int:
     if category in {"tech_news", "ai_research", "semiconductor_news"}:
         return 45
     return 30
+
+
+def backfill_needed(state: dict[str, Any], config: dict[str, str], now: datetime) -> tuple[bool, int, str]:
+    desired_days = backfill_window_days(config)
+    covered_since = parse_time(state.get("covered_since"))
+    records = int(state.get("records") or 0)
+    if records < 3:
+        return True, desired_days, "No records yet." if records == 0 else "Too few records for source history."
+    if not covered_since:
+        return True, desired_days, "Missing source coverage start date."
+    if covered_since > now - timedelta(days=desired_days):
+        return True, desired_days, "Stored history does not cover desired window."
+    return False, desired_days, ""
 
 
 def build_plan(source_filter: str = "", limit: int = 0) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -321,7 +391,15 @@ def build_plan(source_filter: str = "", limit: int = 0) -> tuple[list[dict[str, 
         state = states.get(name, {})
         cadence = cadence_days(config)
         quality_label = quality.get(name, "")
-        due_status, next_run, cooldown_until, reason = classify_due(state, cadence, quality_label, now)
+        needs_backfill, desired_days, backfill_reason = backfill_needed(state, config, now)
+        due_status, next_run, cooldown_until, reason = classify_due(
+            state,
+            config,
+            cadence,
+            quality_label,
+            needs_backfill,
+            now,
+        )
         row = {
             "source_name": name,
             "source_category": category,
@@ -338,16 +416,14 @@ def build_plan(source_filter: str = "", limit: int = 0) -> tuple[list[dict[str, 
             "duplicate_records": int(state.get("duplicates") or 0),
             "latest_issue": clean(state.get("latest_issue")),
             "run_command": command_for_source(config),
-            "reason": reason,
+            "reason": f"{reason} {backfill_reason}".strip(),
         }
         row["priority_rank"] = priority_for(row, quality_label)
         run_rows.append(row)
 
-        desired_days = backfill_window_days(config)
         covered_since = parse_time(state.get("covered_since"))
         covered_until = parse_time(state.get("covered_until"))
         records = int(state.get("records") or 0)
-        needs_backfill = records < 3 or not covered_since or covered_since > now - timedelta(days=desired_days)
         if needs_backfill and config.get("access_model") != "paid_api_candidate":
             symbol = direct_symbol_for_source(name)
             backfill_rows.append(
@@ -367,7 +443,7 @@ def build_plan(source_filter: str = "", limit: int = 0) -> tuple[list[dict[str, 
                         else f"Extend source history toward a {desired_days}-day window."
                     ),
                     "command": row["run_command"],
-                    "reason": "No records yet." if records == 0 else "Stored history does not cover desired window.",
+                    "reason": backfill_reason,
                 }
             )
 

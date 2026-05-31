@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from stock_trading.ai_briefs import write_ai_brief_artifacts
+from stock_trading.reporting.data_reliability import build_data_reliability_review
 from stock_trading.reporting.provider_gaps import (
     render_provider_gap_review_html,
     render_provider_gap_review_markdown,
@@ -454,6 +455,278 @@ def decision_gate_detail(summary: dict[str, Any]) -> str:
     return "; ".join(reasons) if reasons else text(gate.get("summary")) or "Passed"
 
 
+def top_recommendation(context: dict[str, object], summary: dict[str, Any]) -> dict[str, Any]:
+    top_symbol = text(summary.get("top_symbol"))
+    for item in recommendations(context):
+        if text(item.get("symbol")) == top_symbol:
+            return item
+    return recommendations(context)[0] if recommendations(context) else {}
+
+
+def matching_table_rows(
+    table: dict[str, Any],
+    symbol: str,
+    symbol_headers: list[str] | None = None,
+    limit: int = 3,
+) -> tuple[list[str], list[list[object]]]:
+    headers = [text(header) for header in as_list(table.get("headers"))]
+    rows = [as_list(row) for row in as_list(table.get("rows"))]
+    if not headers or not rows:
+        return headers, []
+    candidates = symbol_headers or ["Symbol", "Ticker"]
+    lookup = column_lookup(headers)
+    symbol_index = next((lookup.get(candidate.lower()) for candidate in candidates if candidate.lower() in lookup), None)
+    if symbol_index is None:
+        return headers, rows[:limit]
+    matched = [row for row in rows if symbol_index < len(row) and plain_text(row[symbol_index]) == symbol]
+    return headers, (matched or rows)[:limit]
+
+
+def first_row_value(headers: list[str], rows: list[list[object]], candidates: list[str], default: str = "") -> str:
+    if not rows:
+        return default
+    return plain_text(row_cell(headers, rows[0], candidates)) or default
+
+
+def score_review_text(context: dict[str, object], summary: dict[str, Any]) -> str:
+    top = top_recommendation(context, summary)
+    explanation = as_dict(top.get("score_explanation"))
+    drivers = as_list(explanation.get("top_drivers"))
+    if drivers:
+        labels = []
+        for driver in drivers[:3]:
+            item = as_dict(driver)
+            label = text(item.get("label") or item.get("key"), "Driver")
+            points = item.get("points")
+            points_text = f" {float(points):+.1f}" if isinstance(points, (int, float)) else ""
+            labels.append(f"{label}{points_text}".strip())
+        return "; ".join(labels)
+
+    headers, rows = matching_table_rows(as_dict(context.get("score_movement")), text(summary.get("top_symbol")), limit=1)
+    top_driver = first_row_value(headers, rows, ["Top Driver"])
+    final_score = first_row_value(headers, rows, ["Final"])
+    if top_driver:
+        return f"{top_driver}" + (f" Final score {final_score}." if final_score else "")
+    return text(top.get("score_breakdown") or summary.get("top_notes"), "No score driver detail available.")
+
+
+def score_detail_html(context: dict[str, object], summary: dict[str, Any]) -> str:
+    top = top_recommendation(context, summary)
+    explanation = as_dict(top.get("score_explanation"))
+    components = as_list(explanation.get("component_details"))
+    if components:
+        rows = [
+            [
+                as_dict(component).get("label", ""),
+                as_dict(component).get("raw", ""),
+                as_dict(component).get("points", ""),
+                as_dict(component).get("description", ""),
+            ]
+            for component in components
+        ]
+        return html_table(["Component", "Raw", "Points", "Explanation"], rows, "compact-table")
+    headers, rows = matching_table_rows(as_dict(context.get("score_movement")), text(summary.get("top_symbol")), limit=3)
+    return html_table(headers, rows, "compact-table") if rows else "<p>No score explainability rows available.</p>"
+
+
+def target_review_text(context: dict[str, object], summary: dict[str, Any]) -> str:
+    target_drilldowns = as_dict(context.get("target_drilldowns"))
+    top = as_dict(target_drilldowns.get("top_candidate"))
+    if top:
+        return (
+            f"{text(top.get('blend_label'), text(summary.get('data_status'), 'Target review'))}; "
+            f"{text(top.get('confidence'), text(summary.get('confidence'), 'n/a'))} confidence; "
+            f"{text(top.get('target_price_text'), text(summary.get('target_text'), 'n/a'))}"
+        )
+    headers, rows = matching_table_rows(queue(context, "source_drilldown"), text(summary.get("top_symbol")), limit=1)
+    analyst_targets = first_row_value(headers, rows, ["Analyst Targets"])
+    all_targets = first_row_value(headers, rows, ["All Targets"])
+    if rows:
+        return f"{text(summary.get('confidence'), 'n/a')} confidence; {text(summary.get('data_status'), 'n/a')}; {analyst_targets or '0'} analyst / {all_targets or '0'} total targets"
+    return f"{text(summary.get('confidence'), 'n/a')} confidence; {text(summary.get('data_status'), 'n/a')}; {text(summary.get('target_text'), 'n/a')}"
+
+
+def target_detail_html(context: dict[str, object], summary: dict[str, Any]) -> str:
+    target_drilldowns = as_dict(context.get("target_drilldowns"))
+    top = as_dict(target_drilldowns.get("top_candidate"))
+    source_rows = []
+    for row in as_list(top.get("sources")):
+        source = as_dict(row)
+        source_rows.append(
+            [
+                source.get("target_type", ""),
+                source.get("source_name", ""),
+                source.get("source_type", ""),
+                source.get("target_price_text", ""),
+                source.get("range_text", "n/a"),
+                source.get("as_of_date", ""),
+                source.get("freshness", ""),
+                source.get("confidence", ""),
+                source.get("notes", ""),
+            ]
+        )
+    if source_rows:
+        return html_table(
+            ["Type", "Source", "Source Type", "Target", "Range", "As Of", "Freshness", "Confidence", "Notes"],
+            source_rows,
+            "compact-table",
+        )
+    headers, rows = matching_table_rows(queue(context, "source_drilldown"), text(summary.get("top_symbol")), limit=3)
+    return html_table(headers, rows, "compact-table") if rows else "<p>No target source drilldown rows available.</p>"
+
+
+def provider_gap_review_text(context: dict[str, object], summary: dict[str, Any]) -> str:
+    provider_gap_review = as_dict(context.get("provider_gap_review") or as_dict(context.get("source_health")).get("provider_gap_review"))
+    gap_summary = as_dict(provider_gap_review.get("summary"))
+    if gap_summary:
+        affected = "affected" if gap_summary.get("top_candidate_affected") else "not directly affected"
+        return f"{text(gap_summary.get('total'), '0')} active gap(s); top candidate {affected}."
+    headers, rows = matching_table_rows(as_dict(as_dict(context.get("source_health")).get("provider_blockers")), text(summary.get("top_symbol")), limit=1)
+    if rows:
+        provider = first_row_value(headers, rows, ["Provider"], "Provider")
+        cause = first_row_value(headers, rows, ["Likely Cause", "Latest Detail"], "needs review")
+        return f"{provider}: {cause}"
+    return "No active provider blockers for the top candidate."
+
+
+def provider_gap_review_count(context: dict[str, object], summary: dict[str, Any]) -> str:
+    provider_gap_review = as_dict(context.get("provider_gap_review") or as_dict(context.get("source_health")).get("provider_gap_review"))
+    gap_summary = as_dict(provider_gap_review.get("summary"))
+    if gap_summary:
+        return text(gap_summary.get("total"), "0")
+    _, rows = matching_table_rows(as_dict(as_dict(context.get("source_health")).get("provider_blockers")), text(summary.get("top_symbol")), limit=99)
+    return text(len(rows), "0")
+
+
+def provider_gap_detail_html(context: dict[str, object], summary: dict[str, Any]) -> str:
+    provider_gap_review = as_dict(context.get("provider_gap_review") or as_dict(context.get("source_health")).get("provider_gap_review"))
+    if provider_gap_review:
+        return html_table(as_list(provider_gap_review.get("headers")), as_list(provider_gap_review.get("rows")), "compact-table")
+    headers, rows = matching_table_rows(as_dict(as_dict(context.get("source_health")).get("provider_blockers")), text(summary.get("top_symbol")), limit=4)
+    return html_table(headers, rows, "compact-table") if rows else "<p>No active provider blockers for the top candidate.</p>"
+
+
+def render_daily_decision_review(context: dict[str, object]) -> str:
+    summary = normalized_summary(context)
+    gate = as_dict(summary.get("decision_gate"))
+    candidate_action = text(gate.get("candidate_action") or summary.get("top_action")).replace(" blocked", "")
+    gate_status = text(gate.get("status"), "Ready")
+    cards = [
+        ("Decision safety", gate_status, decision_gate_detail(summary)),
+        ("Score explainability", text(summary.get("top_score"), "n/a"), score_review_text(context, summary)),
+        ("Target confidence", text(summary.get("confidence"), "n/a"), target_review_text(context, summary)),
+        ("Provider gaps", provider_gap_review_count(context, summary), provider_gap_review_text(context, summary)),
+    ]
+    card_html = "".join(
+        '<div class="daily-review-card">'
+        f'<span class="label">{html.escape(label)}</span>'
+        f'<strong>{html.escape(value)}</strong>'
+        f'<p>{html.escape(detail)}</p>'
+        "</div>"
+        for label, value, detail in cards
+    )
+    return (
+        '<section class="daily-decision-review">'
+        '<div class="section-title"><h2>Daily Decision Review</h2><span class="section-note">Decision first; details on demand</span></div>'
+        '<div class="daily-review-lead">'
+        f'<div><span class="label">{html.escape(text(summary.get("recommendation_label"), "Top candidate"))}</span>'
+        f'<strong>{html.escape(text(summary.get("top_symbol")))} · {html.escape(candidate_action or text(summary.get("top_action")))}</strong>'
+        f'<p>{html.escape(text(summary.get("top_company") or summary.get("top_notes")))}</p></div>'
+        f'<div><span class="label">{html.escape(text(summary.get("amount_label"), "Buy capacity"))}</span>'
+        f'<strong>{html.escape(text(summary.get("suggested_amount_text"), money(summary.get("suggested_amount"))))}</strong>'
+        f'<p>{html.escape(text(summary.get("target_text"), money(summary.get("target_price"))))} · {html.escape(text(summary.get("upside_text"), pct(summary.get("upside_pct"))))}</p></div>'
+        "</div>"
+        f'<div class="daily-review-grid">{card_html}</div>'
+        '<div class="daily-review-details">'
+        '<details><summary>Score drivers</summary>'
+        f"{score_detail_html(context, summary)}</details>"
+        '<details><summary>Target source drilldown</summary>'
+        f"{target_detail_html(context, summary)}</details>"
+        '<details><summary>Provider gap review</summary>'
+        f"{provider_gap_detail_html(context, summary)}</details>"
+        "</div>"
+        "</section>"
+    )
+
+
+def daily_decision_review_markdown_lines(context: dict[str, object]) -> list[str]:
+    summary = normalized_summary(context)
+    gate = as_dict(summary.get("decision_gate"))
+    candidate_action = text(gate.get("candidate_action") or summary.get("top_action")).replace(" blocked", "")
+    return [
+        "## Daily Decision Review",
+        "",
+        f"- Candidate: **{summary.get('top_symbol', '')} - {summary.get('top_company', '')}**",
+        f"- Candidate action: **{candidate_action or summary.get('top_action', '')}**",
+        f"- Decision safety: **{gate.get('status', 'Ready')}** - {decision_gate_detail(summary)}",
+        f"- Score drivers: **{summary.get('top_score', '')}/100** - {score_review_text(context, summary)}",
+        f"- Target confidence: **{summary.get('confidence', '')}** - {target_review_text(context, summary)}",
+        f"- Provider gap review: {provider_gap_review_text(context, summary)}",
+        "",
+    ]
+
+
+def render_data_reliability_review(context: dict[str, object]) -> str:
+    review = build_data_reliability_review(context)
+    cards = []
+    for card in as_list(review.get("cards")):
+        item = as_dict(card)
+        cards.append(
+            '<div class="data-review-card">'
+            f'<span class="label">{html.escape(text(item.get("label")))}</span>'
+            f'<strong>{html.escape(text(item.get("value"), "n/a"))}</strong>'
+            f'<p>{html.escape(text(item.get("detail")))}</p>'
+            "</div>"
+        )
+    details = [
+        ("Provider gap status", "What is missing, blocked, or rate-limited by provider.", as_dict(review.get("provider_gap_status"))),
+        ("Source health rollups", "Health counts and source usefulness signals.", as_dict(review.get("source_health_rollups"))),
+        ("SEC coverage", "Primary-source filing and companyfacts coverage where available.", as_dict(review.get("sec_coverage"))),
+        ("Official IR coverage", "Company investor-relations evidence coverage where available.", as_dict(review.get("official_ir_coverage"))),
+        ("Source usefulness/noise", "Useful, low-relevance, noisy, or low-confidence source evidence.", as_dict(review.get("source_usefulness"))),
+        ("Refresh plan", "What should refresh next and why.", as_dict(review.get("refresh_plan"))),
+        ("Backfill needs", "Historical source windows that still need coverage.", as_dict(review.get("backfill"))),
+    ]
+    detail_html = "".join(
+        "<details>"
+        f"<summary>{html.escape(title)}</summary>"
+        f'<p class="section-note">{html.escape(note)}</p>'
+        f'{html_table(as_list(table.get("headers")), as_list(table.get("rows")), "compact-table")}'
+        "</details>"
+        for title, note, table in details
+    )
+    return (
+        '<section class="data-reliability-review">'
+        '<div class="section-title"><h2>Data Reliability Review</h2><span class="section-note">Missing, stale, blocked, useful, and next-refresh signals</span></div>'
+        f'<div class="data-review-grid">{"".join(cards)}</div>'
+        f'<div class="data-review-details">{detail_html}</div>'
+        "</section>"
+    )
+
+
+def data_reliability_review_markdown_lines(context: dict[str, object]) -> list[str]:
+    review = build_data_reliability_review(context)
+    lines = [
+        "## Data Reliability Review",
+        "",
+    ]
+    for card in as_list(review.get("cards")):
+        item = as_dict(card)
+        lines.append(f"- {item.get('label', '')}: **{item.get('value', '')}** - {item.get('detail', '')}")
+    lines.append("")
+    for title, key, empty in (
+        ("Provider Gap Status", "provider_gap_status", "No provider gaps currently visible."),
+        ("Source Health Rollups", "source_health_rollups", "No source-health rollups available."),
+        ("SEC Coverage", "sec_coverage", "No SEC coverage rows available."),
+        ("Official IR Coverage", "official_ir_coverage", "No official IR coverage rows available."),
+        ("Source Usefulness / Noise", "source_usefulness", "No source usefulness rows available."),
+        ("Refresh Plan", "refresh_plan", "No refresh plan rows available."),
+        ("Backfill Needs", "backfill", "No backfill rows available."),
+    ):
+        append_table_section(lines, title, as_dict(review.get(key)), empty)
+    return lines
+
+
 def render_dashboard_html(context: dict[str, object]) -> str:
     metadata = as_dict(context.get("metadata"))
     summary = normalized_summary(context)
@@ -528,6 +801,16 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     .add,.buy,.strong-buy { background:#dff7ea; color:var(--green); } .watch,.hold { background:#fff2cf; color:var(--amber); } .avoid,.trim { background:#fde3df; color:var(--red); }
     .change-badge { display:inline-block; border:1px solid var(--line); border-radius:999px; padding:3px 8px; font-size:12px; font-weight:800; color:var(--muted); background:#f3f5f8; }
     .change-up,.change-new { border-color:#b8e4ca; background:#eaf8ef; color:var(--green); } .change-action { border-color:#f3d08a; background:#fff6df; color:var(--amber); } .change-down { border-color:#f3b7b0; background:#fff0ee; color:var(--red); }
+    .daily-review-lead { display:grid; grid-template-columns:minmax(280px,1.5fr) minmax(220px,.8fr); gap:12px; margin-bottom:10px; }
+    .daily-review-lead > div,.daily-review-card,.data-review-card { border:1px solid var(--line); border-radius:8px; background:#fbfcfe; padding:12px; min-width:0; }
+    .daily-review-lead strong,.daily-review-card strong,.data-review-card strong { display:block; color:var(--text); font-size:18px; margin-top:2px; overflow-wrap:anywhere; }
+    .daily-review-lead p,.daily-review-card p,.data-review-card p { margin:6px 0 0; color:var(--muted); font-size:13px; }
+    .daily-review-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+    .data-review-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; }
+    .daily-review-details,.data-review-details { display:grid; gap:8px; margin-top:10px; }
+    .daily-review-details details,.data-review-details details { border:1px solid var(--line); border-radius:8px; background:#fbfcfe; padding:8px 10px; }
+    .daily-review-details summary,.data-review-details summary { cursor:pointer; color:var(--blue); font-weight:800; }
+    .daily-review-details table,.data-review-details table { margin-top:8px; }
     .action-queue-list { display:grid; gap:10px; }
     .action-card { border:1px solid var(--line); border-radius:8px; background:#fbfcfe; padding:12px; }
     .action-card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
@@ -590,7 +873,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     .print-summary-card { border:1px solid var(--line); border-radius:8px; padding:10px; background:#fbfcfe; }
     .print-summary-card strong { display:block; font-size:15px; margin-top:3px; }
     .print-table { min-width:0; table-layout:auto; }
-    @media (max-width:860px) { main { padding:16px; } .summary,.two-column,.table-pair,.feedback-grid { grid-template-columns:1fr; } .action-card-head { flex-direction:column; } .action-card-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (max-width:860px) { main { padding:16px; } .summary,.two-column,.table-pair,.feedback-grid,.daily-review-lead,.daily-review-grid,.data-review-grid { grid-template-columns:1fr; } .action-card-head { flex-direction:column; } .action-card-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media print {
       @page { margin:.45in; }
       :root { --bg:#fff; --panel:#fff; --text:#111827; --muted:#4b5563; --line:#d1d5db; }
@@ -643,11 +926,14 @@ def render_dashboard_html(context: dict[str, object]) -> str:
       <div class="metric"><span class="label">Decision Gate</span><strong>{html.escape(text(decision_gate.get("status"), "Ready"))}</strong><div class="thesis">{html.escape(decision_gate_detail(summary))}</div></div>
       <div class="metric"><span class="label">Score</span><strong>{html.escape(text(summary.get("top_score")))}</strong></div>
       <div class="metric"><span class="label">{html.escape(text(summary.get("amount_label"), "Buy Capacity"))}</span><strong>{html.escape(text(summary.get("suggested_amount_text"), money(summary.get("suggested_amount"))))}</strong></div>
-      <div class="metric"><span class="label">Blended Target</span><strong>{html.escape(text(summary.get("target_text"), money(summary.get("target_price"))))}</strong><div class="thesis">{html.escape(text(summary.get("confidence")))} confidence</div></div>
+      <div class="metric"><span class="label">Blended Target</span><strong>{html.escape(text(summary.get("target_text"), money(summary.get("target_price"))))}</strong><div class="thesis">{html.escape(text(summary.get("confidence")))} confidence · {html.escape(text(summary.get("target_quality")))}</div></div>
       <div class="metric"><span class="label">1Y Upside</span><strong>{html.escape(text(summary.get("upside_text"), pct(summary.get("upside_pct"))))}</strong><div class="thesis">{html.escape(text(summary.get("data_status")))}</div></div>
       <div class="metric"><span class="label">Reliability</span><strong>{html.escape(text(reliability.get("mode"), "n/a"))}</strong><div class="thesis">Fresh {html.escape(text(price_counts.get("fresh"), "0"))} · fallback {html.escape(text(price_counts.get("fallback"), "0"))} · missing {html.escape(text(price_counts.get("missing"), "0"))}</div></div>
       <div class="metric"><span class="label">Source Health</span><strong>{html.escape(text(source_summary.get("needs_attention"), "0"))}</strong><div class="thesis">{html.escape(text(source_summary.get("healthy"), "0"))} healthy · {html.escape(text(source_summary.get("stale"), "0"))} stale · {html.escape(text(source_summary.get("not_implemented"), "0"))} not implemented</div></div>
     </div>
+
+    {render_daily_decision_review(context)}
+    {render_data_reliability_review(context)}
 
     <nav class="tab-nav" aria-label="Dashboard sections">
       <button class="tab-button" type="button" aria-selected="true" data-tab-target="recommendationsTab">Recommendations</button>
@@ -874,6 +1160,7 @@ def render_print_review(context: dict[str, object]) -> str:
         <div class="section-note">Generated {html.escape(generated_at)} · Report {html.escape(report_date)} · Recommendation-only · No automated trading</div>
       </section>
       {render_print_summary(context)}
+      {render_daily_decision_review(context)}
       {render_readiness(as_dict(context.get("readiness")))}
       <section>
         <div class="section-title"><h2>Action Queue</h2><span class="section-note">Top candidates</span></div>
@@ -1192,9 +1479,12 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
         f"- Blended target: **{summary.get('target_text', '')}**",
         f"- One-year upside: **{summary.get('upside_text', '')}**",
         f"- Confidence: **{summary.get('confidence', '')}**",
+        f"- Target quality: **{summary.get('target_quality', '')}**",
         f"- Report reliability: **{reliability.get('mode', 'n/a')}**",
         f"- Latest successful provider refresh: **{reliability.get('latest_provider_refresh', 'n/a')}**",
         "",
+        *daily_decision_review_markdown_lines(context),
+        *data_reliability_review_markdown_lines(context),
         f"Reason: {summary.get('top_notes', '')}",
         "",
         "## Report Reliability",
@@ -1211,6 +1501,13 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
     ]
     if kind in {"daily", "end_of_day"}:
         append_table_section(lines, "Current Holdings Used", as_dict(context.get("holdings")), "No holdings found. Add an E*TRADE snapshot or manual positions.")
+    target_drilldowns = as_dict(context.get("target_drilldowns"))
+    append_table_section(
+        lines,
+        "Target Source Drilldown",
+        as_dict(target_drilldowns.get("table")) or queue(context, "source_drilldown"),
+        "No target-source drilldown available.",
+    )
     append_table_section(lines, "Next-Day Watchlist", queue(context, "next_day"), "No watchlist candidates available.")
     append_table_section(lines, "Top Decision Briefs", as_dict(context.get("decision_briefs")), "No decision briefs available.")
     append_table_section(lines, "Source Health Alerts", as_dict(source_health.get("alerts")), "No source health alerts.")

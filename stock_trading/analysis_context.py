@@ -28,6 +28,12 @@ def build_report_context(
     for rank, row in enumerate(ranked, start=1):
         item = row["input"]
         target = row.get("target")
+        explanation = row.get("score_explanation") or engine.score_explanation(
+            item,
+            row["breakdown"],
+            target,
+            rationale=row["rationale"],
+        )
         recommendations.append(
             {
                 "rank": rank,
@@ -43,6 +49,7 @@ def build_report_context(
                 "confidence": engine.target_confidence_text(item, target),
                 "data_status": engine.data_status_for_target(item, target),
                 "rationale": row["rationale"],
+                "score_explanation": explanation,
                 "notes": item.notes,
             }
         )

@@ -33,6 +33,7 @@ def score_recommendations(
             position_after_buy_pct,
             blended,
         )
+        explanation = engine.score_explanation(item, breakdown, blended, rationale=rationale)
         scored.append(
             {
                 "input": item,
@@ -43,6 +44,7 @@ def score_recommendations(
                 "market_value": market_value,
                 "position_after_buy_pct": position_after_buy_pct,
                 "rationale": rationale,
+                "score_explanation": explanation,
             }
         )
         score_rows.append(

@@ -12,13 +12,12 @@ from typing import Callable, Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from stock_trading.provider_gap_status import PROVIDER_STATUSES, normalize_provider_status
 from stock_trading.storage import init_db, latest_provider_gaps
 
 
 CommandRunner = Callable[[list[str]], int]
-INGESTION_STATUSES = {"ok", "error", "blocked", "stale", "missing", "rate_limited"}
-BLOCKED_MESSAGES = ("blocked", "forbidden", "unauthorized", "payment required")
-RATE_LIMIT_MESSAGES = ("rate limit", "rate_limited", "quota", "too many requests", "429")
+INGESTION_STATUSES = PROVIDER_STATUSES
 
 
 @dataclass(frozen=True)
@@ -42,19 +41,7 @@ def run_command(command: list[str]) -> int:
 
 
 def normalize_status(status: str, message: str = "") -> str:
-    value = (status or "").strip().lower()
-    text = (message or "").strip().lower()
-    if any(term in text for term in RATE_LIMIT_MESSAGES):
-        return "rate_limited"
-    if any(term in text for term in BLOCKED_MESSAGES):
-        return "blocked"
-    if "stale" in text:
-        return "stale"
-    if "missing" in text or "not found" in text:
-        return "missing"
-    if value in INGESTION_STATUSES:
-        return value
-    return "ok" if value in {"success", "passed"} else "error"
+    return normalize_provider_status(status, message)
 
 
 def status_for_exit(status_code: int, message: str = "") -> str:
@@ -155,12 +142,16 @@ def latest_provider_statuses(limit: int = 50) -> list[dict[str, object]]:
         (limit,),
     ).fetchall()
     conn.close()
-    return [dict(row) for row in rows]
+    statuses = []
+    for row in rows:
+        item = dict(row)
+        item["status"] = normalize_status(item.get("status", ""), str(item.get("message", "")))
+        statuses.append(item)
+    return statuses
 
 
 def summarize_results(results: Iterable[IngestionResult]) -> dict[str, int]:
-    summary = {"ok": 0, "error": 0, "blocked": 0, "missing": 0, "stale": 0}
+    summary = {status: 0 for status in sorted(INGESTION_STATUSES)}
     for result in results:
-        summary.setdefault(result.status, 0)
-        summary[result.status] += 1
+        summary[normalize_status(result.status, result.message)] += 1
     return summary

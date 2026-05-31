@@ -1,0 +1,69 @@
+{
+  "metadata": {
+    "report_date": "golden-blocked-buy",
+    "generated_at": "2026-05-31T09:00:00",
+    "model_version": "golden-fixture-v1",
+    "recommendation_only": true
+  },
+  "summary": {
+    "top_symbol": "NVDA",
+    "top_company": "NVIDIA",
+    "top_action": "Add",
+    "top_score": 80.0,
+    "recommendation_label": "Recommended next buy",
+    "amount_label": "Suggested buy amount",
+    "suggested_amount": 2500.0,
+    "suggested_amount_text": "$2,500.00",
+    "current_price_text": "$212.60",
+    "target_text": "$285.01",
+    "upside_text": "34.1%",
+    "confidence": "Low",
+    "data_status": "Wide range",
+    "top_notes": "Golden blocked buy fixture.",
+    "decision_gate": {
+      "safe_to_buy": false,
+      "status": "Blocked",
+      "candidate_action": "Add",
+      "reasons": [
+        "Low target confidence",
+        "Wide target range",
+        "Verification check is still open"
+      ],
+      "summary": "Low target confidence; Wide target range; Verification check is still open"
+    }
+  },
+  "reliability": {
+    "mode": "Fixture",
+    "price_counts": {"fresh": 1, "fallback": 0, "stale": 0, "manual": 0, "missing": 0},
+    "latest_provider_refresh": "fixture"
+  },
+  "recommendations": [
+    {
+      "rank": 1,
+      "symbol": "NVDA",
+      "company": "NVIDIA",
+      "action": "Add",
+      "score": 80.0,
+      "confidence": "Low",
+      "data_status": "Wide range",
+      "why": "Blocked golden fixture."
+    }
+  ],
+  "holdings": {"headers": [], "rows": []},
+  "queues": {
+    "action_queue": {"headers": ["Rank", "Symbol"], "rows": [[1, "NVDA"]]},
+    "data_gaps": {"headers": ["Rank", "Symbol"], "rows": []},
+    "next_day": {"headers": ["Rank", "Symbol"], "rows": []},
+    "verification": {"headers": ["Rank", "Symbol"], "rows": [[1, "NVDA"]]}
+  },
+  "decision_briefs": {"headers": ["Symbol", "Type"], "rows": [["NVDA", "Verification Needed"]]},
+  "insight_themes": {"headers": [], "rows": []},
+  "score_movement": {"headers": [], "rows": []},
+  "trend_insights": {"headers": [], "rows": []},
+  "data_gaps": {"headers": [], "rows": []},
+  "source_health": {"summary": {"needs_attention": 0, "healthy": 1, "stale": 0, "not_implemented": 0}},
+  "data_ingestion": {"headers": [], "rows": []},
+  "research_sources": {"headers": [], "rows": []},
+  "feedback": {"source_options": [], "recent": []},
+  "artifacts": {}
+}
