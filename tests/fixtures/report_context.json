@@ -9,8 +9,26 @@
   },
   "summary": {
     "top_symbol": "NVDA",
+    "top_company": "NVIDIA Corp.",
     "top_action": "Add",
-    "top_score": 84.2
+    "top_score": 84.2,
+    "recommendation_label": "Recommended next buy",
+    "amount_label": "Suggested buy amount",
+    "suggested_amount": 2500.0,
+    "suggested_amount_text": "$2,500.00",
+    "current_price_text": "$100.00",
+    "target_text": "$140.00",
+    "upside_text": "40.0%",
+    "confidence": "Medium",
+    "data_status": "Blended",
+    "top_notes": "Fixture recommendation.",
+    "decision_gate": {
+      "safe_to_buy": true,
+      "status": "Ready",
+      "candidate_action": "Add",
+      "reasons": [],
+      "summary": "Decision-safe buy candidate."
+    }
   },
   "reliability": {
     "mode": "Fresh provider data",
@@ -37,8 +55,103 @@
       "upside_pct": 40.0,
       "confidence": "Medium",
       "data_status": "Blended",
+      "score_breakdown": "Long-term model: upside 18.0, quality 22.5, momentum 12.8, catalyst 8.0, risk 15.0.",
+      "score_explanation": {
+        "model": "Long-term",
+        "base_score": 84.2,
+        "final_score": 84.2,
+        "component_details": [
+          {
+            "label": "Quality",
+            "raw": 90.0,
+            "points": 22.5,
+            "description": "Durable business quality and AI platform leadership."
+          },
+          {
+            "label": "Upside",
+            "raw": 40.0,
+            "points": 18.0,
+            "description": "Estimated upside to blended target."
+          },
+          {
+            "label": "Momentum",
+            "raw": 85.0,
+            "points": 12.8,
+            "description": "Market confirmation remains constructive."
+          }
+        ],
+        "top_drivers": [
+          {
+            "label": "Quality",
+            "points": 22.5
+          },
+          {
+            "label": "Upside",
+            "points": 18.0
+          }
+        ],
+        "top_risks": []
+      },
       "rationale": "Score is high enough to add and the proposed buy stays within position caps.",
       "notes": "Fixture recommendation."
     }
-  ]
+  ],
+  "holdings": {
+    "headers": ["Symbol", "Source", "Qty", "Last", "Market Value", "Portfolio %"],
+    "rows": [["NVDA", "fixture", "5", "$100.00", "$500.00", "1.0%"]],
+    "allocation": [{"symbol": "NVDA", "pct": 1.0, "pct_text": "1.0%", "value_text": "$500.00"}]
+  },
+  "queues": {
+    "action_queue": {
+      "headers": ["Rank", "Symbol", "Action", "Score", "Change", "Today", "Target", "Upside", "Confidence", "Status", "Type", "Rationale"],
+      "rows": [[1, "NVDA", "<span class=\"pill add\">Add</span>", "84.2", "No material change", "$100.00", "$140.00", "40.0%", "Medium", "Blended", "Long term", "Score is high enough to add and the proposed buy stays within position caps."]],
+      "raw_columns": [2]
+    },
+    "next_day": {
+      "headers": ["Rank", "Symbol", "Action", "Score", "Current", "Target", "Upside", "Data Status", "Why"],
+      "rows": [[1, "NVDA", "Add", "84.2", "$100.00", "$140.00", "40.0%", "Blended", "Review before market open."]]
+    },
+    "source_drilldown": {
+      "headers": ["Symbol", "Analyst Targets", "All Targets", "Evidence Items", "Insight Signals", "Latest Evidence"],
+      "rows": [["NVDA", 2, 3, 4, 2, "Recent AI platform demand evidence."]]
+    },
+    "data_gaps": {
+      "headers": ["Rank", "Symbol", "Data Gap", "Impact", "Best Pull", "Next Action"],
+      "rows": []
+    },
+    "verification": {
+      "headers": ["Rank", "Symbol", "Type", "Status", "Impact", "Reason", "Command/Next Check", "Result"],
+      "rows": []
+    },
+    "full_universe": {
+      "headers": ["Rank", "Symbol", "Action", "Score"],
+      "rows": [[1, "NVDA", "Add", "84.2"]]
+    }
+  },
+  "score_movement": {
+    "headers": ["Symbol", "Base", "Evidence", "Trend", "Targets", "Gaps", "Final", "Action", "Top Driver"],
+    "rows": [["NVDA", "84.2", "+0.0", "+0.0", "+0.0", "+0.0", "84.2", "Add", "Quality and target upside lead the score."]]
+  },
+  "source_health": {
+    "summary": {
+      "healthy": 3,
+      "needs_attention": 1,
+      "stale": 0,
+      "not_implemented": 0
+    },
+    "top_blocker": "FMP analyst targets",
+    "alerts": {
+      "headers": ["Severity", "Source", "Status", "Records", "Last Run", "Latest Issue", "Next Action"],
+      "rows": [["High", "FMP analyst targets", "Needs attention", 0, "2026-05-28", "Provider plan blocked analyst target endpoint", "Review provider access"]]
+    },
+    "provider_blockers": {
+      "headers": ["Severity", "Symbol", "Provider", "Field", "Blocks", "Likely Cause", "Decision Context", "Latest Detail", "Next Action"],
+      "rows": [["High", "NVDA", "Financial Modeling Prep", "analyst_targets", "Analyst target breadth", "Provider plan/access blocker", "Rank 1 / Add / 84.2", "Provider plan blocked analyst target endpoint", "Review provider access"]]
+    }
+  },
+  "decision_briefs": {
+    "headers": ["Symbol", "Type", "Headline", "Why It Matters", "Next Check"],
+    "rows": [["NVDA", "Conviction Builder", "AI demand remains the key driver", "Supports the current Add review.", "Check target-source freshness"]]
+  },
+  "artifacts": {}
 }
