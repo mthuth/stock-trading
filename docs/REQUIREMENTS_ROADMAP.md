@@ -1,28 +1,72 @@
 # Requirements Roadmap
 
-This roadmap translates the current product requirements into scoped development lanes for future Codex agents. It is a planning document only. It does not change scoring, target blending, recommendation labels, workflow behavior, dashboard behavior, provider ingestion, or configuration.
+This roadmap translates the current product requirements into scoped development lanes for future Codex agents. It is a planning document only. It does not change scoring, target blending, recommendation labels, workflow behavior, dashboard behavior, provider ingestion, configuration, broker behavior, or trading behavior.
 
-The stock-trading app remains recommendation-only decision support for a human investor. Future work must not place trades, preview orders, imply guaranteed performance, or hide source-health uncertainty.
+The stock-trading app remains recommendation-only decision support for a human investor. Future work must not place trades, preview orders, imply guaranteed performance, hide source-health uncertainty, or let feedback/AI/outcomes silently change official recommendations.
+
+Related strategy docs:
+
+- [Product Strategy](PRODUCT_STRATEGY.md)
+- [Roadmap Status](ROADMAP_STATUS.md)
+- [Decision Modes](DECISION_MODES.md)
+- [Model Learning Strategy](MODEL_LEARNING_STRATEGY.md)
+- [Local App Strategy](LOCAL_APP_STRATEGY.md)
+- [UX Experience](UX_EXPERIENCE.md)
+
+## Roadmap Status
+
+Current status after Waves 1-6:
+
+- Waves 1-5 are complete.
+- Wave 6 is complete: manual journal, recommendation outcome tracking, decision-safety effectiveness, catalyst follow-through, and source usefulness have merged.
+- The next recommended step is Wave 6.5: Product Integration And Stabilization.
+- Future development should not move into Wave 7 until Wave 6 integration and stabilization are done.
+
+Use [Roadmap Status](ROADMAP_STATUS.md) as the living status map before starting new feature work.
+
+## North Star Update
+
+Current daily use case:
+
+> What should I buy/add today, especially for long-term holdings?
+
+Broader future use case:
+
+> What should I review today to make better decisions?
+
+Long-term product vision:
+
+> A learning AI recommendation system that makes predictions, tracks outcomes, compares models, and improves over time.
+
+Risk phase model:
+
+1. Cautious Deployment
+2. Measured Aggression
+3. Performance Seeking
+
+The app should start moderately safe / cautious growth. It can become more aggressive only after model trust is established through outcomes. The long-term performance goal is returns meaningfully above market performance, ideally at least 2x market performance once confidence is earned.
+
+Decision modes and horizons are defined in [Decision Modes](DECISION_MODES.md). Long-term buy/add is the current priority. Long-term sell/trim should begin later as holding-health review rather than "sell now" output.
 
 ## Roadmap Principles
 
 1. Preserve recommendation-only behavior.
-   Every feature must keep the user as the final decision-maker. Reports, scores, labels, targets, and dashboards are review aids, not execution instructions.
+   Every feature must keep the user as the final decision-maker. Reports, scores, labels, targets, AI briefs, and dashboards are review aids, not execution instructions.
 
 2. Keep data quality visible.
-   Provider failures, stale inputs, blocked endpoints, and missing fields should surface as provider gaps or source-health context instead of being silently ignored.
+   Provider failures, stale inputs, blocked endpoints, expected ETF gaps, and missing fields should surface as provider gaps, expected-gap labels, or source-health context instead of being silently ignored.
 
 3. Protect model contracts.
-   Scoring weights, target-blending weights, confidence rules, speculative-AI caps, and recommendation labels are product contracts. Change them only when the task is explicitly model tuning and has regression coverage.
+   Scoring weights, target-blending weights, confidence rules, speculative-AI caps, allocation/suggested amount logic, and recommendation labels are product contracts. Change them only when the task is explicitly model tuning and has regression coverage.
 
 4. Separate decision surfaces from audit surfaces.
-   The primary dashboard should help the user decide what to review next. Detailed score, target, source, and evidence explanations should remain available without crowding the first scan.
+   The primary dashboard should help the user decide what to review next. Detailed score, target, source, evidence, learning, and outcome explanations should remain available without crowding the first scan.
 
 5. Keep package boundaries clean.
    Ingestion, analysis, presentation, workflows, storage, and scripts each have separate responsibilities. Shared behavior should move into package APIs before scripts grow new logic.
 
 6. Prefer regression safety before new intelligence.
-   Before adding AI synthesis or scoring impact from new signals, establish fixtures, report-context checks, source-quality history, and user-feedback loops.
+   Before adding model impact from AI, feedback, outcomes, or source usefulness, establish fixtures, report-context checks, source-quality history, and explicit promotion decisions.
 
 ## Current Architecture Contract
 
@@ -30,7 +74,7 @@ The stock-trading app remains recommendation-only decision support for a human i
 | --- | --- | --- |
 | Ingestion | Provider refresh, evidence capture, source health, provider gaps, provider-neutral orchestration | Report rendering, scoring internals, dashboard behavior |
 | Analysis | Scoring, targets, confidence, decision safety, verification queues, report context assembly | Provider/network calls, CLI modules, presentation rendering, scripts |
-| Presentation | Dashboard, Markdown, email text, CSV exports, context validation rendering | Provider clients, storage internals, analysis engine internals, script modules |
+| Presentation | Dashboard, Markdown, email, CSV, and context validation rendering | Provider clients, storage internals, analysis engine internals, script modules |
 | Workflow modules | Coordination of package APIs for daily, analysis, rendering, and refresh flows | Core scoring, provider implementation details, presentation formatting rules |
 | Scripts | Compatibility wrappers around package APIs and workflows | New business logic that bypasses package boundaries |
 | Storage | Database schema and repositories | Presentation behavior or provider-specific decision logic |
@@ -44,408 +88,188 @@ The stock-trading app remains recommendation-only decision support for a human i
 | Data and source quality | Ingestion Agent | Provider gaps, evidence freshness, source health, ingestion plans | `codex/ingestion-*` |
 | Model transparency | Analytics Agent | Score explanations, target-source drilldowns, confidence rationale | `codex/analysis-*` |
 | AI synthesis | Analytics Agent with UX review | Deterministic briefs, synthesis packets, explanatory summaries | `codex/ai-*` |
+| Learning system | Analytics/QA | Prediction records, outcomes, source usefulness, model trust, shadow evaluation | `codex/learning-*` |
+| Local app | UX/Architecture | Local decision console, run history, local review flows | `codex/local-app-*` |
 | Architecture hygiene | Architecture Agent | Package boundaries, workflow APIs, script-wrapper compatibility | `codex/arch-*` |
 | Documentation | Architecture Agent or relevant lane owner | Requirements, runbooks, acceptance criteria, handoff notes | `codex/docs-*` |
 
 Agents may work concurrently only when branches stay within one lane and do not alter shared product contracts outside their scope.
 
+## Completed Waves
+
 ## Wave 1: Stabilize And Protect
 
-Goal: make the current recommendation engine safer to change by strengthening fixture coverage, report-context checks, package-boundary confidence, and provider-gap visibility.
+Status: Complete.
 
-### 1. Report Context Regression Fixture Coverage
-
-Owner: QA Agent
-
-Suggested branch: `codex/qa-report-context-fixtures`
-
-Acceptance criteria:
-
-- Add or update fixtures that cover at least one Add, Hold, Watch, and Avoid recommendation using the controlled label set.
-- Validate that target confidence, data status, provider gaps, source-health summaries, and recommendation-only wording render through the fixture path.
-- Run `python3 scripts/check_quality.py`.
-- Do not change scoring weights, thresholds, target-blending weights, or recommendation labels.
-
-### 2. Package Boundary Regression Expansion
-
-Owner: Architecture Agent
-
-Suggested branch: `codex/arch-boundary-regressions`
-
-Acceptance criteria:
-
-- Extend package-boundary tests only where they protect documented architecture ownership.
-- Confirm scripts remain compatibility wrappers and do not become owners of business logic.
-- Run `python3 scripts/check_quality.py`.
-- Do not move behavior across packages unless the task is explicitly architecture cleanup.
-
-### 3. Provider Gap Visibility Regression
-
-Owner: QA Agent with Ingestion Agent review
-
-Suggested branch: `codex/qa-provider-gap-visibility`
-
-Acceptance criteria:
-
-- Add regression coverage proving provider gaps remain visible in generated report context or rendered outputs.
-- Cover stale, missing, blocked, and provider-error states where fixtures allow it.
-- Confirm gap reporting remains explanatory and does not alter scores or actions unless existing requirements already specify that behavior.
-- Run `python3 scripts/check_quality.py`.
-
-### 4. Recommendation-Only Language Guardrail
-
-Owner: QA Agent with UX Agent review
-
-Suggested branch: `codex/qa-recommendation-only-copy`
-
-Acceptance criteria:
-
-- Add tests or fixture assertions that rendered outputs preserve recommendation-only wording.
-- Confirm no output implies an order was placed, previewed, guaranteed, or automated.
-- Run `python3 scripts/check_quality.py`.
-- Do not add broker-write or order-preview behavior.
+Outcome: package boundaries, regression fixture coverage, provider-gap visibility, and recommendation-only guardrails were established.
 
 ## Wave 2: Improve Decision Review
 
-Goal: make the dashboard and generated summaries faster to review while preserving confidence, source-health, and recommendation-only context.
+Status: Complete.
 
-### 1. Target Confidence In CSV And End-Of-Day Markdown
-
-Owner: UX Agent
-
-Suggested branch: `codex/ux-target-confidence-exports`
-
-Acceptance criteria:
-
-- CSV and end-of-day Markdown include target confidence where recommendations are summarized.
-- Existing dashboard target-confidence behavior is preserved.
-- Fixture rendering demonstrates the new fields in generated artifacts.
-- Run `python3 scripts/check_quality.py`.
-- Do not change target-confidence rules or target-blending methodology.
-
-### 2. Decision Summary Consistency Across Reports
-
-Owner: UX Agent
-
-Suggested branch: `codex/ux-decision-summary-consistency`
-
-Acceptance criteria:
-
-- Daily Markdown, dashboard, email summary, end-of-day Markdown, and next-day watchlist use consistent wording for action, score, target, upside, confidence, and data status.
-- Recommendation-only wording remains visible in user-facing summaries.
-- Generated fixture artifacts are inspected for layout and wording regressions.
-- Run `python3 scripts/check_quality.py`.
-
-### 3. Feedback Review Loop Polish
-
-Owner: UX Agent
-
-Suggested branch: `codex/ux-feedback-review-loop`
-
-Acceptance criteria:
-
-- Feedback capture remains low-friction in the dashboard and still works when served locally.
-- Static HTML fallback behavior is preserved.
-- Recent feedback remains auditable and does not distract from the Action Queue.
-- Run `python3 scripts/check_quality.py`.
-- Do not change feedback storage schema without an explicit storage task.
-
-### 4. Phone-Friendly Report Review
-
-Owner: UX Agent
-
-Suggested branch: `codex/ux-phone-review`
-
-Acceptance criteria:
-
-- Decision-critical fields remain readable on narrow screens or exported phone views.
-- Tabs, tables, and feedback controls do not overlap.
-- The Action Queue remains the first practical review surface.
-- Run `python3 scripts/check_quality.py`.
+Outcome: decision safety, provider gap review, target drilldowns, score explainability, and dashboard review flow were integrated.
 
 ## Wave 3: Improve Data Quality
 
-Goal: improve trust in the upstream evidence layer without letting provider availability silently distort recommendations.
+Status: Complete.
 
-### 1. Source Health Root-Cause Classification
+Outcome: provider gap normalization, source health, SEC/IR coverage, and data reliability review matured.
 
-Owner: Ingestion Agent
+## Wave 4: Model Transparency And Allocation Safety
 
-Suggested branch: `codex/ingestion-source-health-causes`
+Status: Complete.
 
-Acceptance criteria:
-
-- Provider gaps classify common root causes such as network/DNS, credential, provider-plan block, stale data, missing field, and provider error.
-- Classifications surface in report context and presentation without requiring raw provider payload review.
-- Existing provider-gap records remain backward compatible.
-- Run `python3 scripts/check_quality.py`.
-- Do not change recommendation actions, scores, targets, or confidence rules.
-
-### 2. Evidence Freshness And Coverage Checks
-
-Owner: Ingestion Agent with QA Agent review
-
-Suggested branch: `codex/ingestion-evidence-freshness`
-
-Acceptance criteria:
-
-- Evidence freshness and source coverage are recorded in a provider-neutral way.
-- Missing or stale evidence becomes visible as source-health or provider-gap context.
-- Analysis can consume freshness context only through documented package APIs.
-- Run `python3 scripts/check_quality.py`.
-
-### 3. Provider Access Decision Log
-
-Owner: Ingestion Agent
-
-Suggested branch: `codex/ingestion-provider-access-log`
-
-Acceptance criteria:
-
-- Provider access limitations, plan blocks, and credential-dependent endpoints are documented or surfaced in generated source-health context.
-- The user can distinguish unavailable provider access from a code failure.
-- No live network-heavy ingestion is required for normal regression tests.
-- Run `python3 scripts/check_quality.py`.
-
-### 4. Source Feedback Weighting Readiness
-
-Owner: Ingestion Agent with Analytics Agent review
-
-Suggested branch: `codex/ingestion-source-feedback-readiness`
-
-Acceptance criteria:
-
-- Source feedback is stored and summarized in a way that can later inform source weighting.
-- Any quality labels remain explanatory unless requirements explicitly approve score or synthesis impact.
-- Audit history is preserved.
-- Run `python3 scripts/check_quality.py`.
-
-## Wave 4: Improve Model Transparency
-
-Goal: make the current model easier to inspect and challenge without changing its official recommendations.
-
-### 1. Score Driver Explanation Improvements
-
-Owner: Analytics Agent
-
-Suggested branch: `codex/analysis-score-driver-transparency`
-
-Acceptance criteria:
-
-- Recommendation drilldowns show raw and weighted score drivers in plain language.
-- Risk penalties and confidence caveats are visible near the action rationale.
-- Fixture coverage confirms score explanations render without altering official scores.
-- Run `python3 scripts/check_quality.py`.
-- Do not change numeric weights, cutoffs, penalties, or action thresholds.
-
-### 2. Target-Source Drilldown Completion
-
-Owner: Analytics Agent with UX Agent review
-
-Suggested branch: `codex/analysis-target-source-drilldowns`
-
-Acceptance criteria:
-
-- Analyst, fundamental, technical, manual, and provider-derived target inputs remain separated before blending.
-- Drilldowns show source type, as-of date, confidence, freshness, and missing-input warnings.
-- Single-source targets are clearly labeled as lower confidence where applicable.
-- Run `python3 scripts/check_quality.py`.
-- Do not change blend weights or stale-target rules.
-
-### 3. Decision Safety Review Queue
-
-Owner: Analytics Agent
-
-Suggested branch: `codex/analysis-decision-safety-queue`
-
-Acceptance criteria:
-
-- Recommendations with missing price, missing target, stale critical inputs, or material provider gaps are easy to find for review.
-- The queue is explanatory and does not execute trades, preview orders, or override the human decision.
-- Presentation receives the queue through report context or another package API.
-- Run `python3 scripts/check_quality.py`.
-
-### 4. Speculative AI Guardrail Transparency
-
-Owner: Analytics Agent with UX Agent review
-
-Suggested branch: `codex/analysis-speculative-ai-guardrails`
-
-Acceptance criteria:
-
-- Speculative AI watchlist-only constraints and confidence haircuts are visible in recommendation rationale.
-- The dashboard explains why a speculative name remains Watch when underlying score components look attractive.
-- Run `python3 scripts/check_quality.py`.
-- Do not change speculative-AI caps, observation windows, or buy eligibility without an explicit model-tuning task.
+Outcome: technical/fundamental target transparency, target confidence calibration, watchlist-only enforcement, and allocation safety were added.
 
 ## Wave 5: AI Synthesis
 
-Goal: add useful explanatory synthesis after the deterministic data, regression, and transparency layers are safe enough to support it.
+Status: Complete.
 
-### 1. Synthesis Packet Quality Gate
+Outcome: AI evidence guardrails, prompt packets, synthesis readiness, AI brief review workflow, and LLM research brief drafting landed as explanatory-only outputs.
 
-Owner: Analytics Agent with QA Agent review
+## Wave 6: Learning System Foundations
 
-Suggested branch: `codex/ai-synthesis-packet-quality`
+Status: Complete.
 
-Acceptance criteria:
+Outcome: manual trade journal, recommendation outcome tracking, decision-safety effectiveness, catalyst follow-through, and source usefulness were added as review-only learning foundations.
 
-- Synthesis packets include source attribution, freshness, confidence, bull signals, bear/risk signals, catalysts, and what would change the view.
-- Packets reject or flag missing source attribution instead of inventing support.
-- Existing deterministic briefs keep rendering.
-- Run `python3 scripts/check_quality.py`.
+## Next Recommended Wave
 
-### 2. AI Summary Traceability
+### Wave 6.5: Product Integration And Stabilization
 
-Owner: Analytics Agent with UX Agent review
-
-Suggested branch: `codex/ai-summary-traceability`
+Goal: integrate Wave 6 learning outputs, update roadmap status, align dashboard/report context around long-term capital deployment and learning, and prepare for Wave 7 without changing model behavior.
 
 Acceptance criteria:
 
-- AI-generated or AI-assisted summaries clearly cite the deterministic context fields they summarize.
-- Summaries distinguish facts, model-derived conclusions, and user-feedback-derived notes.
-- Summaries preserve recommendation-only wording and do not imply guaranteed outcomes.
+- Wave 6 learning outputs are documented as review-only.
+- Manual journal, outcomes, catalyst follow-through, source usefulness, and decision-safety effectiveness have a coherent integration plan.
+- Report-context schema/status validation is added later only if appropriate and scoped.
+- Dashboard/report context direction is aligned around long-term capital deployment and learning.
+- Review-only outputs remain review-only.
+- Provider gap action plan is split into scoped provider/data cleanup branches.
+- ETF expected-gap handling is documented before broad provider-gap display changes.
 - Run `python3 scripts/check_quality.py`.
 
-### 3. Source-Quality-Aware Synthesis
+Do not move into Wave 7 before Wave 6.5 stabilization is done.
 
-Owner: Analytics Agent with Ingestion Agent review
+## Future Waves
 
-Suggested branch: `codex/ai-source-quality-synthesis`
+## Wave 7: Long-Term Capital Deployment
 
-Acceptance criteria:
+Goal: improve long-term buy/add decisions and capital availability without broker writes or order preview.
 
-- Synthesis can explain source quality and disagreement without changing official scores, actions, or targets.
-- Low-quality, stale, or noisy evidence is labeled instead of omitted.
-- Source-quality impact remains explanatory unless a future requirement explicitly approves model impact.
-- Run `python3 scripts/check_quality.py`.
+Likely scope:
 
-### 4. Human Feedback Review Before Model Impact
+- Best long-term add review.
+- Capital availability concept: configured/manual cash, monthly buy capacity, as-of date, and future optional broker read-only snapshot.
+- Long-term capital deployment history.
+- Holding-health review framing for future trim/sell logic.
 
-Owner: Analytics Agent with QA Agent review
+Broker integration remains deferred unless cash/holding accuracy becomes a recommendation blocker.
 
-Suggested branch: `codex/ai-feedback-review-before-impact`
+## Wave 8: Earnings Event Review
 
-Acceptance criteria:
+Goal: create pre-earnings and post-earnings review modes.
 
-- User feedback can be summarized for review without automatically changing scoring or target methodology.
-- Any proposed score, source-weighting, or recommendation-impact change is documented as a future product decision.
-- Regression tests prove feedback summaries do not alter official recommendation labels.
-- Run `python3 scripts/check_quality.py`.
+Likely scope:
 
-## Wave 6: Portfolio Feedback
+- Earnings date/event calendar.
+- Expected move and risk framing.
+- Earnings transcript/IR evidence.
+- Post-earnings catalyst follow-through.
+- Thesis changes and invalidation conditions.
 
-Goal: close the loop between recommendations, actual portfolio context, and human feedback without letting feedback silently rewrite model behavior.
+## Wave 9: Local Decision Console Shell
 
-Owner: Analytics Agent with UX Agent and QA Agent review
+Goal: evolve from static reports into a local decision console shell.
 
-Suggested branch: `codex/portfolio-feedback-loop`
+Likely scope:
 
-Acceptance criteria:
+- Latest recommendations.
+- Best long-term add.
+- Provider gaps.
+- Decision safety.
+- Target confidence.
+- AI briefs.
+- Manual journal.
+- Outcomes.
+- Model trust.
+- Run history.
 
-- Reports summarize recommendation feedback, source feedback, and manual review outcomes without changing scoring or recommendation labels.
-- Portfolio context distinguishes current holdings, desired allocation, capped buy capacity, watchlist-only names, and avoided names.
-- Feedback remains auditable and reversible.
-- Any future model-impact proposal from feedback is documented as a separate product decision.
-- Run `python3 scripts/check_quality.py`.
+No real-time broker/order behavior and no trading automation.
 
-## Wave 7: Scenario Planning
+## Wave 10: Tactical Trade Review
 
-Goal: let the user review "what if" situations for allocation, prices, targets, and data availability while keeping official recommendations unchanged.
+Goal: define tactical trade review separately from long-term buy/add recommendations.
 
-Owner: Analytics Agent with UX Agent review
+Likely scope:
 
-Suggested branch: `codex/scenario-planning-review`
+- Tactical mode and horizons.
+- Shorter-duration catalyst/trend framing.
+- Review-only entry/exit context.
+- Strict separation from long-term core recommendation labels.
 
-Acceptance criteria:
+## Wave 11: Model Evaluation And Backtesting
 
-- Scenario outputs are clearly labeled as hypothetical review aids.
-- Scenarios can model price moves, target changes, monthly contribution changes, allocation caps, and missing-data assumptions.
-- Official score, action, target, confidence, and decision-safety outputs are not overwritten by scenario runs.
-- Scenario artifacts are separated from daily recommendation artifacts.
-- Run `python3 scripts/check_quality.py`.
+Goal: evaluate historical predictions, outcomes, sources, and safety gates.
 
-## Wave 8: Alerts And Review Triggers
+Likely scope:
+
+- Prediction record evaluation.
+- Benchmark comparison.
+- Drawdown control.
+- Target progress.
+- Decision-safety effectiveness.
+- Source usefulness and AI thesis quality.
+
+No automatic score tuning or recommendation changes.
+
+## Wave 12: Alerts And Review Triggers
 
 Goal: surface review-worthy changes without creating trade execution, order preview, or broker-write behavior.
 
-Owner: UX Agent with Analytics Agent review
+Likely triggers:
 
-Suggested branch: `codex/alerts-review-triggers`
+- Earnings date.
+- Price move.
+- Provider gap resolved.
+- Target confidence changed.
+- Decision gate changed.
+- News/source event.
+- AI brief generated.
+- Source/catalyst follow-through signal.
 
-Acceptance criteria:
+Alerts are review prompts, not trade instructions.
 
-- Alerts are recommendation-only review prompts, not trade instructions.
-- Triggers cover material score movement, target-confidence degradation, provider blockers, stale data, price movement, allocation cap changes, and newly available primary-source evidence.
-- Alerts include the reason, source context, and suggested manual review action.
-- Alerts can be rendered in reports or local review output without requiring network-heavy live refreshes in tests.
-- Run `python3 scripts/check_quality.py`.
+## Wave 13: Multi-Model Shadow Competition
 
-## Wave 9: Backtesting And Regression History
+Goal: compare alternative models in shadow mode before any model-promotion decision.
 
-Goal: compare historical recommendations, scores, targets, source-health states, and outcomes to improve confidence in future model changes.
+Rules:
 
-Owner: QA Agent with Analytics Agent review
+- Shadow output is non-authoritative.
+- Official recommendation label, score, target, confidence, suggested amount, and decision safety remain unchanged.
+- Promotion requires outcome evidence and a separate model-promotion decision.
 
-Suggested branch: `codex/backtesting-regression-history`
+## Wave 14: Broker Read-Only Integration
 
-Acceptance criteria:
+Goal: improve holdings/cash context only if manual/configured capital availability is insufficient.
 
-- Backtesting uses stored historical data or fixtures and does not fetch live provider data by default.
-- Results distinguish recommendation quality, data freshness, provider availability, and target-confidence quality.
-- Backtest output is explanatory and does not auto-tune scoring weights or target methodology.
-- Regression history can detect recommendation drift before model changes are merged.
-- Run `python3 scripts/check_quality.py`.
+Rules:
 
-## Wave 10: Multi-Model Review
+- Read-only only.
+- No order placement.
+- No order preview.
+- No account write actions.
+- Missing/stale broker snapshots must surface as reliability gaps.
 
-Goal: compare alternative scoring, target, or synthesis models in shadow mode before any product decision changes the official model.
+## Provider And ETF Notes
 
-Owner: Analytics Agent with QA Agent and Architecture Agent review
+The provider gap action plan exists at `reports/provider-gap-action-plan.md` and should be turned into scoped provider/data cleanup branches.
 
-Suggested branch: `codex/multi-model-shadow-review`
+ETF logic is deferred. ETFs should not create false operating-company provider failures. ETF SEC CIK, companyfacts, official IR, and company analyst target gaps should be labeled expected/non-operating-company gaps until a dedicated ETF logic track exists.
 
-Acceptance criteria:
-
-- Alternative models run in shadow mode and are labeled as non-authoritative.
-- The official recommendation label, score, target, and decision-safety output remain unchanged unless a separate model-tuning PR explicitly approves the change.
-- Reports show differences between official and shadow outputs with enough context to review why they disagree.
-- Tests prove shadow outputs do not change official daily recommendations.
-- Run `python3 scripts/check_quality.py`.
-
-## Wave 11: Local App Experience
-
-Goal: improve the local review experience beyond static reports while keeping all behavior local, auditable, and recommendation-only.
-
-Owner: UX Agent with Architecture Agent review
-
-Suggested branch: `codex/local-app-review-experience`
-
-Acceptance criteria:
-
-- The local app preserves the existing dashboard/report review flow and recommendation-only wording.
-- Feedback save, recent feedback, source-health review, target drilldown, data reliability, and decision-safety views remain visible.
-- Static artifact rendering still works for phone/offline review.
-- Local app changes do not introduce provider API behavior, broker writes, order previews, or storage schema changes unless separately approved.
-- Run `python3 scripts/check_quality.py`.
-
-## Wave 12: Broker Read-Only Integration
-
-Goal: improve confidence in holdings and allocation context using broker read-only data without adding trading, order preview, or broker-write behavior.
-
-Owner: Ingestion Agent with Architecture Agent and QA Agent review
-
-Suggested branch: `codex/broker-readonly-integration`
-
-Acceptance criteria:
-
-- Broker integration is read-only and cannot place, preview, modify, or cancel orders.
-- Holdings, cash, market value, cost basis, and allocation context are clearly labeled by source and timestamp.
-- Missing or stale broker snapshots surface as reliability/provider gaps instead of silently falling back.
-- The 10% single-stock cap and recommendation-only language remain visible in reports.
-- Tests use fixtures/mocks and do not require live broker access.
-- Run `python3 scripts/check_quality.py`.
+Analyst coverage is deferred. Do not pay for broader analyst coverage until model maturity, app usage, trading activity, deployed capital, or repeated target-confidence bottlenecks justify the cost.
 
 ## Suggested Branch Names
 
@@ -453,46 +277,38 @@ Use short-lived branches with the `codex/` prefix and keep each branch to one ch
 
 | Work Type | Suggested Branch |
 | --- | --- |
-| Requirements roadmap | `codex/add-requirements-roadmap` |
-| Regression fixture coverage | `codex/qa-report-context-fixtures` |
-| Boundary test expansion | `codex/arch-boundary-regressions` |
-| Provider-gap visibility | `codex/qa-provider-gap-visibility` |
-| Target confidence exports | `codex/ux-target-confidence-exports` |
-| Decision summary consistency | `codex/ux-decision-summary-consistency` |
-| Source-health classifications | `codex/ingestion-source-health-causes` |
-| Evidence freshness | `codex/ingestion-evidence-freshness` |
-| Score transparency | `codex/analysis-score-driver-transparency` |
-| Target-source drilldowns | `codex/analysis-target-source-drilldowns` |
-| AI synthesis packet quality | `codex/ai-synthesis-packet-quality` |
-| AI summary traceability | `codex/ai-summary-traceability` |
-| Portfolio feedback loop | `codex/portfolio-feedback-loop` |
-| Scenario planning review | `codex/scenario-planning-review` |
+| Roadmap integration | `codex/product-integration-stabilization` |
+| Long-term capital deployment | `codex/long-term-capital-deployment` |
+| Earnings event review | `codex/earnings-event-review` |
+| Local decision console | `codex/local-decision-console` |
+| Tactical trade review | `codex/tactical-trade-review` |
+| Model evaluation | `codex/model-evaluation-backtesting` |
 | Alerts and review triggers | `codex/alerts-review-triggers` |
-| Backtesting regression history | `codex/backtesting-regression-history` |
-| Multi-model shadow review | `codex/multi-model-shadow-review` |
-| Local app review experience | `codex/local-app-review-experience` |
+| Multi-model shadow competition | `codex/multi-model-shadow-competition` |
 | Broker read-only integration | `codex/broker-readonly-integration` |
+| ETF expected gaps | `codex/etf-expected-gap-classification` |
+| Provider gap cleanup | `codex/provider-gap-cleanup-*` |
 
 ## Agent Ownership By Lane
 
 Architecture Agent:
 
 - Owns package-boundary design, workflow/API placement, script-wrapper compatibility, and docs that govern implementation structure.
-- Reviews any change that moves behavior between ingestion, analysis, presentation, workflows, scripts, or storage.
+- Reviews any change that moves behavior between ingestion, analysis, presentation, workflows, scripts, storage, or local app shells.
 
 Ingestion Agent:
 
 - Owns provider refresh behavior, evidence capture, source-health state, provider gaps, provider access limitations, and ingestion planning.
-- Must keep provider failures visible and must avoid changing official scores, targets, or action labels.
+- Must keep provider failures visible and must avoid changing official scores, targets, action labels, decision safety, or allocation.
 
 Analytics Agent:
 
-- Owns scoring, target sources, confidence, decision safety, verification queues, report-context assembly, deterministic briefs, and AI synthesis readiness.
+- Owns scoring, target sources, confidence, decision safety, verification queues, learning metrics, outcome evaluation, deterministic briefs, and AI synthesis readiness.
 - Must protect numeric weights, thresholds, target-blending methodology, recommendation labels, and speculative-AI guardrails unless the user explicitly requests model tuning.
 
 UX Agent:
 
-- Owns dashboard review flow, generated report readability, feedback ergonomics, summary consistency, accessibility, and phone-friendly review.
+- Owns dashboard review flow, generated report readability, feedback ergonomics, local decision console direction, summary consistency, accessibility, and phone-friendly review.
 - Must keep the experience decision-first, audit-second, and explicitly recommendation-only.
 
 QA Agent:
@@ -506,9 +322,9 @@ QA Agent:
 - Keep branches scoped to one lane and one roadmap item when possible.
 - Do not mix refactors with behavior changes.
 - Do not modify application code, tests, or configs for documentation-only work.
-- Read `REQUIREMENTS.md`, `docs/UX_EXPERIENCE.md`, `pyproject.toml`, `scripts/check_quality.py`, `tests/test_package_boundaries.py`, and `config/portfolio_targets.json` before changing behavior.
+- Read `AGENTS.md`, `README.md`, `REQUIREMENTS.md`, `docs/PRODUCT_STRATEGY.md`, `docs/ROADMAP_STATUS.md`, `docs/DECISION_MODES.md`, `docs/MODEL_LEARNING_STRATEGY.md`, `docs/LOCAL_APP_STRATEGY.md`, `docs/UX_EXPERIENCE.md`, `pyproject.toml`, `scripts/check_quality.py`, `tests/test_package_boundaries.py`, and `config/portfolio_targets.json` before changing behavior.
 - For ingestion work, avoid live network-heavy refreshes unless the user requested live data or provider validation.
-- For model work, add regression tests before changing action, score, target, confidence, or queue behavior.
+- For model work, add regression tests before changing action, score, target, confidence, decision safety, allocation, or queue behavior.
 - For presentation work, validate both report-context fixture rendering and user-facing output when feasible.
 - Before handoff, run `python3 scripts/check_quality.py` unless a blocker prevents it.
 - PR descriptions should state the lane, the product contract being protected, the validation command, and any behavior intentionally left unchanged.
