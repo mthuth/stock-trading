@@ -1,0 +1,169 @@
+{
+  "low_sample_size": {
+    "model_name": "official_model",
+    "model_version": "v1",
+    "sample_size": 8,
+    "time_coverage_days": 25,
+    "recommendation_backtest_summary": {
+      "hit_rate": 0.7,
+      "average_target_progress_pct": 52,
+      "max_drawdown_pct": 6
+    },
+    "benchmark_comparison_summary": {
+      "status": "available",
+      "average_excess_return_pct": 8.0
+    },
+    "decision_safety_effectiveness_summary": {
+      "effectiveness_rate": 0.7
+    },
+    "source_usefulness_summary": {
+      "useful_source_rate": 0.8
+    },
+    "ai_thesis_evaluation_summary": {
+      "accuracy": 0.75
+    }
+  },
+  "weak_model": {
+    "model_name": "official_model",
+    "model_version": "v1",
+    "sample_size": 64,
+    "time_coverage_days": 160,
+    "recommendation_backtest_summary": {
+      "hit_rate": 0.42,
+      "average_target_progress_pct": 4,
+      "max_drawdown_pct": 22
+    },
+    "benchmark_comparison_summary": {
+      "status": "available",
+      "average_excess_return_pct": -4.2
+    },
+    "decision_safety_effectiveness_summary": {
+      "effectiveness_rate": 0.12
+    },
+    "source_usefulness_summary": {
+      "useful_source_rate": 0.2
+    },
+    "ai_thesis_evaluation_summary": {
+      "accuracy": 0.25
+    }
+  },
+  "useful_model": {
+    "model_name": "official_model",
+    "model_version": "v1",
+    "sample_size": 45,
+    "time_coverage_days": 220,
+    "recommendation_backtest_summary": {
+      "hit_rate": 0.58,
+      "average_target_progress_pct": 35,
+      "max_drawdown_pct": 13
+    },
+    "benchmark_comparison_summary": {
+      "status": "available",
+      "average_excess_return_pct": 3.0
+    },
+    "decision_safety_effectiveness_summary": {
+      "effectiveness_rate": 0.45
+    },
+    "source_usefulness_summary": {
+      "useful_source_rate": 0.55
+    },
+    "ai_thesis_evaluation_summary": {
+      "accuracy": 0.55
+    }
+  },
+  "strong_model": {
+    "model_name": "official_model",
+    "model_version": "v1",
+    "sample_size": 80,
+    "time_coverage_days": 320,
+    "recommendation_backtest_summary": {
+      "hit_rate": 0.64,
+      "average_target_progress_pct": 58,
+      "max_drawdown_pct": 7
+    },
+    "benchmark_comparison_summary": {
+      "status": "available",
+      "average_excess_return_pct": 8.0
+    },
+    "decision_safety_effectiveness_summary": {
+      "effectiveness_rate": 0.55
+    },
+    "source_usefulness_summary": {
+      "useful_source_rate": 0.72
+    },
+    "ai_thesis_evaluation_summary": {
+      "accuracy": 0.7
+    }
+  },
+  "aggressive_candidate": {
+    "model_name": "official_model",
+    "model_version": "v1",
+    "sample_size": 150,
+    "time_coverage_days": 520,
+    "recommendation_backtest_summary": {
+      "hit_rate": 0.68,
+      "average_target_progress_pct": 72,
+      "max_drawdown_pct": 5
+    },
+    "benchmark_comparison_summary": {
+      "status": "available",
+      "average_excess_return_pct": 12.0
+    },
+    "decision_safety_effectiveness_summary": {
+      "effectiveness_rate": 0.66
+    },
+    "source_usefulness_summary": {
+      "useful_source_rate": 0.82
+    },
+    "ai_thesis_evaluation_summary": {
+      "accuracy": 0.82
+    }
+  },
+  "benchmark_missing": {
+    "model_name": "official_model",
+    "model_version": "v1",
+    "sample_size": 80,
+    "time_coverage_days": 320,
+    "recommendation_backtest_summary": {
+      "hit_rate": 0.64,
+      "average_target_progress_pct": 58,
+      "max_drawdown_pct": 7
+    },
+    "benchmark_comparison_summary": {
+      "status": "missing"
+    },
+    "decision_safety_effectiveness_summary": {
+      "effectiveness_rate": 0.55
+    },
+    "source_usefulness_summary": {
+      "useful_source_rate": 0.72
+    },
+    "ai_thesis_evaluation_summary": {
+      "accuracy": 0.7
+    }
+  },
+  "high_drawdown": {
+    "model_name": "official_model",
+    "model_version": "v1",
+    "sample_size": 120,
+    "time_coverage_days": 450,
+    "recommendation_backtest_summary": {
+      "hit_rate": 0.66,
+      "average_target_progress_pct": 62,
+      "max_drawdown_pct": 32
+    },
+    "benchmark_comparison_summary": {
+      "status": "available",
+      "average_excess_return_pct": 9.0
+    },
+    "decision_safety_effectiveness_summary": {
+      "effectiveness_rate": 0.58
+    },
+    "source_usefulness_summary": {
+      "useful_source_rate": 0.74
+    },
+    "ai_thesis_evaluation_summary": {
+      "accuracy": 0.72
+    }
+  }
+}
