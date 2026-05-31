@@ -69,12 +69,22 @@ def target_row(
 def drilldown_for(
     item: subject.ResearchInput,
     target_rows: list[dict[str, object]],
+    provider_gaps: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     blended, _ = subject.blended_target_rows(
         target_rows,
         42,
-        {"blended_target_model": {"long_term_weights": {"analyst": 0.45, "fundamental": 0.45, "technical": 0.10}}},
+        {
+            "blended_target_model": {
+                "long_term_weights": {"analyst": 0.45, "fundamental": 0.45, "technical": 0.10},
+                "confidence_rules": {
+                    "technical_target_needed_for_high": True,
+                    "wide_range_downgrades_confidence": True,
+                },
+            }
+        },
         {item.symbol: item},
+        provider_gaps or [],
     )
     target = blended.get(item.symbol)
     return subject.target_drilldowns_by_symbol(
@@ -84,6 +94,170 @@ def drilldown_for(
 
 
 class GenerateDailyReportTargetTests(unittest.TestCase):
+    def test_high_confidence_requires_multiple_fresh_independent_sources(self) -> None:
+        item = research_input("NVDA")
+        target_rows = [
+            target_row("NVDA", "analyst", "Analyst consensus", 120.0, source_type="data_provider"),
+            target_row("NVDA", "fundamental", "Internal fundamental model", 124.0),
+            target_row("NVDA", "technical", "Internal technical model", 112.0),
+        ]
+
+        blended, _ = subject.blended_target_rows(
+            target_rows,
+            42,
+            {
+                "blended_target_model": {
+                    "long_term_weights": {"analyst": 0.45, "fundamental": 0.45, "technical": 0.10},
+                    "confidence_rules": {"technical_target_needed_for_high": True},
+                }
+            },
+            {"NVDA": item},
+        )
+
+        self.assertEqual(blended["NVDA"].confidence, "high")
+        self.assertIn("multi_source_fresh_breadth", blended["NVDA"].confidence_reasons)
+
+    def test_medium_confidence_allows_one_strong_source_with_supporting_context(self) -> None:
+        item = research_input("MSFT")
+        item.estimate_source = "SEC companyfacts + analyst estimate"
+        item.revenue_estimate = "forward revenue growth available"
+
+        blended, _ = subject.blended_target_rows(
+            [target_row("MSFT", "analyst", "Analyst consensus", 130.0, confidence="high")],
+            42,
+            {"blended_target_model": {"long_term_weights": {"analyst": 1.0}}},
+            {"MSFT": item},
+        )
+
+        self.assertEqual(blended["MSFT"].confidence, "medium")
+        self.assertIn("strong_single_source_with_support", blended["MSFT"].confidence_reasons)
+
+    def test_single_source_without_support_stays_low_confidence(self) -> None:
+        item = research_input("AMD")
+
+        blended, _ = subject.blended_target_rows(
+            [target_row("AMD", "analyst", "Analyst consensus", 130.0, confidence="medium")],
+            42,
+            {"blended_target_model": {"long_term_weights": {"analyst": 1.0}}},
+            {"AMD": item},
+        )
+
+        self.assertEqual(blended["AMD"].confidence, "low")
+        self.assertIn("single_source_target", blended["AMD"].confidence_reasons)
+
+    def test_missing_current_price_confidence_needs_review(self) -> None:
+        item = research_input("ALAB")
+        item.current_price = 0
+
+        self.assertEqual(subject.target_confidence_text(item, None), "Needs Review")
+
+    def test_severely_stale_target_needs_review(self) -> None:
+        item = research_input("AMZN")
+
+        blended, _ = subject.blended_target_rows(
+            [
+                target_row("AMZN", "analyst", "Analyst consensus", 140.0, freshness_days=200),
+                target_row("AMZN", "fundamental", "Internal fundamental model", 135.0),
+            ],
+            42,
+            {"blended_target_model": {"long_term_weights": {"analyst": 0.5, "fundamental": 0.5}}},
+            {"AMZN": item},
+        )
+
+        self.assertEqual(blended["AMZN"].confidence, "needs_review")
+        self.assertIn("stale_target", blended["AMZN"].confidence_reasons)
+
+    def test_speculative_watchlist_caps_high_confidence(self) -> None:
+        item = research_input("SOUN")
+        item.sleeve = "speculative_ai"
+        item.trade_type = "speculative_ai"
+        item.category = "Speculative AI"
+        target_rows = [
+            target_row("SOUN", "analyst", "Analyst consensus", 8.0, source_type="data_provider"),
+            target_row("SOUN", "fundamental", "Internal fundamental model", 7.5),
+            target_row("SOUN", "technical", "Internal technical model", 7.0),
+        ]
+
+        blended, _ = subject.blended_target_rows(
+            target_rows,
+            42,
+            {
+                "blended_target_model": {
+                    "long_term_weights": {"analyst": 0.45, "fundamental": 0.45, "technical": 0.10},
+                    "confidence_rules": {"technical_target_needed_for_high": True},
+                }
+            },
+            {"SOUN": item},
+        )
+
+        self.assertEqual(blended["SOUN"].confidence, "medium")
+        self.assertIn("speculative_cap", blended["SOUN"].confidence_reasons)
+
+    def test_provider_gap_affecting_target_confidence_needs_review(self) -> None:
+        item = research_input("META")
+        target_rows = [
+            target_row("META", "analyst", "Analyst consensus", 120.0, source_type="data_provider"),
+            target_row("META", "fundamental", "Internal fundamental model", 124.0),
+            target_row("META", "technical", "Internal technical model", 112.0),
+        ]
+
+        blended, _ = subject.blended_target_rows(
+            target_rows,
+            42,
+            {
+                "blended_target_model": {
+                    "long_term_weights": {"analyst": 0.45, "fundamental": 0.45, "technical": 0.10},
+                    "confidence_rules": {"technical_target_needed_for_high": True},
+                }
+            },
+            {"META": item},
+            [
+                {
+                    "symbol": "META",
+                    "provider": "Financial Modeling Prep",
+                    "field_name": "analyst_target",
+                    "status": "blocked",
+                    "message": "403 provider plan blocks target refresh",
+                }
+            ],
+        )
+
+        self.assertEqual(blended["META"].confidence, "needs_review")
+        self.assertIn("provider_gap_affects_target", blended["META"].confidence_reasons)
+        self.assertIn("provider gap affects target confidence", blended["META"].blend_status)
+
+    def test_target_blending_weights_do_not_change(self) -> None:
+        item = research_input("AVGO")
+
+        blended, rows = subject.blended_target_rows(
+            [
+                target_row("AVGO", "analyst", "Analyst consensus", 110.0),
+                target_row("AVGO", "fundamental", "Internal fundamental model", 130.0),
+                target_row("AVGO", "technical", "Internal technical model", 150.0),
+            ],
+            42,
+            {"blended_target_model": {"long_term_weights": {"analyst": 0.45, "fundamental": 0.45, "technical": 0.10}}},
+            {"AVGO": item},
+        )
+
+        self.assertEqual(blended["AVGO"].target_price, 123.0)
+        self.assertIn('"analyst": 0.45', rows[0]["weights_json"])
+        self.assertIn('"fundamental": 0.45', rows[0]["weights_json"])
+        self.assertIn('"technical": 0.1', rows[0]["weights_json"])
+
+    def test_recommendation_labels_remain_controlled(self) -> None:
+        item = research_input("NVDA")
+        allowed = {"Strong Buy", "Buy", "Add", "Hold", "Watch", "Trim", "Avoid"}
+
+        labels = {
+            subject.action_for(item, 82, 5, {}),
+            subject.action_for(item, 73, 5, {}),
+            subject.action_for(item, 50, 5, {}),
+            subject.action_for(item, 82, 11, {}),
+        }
+
+        self.assertLessEqual(labels, allowed)
+
     def test_manual_analyst_targets_create_source_rows(self) -> None:
         item = research_input("SNOW")
         manual_targets = {

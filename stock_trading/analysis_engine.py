@@ -21,6 +21,7 @@ from statistics import stdev
 from typing import Dict, Iterable, List, Set
 
 from stock_trading.provider_gap_summary import build_provider_gap_review
+from stock_trading.target_confidence import calibrate_target_confidence
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -127,6 +128,7 @@ class BlendedTarget:
     blend_status: str
     sources_label: str
     notes: str
+    confidence_reasons: tuple[str, ...] = ()
 
 
 @dataclass
@@ -873,7 +875,9 @@ def target_upside_text(item: ResearchInput, target: BlendedTarget | None) -> str
 
 
 def target_confidence_text(item: ResearchInput, target: BlendedTarget | None) -> str:
-    return target.confidence.title() if target else item.confidence
+    if target is None and item.current_price <= 0:
+        return "Needs Review"
+    return target.confidence.replace("_", " ").title() if target else item.confidence
 
 
 def target_source_label(item: ResearchInput, target: BlendedTarget | None) -> str:
@@ -1429,6 +1433,7 @@ def blended_target_rows(
     run_id: int,
     targets: Dict[str, object],
     research_by_symbol: Dict[str, ResearchInput],
+    provider_gaps: Iterable[object] = (),
 ) -> tuple[Dict[str, BlendedTarget], List[Dict[str, object]]]:
     blend_config = targets.get("blended_target_model", {})
     long_term_weights = (
@@ -1441,6 +1446,21 @@ def blended_target_rows(
         blend_config.get("fallback_weights", {}) if isinstance(blend_config, dict) else {}
     )
     allowed_types = {"analyst", "fundamental", "technical"}
+    confidence_rules = blend_config.get("confidence_rules", {}) if isinstance(blend_config, dict) else {}
+
+    def gap_symbol(row: object) -> str:
+        if isinstance(row, dict):
+            return str(row.get("symbol") or "").upper()
+        try:
+            return str(row["symbol"] or "").upper()  # type: ignore[index]
+        except (KeyError, IndexError, TypeError):
+            return ""
+
+    provider_gaps_by_symbol: Dict[str, List[object]] = {}
+    for gap in provider_gaps:
+        symbol = gap_symbol(gap)
+        if symbol:
+            provider_gaps_by_symbol.setdefault(symbol, []).append(gap)
 
     grouped: Dict[str, List[Dict[str, object]]] = {}
     for row in target_rows:
@@ -1509,29 +1529,47 @@ def blended_target_rows(
             confidence = "low"
         elif "technical" in types:
             blend_status = "Single-source technical"
-            confidence = "low"
         else:
             blend_status = "Single-source"
-            confidence = "low"
 
+        wide_range = False
         if len(types) >= 2 and target_low and target_high and current_price > 0:
             spread_pct = ((target_high - target_low) / current_price) * 100
             if spread_pct > 45:
-                confidence = "low"
-                blend_status += "; wide target range"
+                wide_range = True
         if item and "stale" in (item.price_source or "").lower():
-            confidence = "low"
             if "stale price" not in blend_status:
                 blend_status += "; stale price"
+        calibrated = calibrate_target_confidence(
+            usable,
+            current_price=current_price,
+            item=item,
+            provider_gaps=provider_gaps_by_symbol.get(symbol, []),
+            technical_target_needed_for_high=bool(
+                confidence_rules.get("technical_target_needed_for_high", True)
+            ),
+            wide_range_downgrades_confidence=bool(
+                confidence_rules.get("wide_range_downgrades_confidence", True)
+            ),
+        )
+        confidence = calibrated.label
+        if wide_range and "wide target range" not in blend_status:
+            blend_status += "; wide target range"
+        if "provider_gap_affects_target" in calibrated.reason_codes:
+            blend_status += "; provider gap affects target confidence"
+        if "stale_target" in calibrated.reason_codes and "stale target" not in blend_status:
+            blend_status += "; stale target"
 
         weight_parts = {
             str(row.get("target_type")): round(weight / total_weight, 4)
             for row, weight in source_weights
         }
         source_names = sorted({str(row.get("source_name") or row.get("target_type")) for row in usable})
+        confidence_reason_text = ", ".join(calibrated.reason_codes)
         notes = (
             f"{blend_status}; sources: {', '.join(source_names)}; "
-            f"weights: {', '.join(f'{name} {weight:.0%}' for name, weight in weight_parts.items())}."
+            f"weights: {', '.join(f'{name} {weight:.0%}' for name, weight in weight_parts.items())}; "
+            f"confidence reasons: {confidence_reason_text}."
         )
         blend = BlendedTarget(
             symbol=symbol,
@@ -1545,6 +1583,7 @@ def blended_target_rows(
             blend_status=blend_status,
             sources_label=", ".join(source_names),
             notes=notes,
+            confidence_reasons=calibrated.reason_codes,
         )
         blended[symbol] = blend
         db_rows.append(
@@ -5318,11 +5357,13 @@ def run_analysis(
     )
     generated_target_rows = target_source_rows(research, db_run_id, report_date, targets)
     stored_target_sources = record_target_sources(db_run_id, generated_target_rows) if persist else 0
+    provider_gap_rows = latest_provider_gaps()
     blended_by_symbol, blended_db_rows = blended_target_rows(
         generated_target_rows,
         db_run_id,
         targets,
         research_by_symbol,
+        provider_gap_rows,
     )
     stored_blended_targets = record_blended_targets(db_run_id, blended_db_rows) if persist else 0
     target_counts = target_counts_by_symbol(generated_target_rows)
@@ -5973,7 +6014,6 @@ def run_analysis(
     ]
     health_alert_rows = source_health_alert_rows(source_rows)
     health_summary = source_health_summary(source_rows)
-    provider_gap_rows = latest_provider_gaps()
     provider_blocker_rows = provider_blocker_review_rows(provider_gap_rows, ranked)
     provider_gap_review = build_provider_gap_review(provider_gap_rows, top_symbol=next_buy["input"].symbol)
     next_day_source_rows = action_queue_items[:8]
