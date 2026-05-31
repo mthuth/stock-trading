@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from stock_trading.ai_briefs import write_ai_brief_artifacts
+from stock_trading.reporting import decision_safety as safety_review
 
 
 REQUIRED_CONTEXT_SECTIONS = (
@@ -441,6 +442,7 @@ def normalized_summary(context: dict[str, object]) -> dict[str, Any]:
 def normalized_report_context(context: dict[str, object]) -> dict[str, object]:
     normalized = dict(context)
     normalized["summary"] = normalized_summary(context)
+    normalized["decision_safety"] = safety_review.decision_safety_object(normalized["summary"])
     return normalized
 
 
@@ -448,6 +450,48 @@ def decision_gate_detail(summary: dict[str, Any]) -> str:
     gate = as_dict(summary.get("decision_gate"))
     reasons = [text(reason) for reason in as_list(gate.get("reasons")) if text(reason)]
     return "; ".join(reasons) if reasons else text(gate.get("summary")) or "Passed"
+
+
+def render_decision_safety_review(context: dict[str, object]) -> str:
+    summary = normalized_summary(context)
+    review = safety_review.decision_safety_review(summary)
+    reasons = [text(reason) for reason in as_list(review.get("reasons")) if text(reason)]
+    reason_items = "".join(f"<li>{html.escape(reason)}</li>" for reason in reasons) or "<li>None</li>"
+    summary_text = text(review.get("summary")) or ("Passed the decision-safety gate." if review.get("safe_to_buy") else "Review required.")
+    return (
+        '<section class="decision-safety-review">'
+        '<div class="section-title"><h2>Decision Safety Review</h2><span class="section-note">Top candidate gate</span></div>'
+        '<div class="decision-safety-callout">'
+        "<div>"
+        f'<span class="label">{html.escape(text(review.get("status"), "Ready"))}</span>'
+        f'<strong>{html.escape(text(review.get("review_label")))}</strong>'
+        f'<p>{html.escape(summary_text)}</p>'
+        "</div>"
+        '<div class="decision-safety-facts">'
+        f'<span><span class="label">Candidate</span><strong>{html.escape(text(review.get("symbol")) or "n/a")}</strong></span>'
+        f'<span><span class="label">Action</span><strong>{html.escape(text(review.get("candidate_action")) or "n/a")}</strong></span>'
+        f'<span><span class="label">Suggested amount</span><strong>{html.escape(text(review.get("suggested_amount_text")) or "n/a")}</strong></span>'
+        "</div>"
+        "</div>"
+        '<div class="decision-safety-reasons"><span class="label">Blocked reasons</span>'
+        f"<ul>{reason_items}</ul></div>"
+        "</section>"
+    )
+
+
+def decision_safety_markdown_lines(summary: dict[str, Any]) -> list[str]:
+    review = safety_review.decision_safety_review(summary)
+    return [
+        "## Decision Safety Review",
+        "",
+        f"- Review state: **{review.get('review_label', '')}**",
+        f"- Status: **{review.get('status', 'Ready')}**",
+        f"- Candidate action: **{review.get('candidate_action', '') or 'n/a'}**",
+        f"- Suggested amount: **{review.get('suggested_amount_text', '') or 'n/a'}**",
+        f"- Summary: {review.get('summary', '') or 'Passed'}",
+        f"- Blocked reasons: {safety_review.reasons_text(review)}",
+        "",
+    ]
 
 
 def render_dashboard_html(context: dict[str, object]) -> str:
@@ -537,6 +581,14 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     .action-card-rationale strong { color:var(--text); }
     .action-audit-table { margin-top:10px; }
     .action-audit-table summary { cursor:pointer; color:var(--blue); font-weight:800; padding:5px 0; }
+    .decision-safety-callout { display:grid; grid-template-columns:minmax(240px,1.2fr) minmax(280px,1fr); gap:12px; align-items:start; border:1px solid var(--line); border-radius:8px; background:#fbfcfe; padding:12px; }
+    .decision-safety-callout strong { display:block; font-size:18px; margin-top:2px; }
+    .decision-safety-callout p { margin:6px 0 0; color:var(--muted); }
+    .decision-safety-facts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+    .decision-safety-facts > span { border:1px solid var(--line); border-radius:6px; background:white; padding:7px 8px; min-width:0; }
+    .decision-safety-facts strong { overflow-wrap:anywhere; }
+    .decision-safety-reasons { margin-top:10px; color:var(--muted); }
+    .decision-safety-reasons ul { margin:6px 0 0; padding-left:18px; }
     .source-health-filter-bar { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 8px; }
     .source-health-filter { min-height:32px; border:1px solid var(--line); border-radius:999px; background:white; color:var(--muted); cursor:pointer; font-weight:800; padding:5px 10px; }
     .source-health-filter span { color:var(--text); margin-left:4px; }
@@ -576,7 +628,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     .print-summary-card { border:1px solid var(--line); border-radius:8px; padding:10px; background:#fbfcfe; }
     .print-summary-card strong { display:block; font-size:15px; margin-top:3px; }
     .print-table { min-width:0; table-layout:auto; }
-    @media (max-width:860px) { main { padding:16px; } .summary,.two-column,.table-pair,.feedback-grid { grid-template-columns:1fr; } .action-card-head { flex-direction:column; } .action-card-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (max-width:860px) { main { padding:16px; } .summary,.two-column,.table-pair,.feedback-grid,.decision-safety-callout { grid-template-columns:1fr; } .action-card-head { flex-direction:column; } .action-card-metrics,.decision-safety-facts { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media print {
       @page { margin:.45in; }
       :root { --bg:#fff; --panel:#fff; --text:#111827; --muted:#4b5563; --line:#d1d5db; }
@@ -655,6 +707,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
       </nav>
       <div id="actionQueueSubtab" class="recommendation-subtab">
         {render_readiness(as_dict(context.get("readiness")))}
+        {render_decision_safety_review(context)}
         {render_decision_cards(as_list(decision_briefs.get("rows")))}
         {render_action_queue(context)}
       </div>
@@ -859,6 +912,7 @@ def render_print_review(context: dict[str, object]) -> str:
         <div class="section-note">Generated {html.escape(generated_at)} · Report {html.escape(report_date)} · Recommendation-only · No automated trading</div>
       </section>
       {render_print_summary(context)}
+      {render_decision_safety_review(context)}
       {render_readiness(as_dict(context.get("readiness")))}
       <section>
         <div class="section-title"><h2>Action Queue</h2><span class="section-note">Top candidates</span></div>
@@ -1150,6 +1204,9 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
     price_counts = as_dict(reliability.get("price_counts"))
     decision_gate = as_dict(summary.get("decision_gate"))
     action_label = "Action" if decision_gate.get("safe_to_buy", True) else "Candidate action"
+    action_value = summary.get("top_action", "")
+    if not decision_gate.get("safe_to_buy", True):
+        action_value = text(decision_gate.get("candidate_action") or action_value).replace(" blocked", "")
 
     title_by_kind = {
         "daily": "Daily What-To-Buy-Next Report",
@@ -1169,7 +1226,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
         "",
         f"- Decision safety gate: **{decision_gate.get('status', 'Ready')}**",
         f"- Gate reason: **{decision_gate_detail(summary)}**",
-        f"- {action_label}: **{summary.get('top_action', '')}**",
+        f"- {action_label}: **{action_value}**",
         f"- Score: **{summary.get('top_score', '')}/100**",
         f"- {summary.get('amount_label', 'Buy capacity')}: **{summary.get('suggested_amount_text', '')}**",
         f"- Current price: **{summary.get('current_price_text', '')}**",
@@ -1179,6 +1236,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
         f"- Report reliability: **{reliability.get('mode', 'n/a')}**",
         f"- Latest successful provider refresh: **{reliability.get('latest_provider_refresh', 'n/a')}**",
         "",
+        *decision_safety_markdown_lines(summary),
         f"Reason: {summary.get('top_notes', '')}",
         "",
         "## Report Reliability",
@@ -1266,6 +1324,9 @@ def render_email(context: dict[str, object]) -> str:
     subject = text(email.get("subject") or f"Stock Trading Daily Report - {metadata.get('report_date', 'n/a')}")
     decision_gate = as_dict(summary.get("decision_gate"))
     action_label = "Action" if decision_gate.get("safe_to_buy", True) else "Candidate action"
+    action_value = summary.get("top_action", "")
+    if not decision_gate.get("safe_to_buy", True):
+        action_value = text(decision_gate.get("candidate_action") or action_value).replace(" blocked", "")
     return f"""To: {recipient}
 Subject: {subject}
 
@@ -1274,7 +1335,7 @@ Daily stock trading summary for {metadata.get('report_date', 'n/a')}
 {summary.get('recommendation_label', 'Top candidate')}: {summary.get('top_symbol', '')} - {summary.get('top_company', '')}
 Decision safety gate: {decision_gate.get('status', 'Ready')}
 Gate reason: {decision_gate_detail(summary)}
-{action_label}: {summary.get('top_action', '')}
+{action_label}: {action_value}
 Score: {summary.get('top_score', '')}/100
 {summary.get('amount_label', 'Buy capacity')}: {summary.get('suggested_amount_text', '')}
 Current price: {summary.get('current_price_text', '')}
