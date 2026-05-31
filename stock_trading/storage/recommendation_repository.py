@@ -123,6 +123,30 @@ def record_recommendation_scores(
     conn.close()
     return len(rows)
 
+def recommendation_score_history(limit: int = 500, symbol: str = "") -> List[dict[str, object]]:
+    conn = init_db()
+    conn.row_factory = sqlite3.Row
+    params: list[object] = []
+    symbol_filter = ""
+    if symbol:
+        symbol_filter = "WHERE UPPER(symbol) = ?"
+        params.append(symbol.upper())
+    params.append(limit)
+    rows = conn.execute(
+        f"""
+        SELECT id, created_at, run_id, report_date, symbol, company, sleeve, trade_type,
+               action, score, current_price, target_price, upside_pct, target_confidence,
+               data_status, score_breakdown, rationale
+        FROM recommendation_scores
+        {symbol_filter}
+        ORDER BY report_date ASC, run_id ASC, id ASC
+        LIMIT ?
+        """,
+        params,
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
 def record_score_signals(rows: List[Mapping[str, object]], rebuild: bool = False) -> int:
     conn = init_db()
     inserted = 0
