@@ -1,0 +1,63 @@
+{
+  "scenario_id": "etf_not_applicable",
+  "scenario_label": "ETF not applicable",
+  "decision_mode": "earnings_event",
+  "recommendation_only": true,
+  "symbol": "QQQM",
+  "company": "Invesco NASDAQ 100 ETF",
+  "scope": "approved_universe",
+  "sleeve": "etf_context",
+  "event_phase": "not_applicable",
+  "earnings_event": {
+    "earnings_date": null,
+    "time_of_day": "not_applicable",
+    "fiscal_period": "not_applicable",
+    "days_to_or_since_earnings": null,
+    "event_status": "not_applicable",
+    "source": "not_applicable",
+    "source_status": "not_applicable",
+    "earnings_confidence": "not_applicable",
+    "provider_gaps": [],
+    "filing_pattern": "etf_not_operating_company"
+  },
+  "current_recommendation": {
+    "action": "Hold",
+    "decision_gate_status": "Ready",
+    "safe_to_buy": true,
+    "target_confidence": "Needs review"
+  },
+  "review_decision": {
+    "pre_earnings": "not_applicable",
+    "post_earnings": "not_applicable",
+    "reason": "ETF does not have operating-company earnings; do not treat as an unresolved earnings provider failure.",
+    "official_recommendation_impact": "none_review_only"
+  },
+  "earnings_signals": {
+    "guidance": "not_applicable",
+    "estimates": "not_applicable",
+    "margins": "not_applicable",
+    "revenue": "not_applicable",
+    "eps": "not_applicable",
+    "ai_capex_commentary": "not_applicable",
+    "risk_language": "not_applicable",
+    "market_reaction": "not_applicable",
+    "thesis_impact": "not_applicable"
+  },
+  "next_review_action": "Use ETF allocation/context logic when that track is implemented.",
+  "expected_behavior": {
+    "queue_status": "not_applicable",
+    "review_label": "ETF earnings not applicable",
+    "scenario_assertions": ["etf_not_applicable", "not_provider_failure", "review_only"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_short_selling": true,
+    "no_full_tactical_same_day_engine": true,
+    "no_automatic_scoring_changes": true,
+    "no_automatic_target_changes": true,
+    "no_automatic_decision_safety_changes_from_ai": true,
+    "no_automatic_model_tuning": true
+  }
+}

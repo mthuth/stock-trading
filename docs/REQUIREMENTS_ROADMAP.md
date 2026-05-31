@@ -9,6 +9,7 @@ Related strategy docs:
 - [Product Strategy](PRODUCT_STRATEGY.md)
 - [Roadmap Status](ROADMAP_STATUS.md)
 - [Wave 7 Handoff](WAVE7_HANDOFF.md)
+- [Wave 8 Earnings Review Requirements](WAVE8_EARNINGS_REVIEW_REQUIREMENTS.md)
 - [Decision Modes](DECISION_MODES.md)
 - [Model Learning Strategy](MODEL_LEARNING_STRATEGY.md)
 - [Local App Strategy](LOCAL_APP_STRATEGY.md)
@@ -176,6 +177,8 @@ Broker integration remains deferred unless cash/holding accuracy becomes a recom
 ## Wave 8: Earnings Event Review
 
 Goal: create pre-earnings and post-earnings review modes.
+
+Read [Wave 8 Earnings Review Requirements](WAVE8_EARNINGS_REVIEW_REQUIREMENTS.md) before starting implementation.
 
 Likely scope:
 

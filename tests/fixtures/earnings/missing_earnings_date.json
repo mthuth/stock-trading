@@ -1,0 +1,63 @@
+{
+  "scenario_id": "missing_earnings_date",
+  "scenario_label": "Missing earnings date",
+  "decision_mode": "earnings_event",
+  "recommendation_only": true,
+  "symbol": "NET",
+  "company": "Cloudflare",
+  "scope": "approved_universe",
+  "sleeve": "long_term_core",
+  "event_phase": "pre_earnings",
+  "earnings_event": {
+    "earnings_date": null,
+    "time_of_day": "unknown",
+    "fiscal_period": "unknown",
+    "days_to_or_since_earnings": null,
+    "event_status": "missing_date",
+    "source": "earnings_calendar_provider",
+    "source_status": "missing",
+    "earnings_confidence": "low",
+    "provider_gaps": ["missing_earnings_date"],
+    "filing_pattern": "us_operating_company"
+  },
+  "current_recommendation": {
+    "action": "Hold",
+    "decision_gate_status": "Ready",
+    "safe_to_buy": true,
+    "target_confidence": "Medium"
+  },
+  "review_decision": {
+    "pre_earnings": "keep_watching",
+    "post_earnings": "not_applicable",
+    "reason": "Earnings date is missing; keep visible as data gap and avoid confident earnings timing.",
+    "official_recommendation_impact": "none_review_only"
+  },
+  "earnings_signals": {
+    "guidance": "missing",
+    "estimates": "missing",
+    "margins": "missing",
+    "revenue": "missing",
+    "eps": "missing",
+    "ai_capex_commentary": "missing",
+    "risk_language": "missing",
+    "market_reaction": "not_applicable",
+    "thesis_impact": "missing"
+  },
+  "next_review_action": "Refresh earnings calendar source or add reviewed manual event date.",
+  "expected_behavior": {
+    "queue_status": "data_gap_review",
+    "review_label": "Missing earnings date",
+    "scenario_assertions": ["missing_date", "provider_gap_visible", "low_confidence"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_short_selling": true,
+    "no_full_tactical_same_day_engine": true,
+    "no_automatic_scoring_changes": true,
+    "no_automatic_target_changes": true,
+    "no_automatic_decision_safety_changes_from_ai": true,
+    "no_automatic_model_tuning": true
+  }
+}

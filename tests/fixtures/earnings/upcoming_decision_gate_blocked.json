@@ -1,0 +1,63 @@
+{
+  "scenario_id": "upcoming_decision_gate_blocked",
+  "scenario_label": "Upcoming earnings but decision gate blocked",
+  "decision_mode": "earnings_event",
+  "recommendation_only": true,
+  "symbol": "NVDA",
+  "company": "NVIDIA Corp.",
+  "scope": "approved_universe",
+  "sleeve": "long_term_core",
+  "event_phase": "pre_earnings",
+  "earnings_event": {
+    "earnings_date": "2026-06-04",
+    "time_of_day": "after_close",
+    "fiscal_period": "FY2027 Q1",
+    "days_to_or_since_earnings": 2,
+    "event_status": "upcoming",
+    "source": "finnhub_earnings_calendar",
+    "source_status": "ok",
+    "earnings_confidence": "medium",
+    "provider_gaps": [],
+    "filing_pattern": "us_operating_company"
+  },
+  "current_recommendation": {
+    "action": "Add",
+    "decision_gate_status": "Blocked",
+    "safe_to_buy": false,
+    "target_confidence": "Low"
+  },
+  "review_decision": {
+    "pre_earnings": "avoid_earnings_setup",
+    "post_earnings": "not_applicable",
+    "reason": "Decision gate is blocked before earnings; do not use earnings as a shortcut around safety.",
+    "official_recommendation_impact": "none_review_only"
+  },
+  "earnings_signals": {
+    "guidance": "missing",
+    "estimates": "mixed",
+    "margins": "missing",
+    "revenue": "neutral",
+    "eps": "neutral",
+    "ai_capex_commentary": "neutral",
+    "risk_language": "missing",
+    "market_reaction": "not_applicable",
+    "thesis_impact": "mixed"
+  },
+  "next_review_action": "Resolve decision-safety blockers before considering any pre-earnings add.",
+  "expected_behavior": {
+    "queue_status": "blocked_review",
+    "review_label": "Avoid earnings setup",
+    "scenario_assertions": ["upcoming_event", "decision_gate_blocked", "no_gate_override"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_short_selling": true,
+    "no_full_tactical_same_day_engine": true,
+    "no_automatic_scoring_changes": true,
+    "no_automatic_target_changes": true,
+    "no_automatic_decision_safety_changes_from_ai": true,
+    "no_automatic_model_tuning": true
+  }
+}

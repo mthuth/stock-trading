@@ -1,0 +1,63 @@
+{
+  "scenario_id": "recent_negative_reaction_thesis_intact",
+  "scenario_label": "Recent earnings negative reaction but thesis intact",
+  "decision_mode": "earnings_event",
+  "recommendation_only": true,
+  "symbol": "GOOGL",
+  "company": "Alphabet",
+  "scope": "owned",
+  "sleeve": "long_term_core",
+  "event_phase": "post_earnings",
+  "earnings_event": {
+    "earnings_date": "2026-05-28",
+    "time_of_day": "after_close",
+    "fiscal_period": "FY2026 Q1",
+    "days_to_or_since_earnings": -3,
+    "event_status": "recent",
+    "source": "official_ir_earnings_release",
+    "source_status": "ok",
+    "earnings_confidence": "medium",
+    "provider_gaps": ["transcript_pending"],
+    "filing_pattern": "us_operating_company"
+  },
+  "current_recommendation": {
+    "action": "Hold",
+    "decision_gate_status": "Ready",
+    "safe_to_buy": true,
+    "target_confidence": "Medium"
+  },
+  "review_decision": {
+    "pre_earnings": "not_applicable",
+    "post_earnings": "keep_watching",
+    "reason": "Market reaction weakened, but core revenue and AI commentary did not break the long-term thesis.",
+    "official_recommendation_impact": "none_review_only"
+  },
+  "earnings_signals": {
+    "guidance": "neutral",
+    "estimates": "mixed",
+    "margins": "neutral",
+    "revenue": "improved",
+    "eps": "neutral",
+    "ai_capex_commentary": "improved",
+    "risk_language": "neutral",
+    "market_reaction": "weakened",
+    "thesis_impact": "neutral"
+  },
+  "next_review_action": "Read transcript and monitor whether negative reaction creates long-term add setup.",
+  "expected_behavior": {
+    "queue_status": "post_earnings_review",
+    "review_label": "Keep watching",
+    "scenario_assertions": ["recent_event", "negative_reaction", "thesis_intact"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_short_selling": true,
+    "no_full_tactical_same_day_engine": true,
+    "no_automatic_scoring_changes": true,
+    "no_automatic_target_changes": true,
+    "no_automatic_decision_safety_changes_from_ai": true,
+    "no_automatic_model_tuning": true
+  }
+}

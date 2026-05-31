@@ -1,0 +1,63 @@
+{
+  "scenario_id": "upcoming_strong_long_term_candidate",
+  "scenario_label": "Upcoming earnings with strong long-term candidate",
+  "decision_mode": "earnings_event",
+  "recommendation_only": true,
+  "symbol": "MSFT",
+  "company": "Microsoft",
+  "scope": "owned",
+  "sleeve": "long_term_core",
+  "event_phase": "pre_earnings",
+  "earnings_event": {
+    "earnings_date": "2026-06-12",
+    "time_of_day": "after_close",
+    "fiscal_period": "FY2026 Q4",
+    "days_to_or_since_earnings": 8,
+    "event_status": "upcoming",
+    "source": "finnhub_earnings_calendar",
+    "source_status": "ok",
+    "earnings_confidence": "medium",
+    "provider_gaps": [],
+    "filing_pattern": "us_operating_company"
+  },
+  "current_recommendation": {
+    "action": "Add",
+    "decision_gate_status": "Ready",
+    "safe_to_buy": true,
+    "target_confidence": "Medium"
+  },
+  "review_decision": {
+    "pre_earnings": "wait_for_earnings",
+    "post_earnings": "not_applicable",
+    "reason": "Strong long-term candidate, but earnings are close enough to review after the report.",
+    "official_recommendation_impact": "none_review_only"
+  },
+  "earnings_signals": {
+    "guidance": "neutral",
+    "estimates": "improved",
+    "margins": "neutral",
+    "revenue": "improved",
+    "eps": "neutral",
+    "ai_capex_commentary": "improved",
+    "risk_language": "neutral",
+    "market_reaction": "not_applicable",
+    "thesis_impact": "neutral"
+  },
+  "next_review_action": "Review earnings release and guidance before increasing position.",
+  "expected_behavior": {
+    "queue_status": "upcoming_review",
+    "review_label": "Wait for earnings",
+    "scenario_assertions": ["upcoming_event", "strong_candidate", "review_only_wait"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_short_selling": true,
+    "no_full_tactical_same_day_engine": true,
+    "no_automatic_scoring_changes": true,
+    "no_automatic_target_changes": true,
+    "no_automatic_decision_safety_changes_from_ai": true,
+    "no_automatic_model_tuning": true
+  }
+}
