@@ -35,6 +35,7 @@ REQUIRED_CONTEXT_SECTIONS = (
     "data_ingestion",
     "research_sources",
     "feedback",
+    "learning_review",
     "artifacts",
 )
 REPORT_SECTION_LABELS = (
@@ -771,6 +772,220 @@ def data_reliability_review_markdown_lines(context: dict[str, object]) -> list[s
     return lines
 
 
+def learning_review_summary_value(section: dict[str, Any], *keys: str) -> object:
+    summary = as_dict(section.get("summary"))
+    for key in keys:
+        if key in summary:
+            return summary.get(key)
+    return 0
+
+
+def learning_review_card_detail(section: dict[str, Any], count: object, available: str, empty: str) -> str:
+    if str(count) not in {"", "0", "0.0", "None"}:
+        return available
+    return text(section.get("empty_state"), empty)
+
+
+def compact_learning_rows(rows: list[Any], fields: list[str], limit: int = 5) -> list[list[object]]:
+    result: list[list[object]] = []
+    for row in rows[:limit]:
+        item = as_dict(row)
+        result.append([item.get(field, "") for field in fields])
+    return result
+
+
+def render_learning_review_html(context: dict[str, object]) -> str:
+    learning = as_dict(context.get("learning_review"))
+    note = text(
+        learning.get("note"),
+        "Review-only learning outputs; these metrics do not change current recommendations.",
+    )
+    manual = as_dict(learning.get("manual_journal"))
+    outcomes = as_dict(learning.get("recommendation_outcomes"))
+    catalysts = as_dict(learning.get("catalyst_follow_through"))
+    sources = as_dict(learning.get("source_usefulness"))
+    safety = as_dict(learning.get("decision_safety_effectiveness"))
+
+    manual_count = learning_review_summary_value(manual, "entry_count")
+    outcome_count = learning_review_summary_value(outcomes, "outcome_count")
+    catalyst_count = learning_review_summary_value(catalysts, "outcome_count")
+    source_count = learning_review_summary_value(sources, "source_count")
+    safety_count = learning_review_summary_value(safety, "row_count")
+    cards = [
+        (
+            "Manual actions",
+            manual_count,
+            learning_review_card_detail(manual, manual_count, "Manual decisions recorded for after-the-fact review.", "No manual journal entries recorded yet."),
+        ),
+        (
+            "Recommendation outcomes",
+            outcome_count,
+            learning_review_card_detail(outcomes, outcome_count, "Prior recommendations have later outcome rows.", "Not enough recommendation outcome history yet."),
+        ),
+        (
+            "Catalyst follow-through",
+            catalyst_count,
+            learning_review_card_detail(catalysts, catalyst_count, "Catalyst rows are available for follow-through review.", "No catalyst follow-through rows available yet."),
+        ),
+        (
+            "Source usefulness",
+            source_count,
+            learning_review_card_detail(sources, source_count, "Source rows are available for usefulness/noise review.", "No source usefulness history available yet."),
+        ),
+        (
+            "Decision safety",
+            safety_count,
+            learning_review_card_detail(safety, safety_count, "Decision-safety rows compare blocked and ready candidates.", "No decision-safety effectiveness history available yet."),
+        ),
+    ]
+    card_html = "".join(
+        '<div class="data-review-card">'
+        f'<span class="label">{html.escape(label)}</span>'
+        f'<strong>{html.escape(text(value))}</strong>'
+        f'<p>{html.escape(detail)}</p>'
+        "</div>"
+        for label, value, detail in cards
+    )
+    sections = [
+        (
+            "What the app recommended",
+            ["Symbol", "Report Date", "Action", "Outcome", "Move %"],
+            compact_learning_rows(
+                as_list(outcomes.get("top_outcomes")),
+                ["symbol", "report_date", "original_action", "outcome_status", "percent_change"],
+            ),
+            "No recommendation outcome rows available yet.",
+        ),
+        (
+            "What the user did manually",
+            ["Date", "Symbol", "Action", "Amount", "Notes"],
+            compact_learning_rows(
+                as_list(manual.get("recent_actions")),
+                ["decision_date", "symbol", "action_taken", "amount", "notes"],
+            ),
+            "No manual journal entries recorded yet.",
+        ),
+        (
+            "What happened afterward",
+            ["Symbol", "Window", "Outcome", "Later Price", "Move %"],
+            compact_learning_rows(
+                as_list(outcomes.get("top_outcomes")),
+                ["symbol", "window_trading_days", "outcome_status", "later_price", "percent_change"],
+            ),
+            "Not enough outcome history yet.",
+        ),
+        (
+            "Catalyst follow-through",
+            ["Symbol", "Event", "Headline", "Outcome"],
+            compact_learning_rows(
+                as_list(catalysts.get("top_outcomes")),
+                ["symbol", "event_type", "headline", "outcome_label"],
+            ),
+            "No catalyst rows available yet.",
+        ),
+        (
+            "Source usefulness / noise",
+            ["Source", "Label", "Evidence", "Feedback", "Latest Issue"],
+            compact_learning_rows(
+                as_list(sources.get("top_sources")),
+                ["source_name", "label", "evidence_count", "feedback_delta", "latest_issue"],
+            ),
+            "No source usefulness history available yet.",
+        ),
+        (
+            "Decision safety effectiveness",
+            ["Symbol", "Gate", "Bucket", "Move %", "Assessment"],
+            compact_learning_rows(
+                as_list(safety.get("top_rows")),
+                ["symbol", "decision_gate_status", "review_bucket", "later_price_movement_pct", "assessment"],
+            ),
+            "No decision-safety effectiveness rows available yet.",
+        ),
+    ]
+    details = "".join(
+        "<details>"
+        f"<summary>{html.escape(title)}</summary>"
+        f'{html_table(headers, rows, "compact-table") if rows else f"<p>{html.escape(empty)}</p>"}'
+        "</details>"
+        for title, headers, rows, empty in sections
+    )
+    return (
+        '<section class="learning-review">'
+        '<div class="section-title"><h2>Learning Review</h2><span class="section-note">Review-only outcomes and follow-through</span></div>'
+        f'<p class="section-note">{html.escape(note)}</p>'
+        f'<div class="data-review-grid">{card_html}</div>'
+        f'<div class="data-review-details">{details}</div>'
+        "</section>"
+    )
+
+
+def learning_review_markdown_lines(context: dict[str, object]) -> list[str]:
+    learning = as_dict(context.get("learning_review"))
+    manual = as_dict(learning.get("manual_journal"))
+    outcomes = as_dict(learning.get("recommendation_outcomes"))
+    catalysts = as_dict(learning.get("catalyst_follow_through"))
+    sources = as_dict(learning.get("source_usefulness"))
+    safety = as_dict(learning.get("decision_safety_effectiveness"))
+    lines = [
+        "## Learning Review",
+        "",
+        text(learning.get("note"), "Review-only learning outputs; these metrics do not change current recommendations."),
+        "",
+        f"- What the app recommended: **{learning_review_summary_value(outcomes, 'outcome_count')}** outcome row(s).",
+        f"- What the user did manually: **{learning_review_summary_value(manual, 'entry_count')}** journal entry row(s).",
+        f"- Catalyst follow-through: **{learning_review_summary_value(catalysts, 'outcome_count')}** catalyst row(s).",
+        f"- Source usefulness/noise: **{learning_review_summary_value(sources, 'source_count')}** source row(s).",
+        f"- Decision safety: **{learning_review_summary_value(safety, 'row_count')}** effectiveness row(s).",
+        "",
+    ]
+    append_table_section(
+        lines,
+        "Recent Manual Actions",
+        {
+            "headers": ["Date", "Symbol", "Action", "Amount", "Notes"],
+            "rows": compact_learning_rows(as_list(manual.get("recent_actions")), ["decision_date", "symbol", "action_taken", "amount", "notes"]),
+        },
+        text(manual.get("empty_state"), "No manual journal entries recorded yet."),
+    )
+    append_table_section(
+        lines,
+        "Top Recommendation Outcomes",
+        {
+            "headers": ["Symbol", "Report Date", "Action", "Outcome", "Move %"],
+            "rows": compact_learning_rows(as_list(outcomes.get("top_outcomes")), ["symbol", "report_date", "original_action", "outcome_status", "percent_change"]),
+        },
+        text(outcomes.get("empty_state"), "Not enough recommendation outcome history yet."),
+    )
+    append_table_section(
+        lines,
+        "Catalyst Follow-Through",
+        {
+            "headers": ["Symbol", "Event", "Headline", "Outcome"],
+            "rows": compact_learning_rows(as_list(catalysts.get("top_outcomes")), ["symbol", "event_type", "headline", "outcome_label"]),
+        },
+        text(catalysts.get("empty_state"), "No catalyst rows available yet."),
+    )
+    append_table_section(
+        lines,
+        "Source Usefulness / Noise",
+        {
+            "headers": ["Source", "Label", "Evidence", "Feedback", "Latest Issue"],
+            "rows": compact_learning_rows(as_list(sources.get("top_sources")), ["source_name", "label", "evidence_count", "feedback_delta", "latest_issue"]),
+        },
+        text(sources.get("empty_state"), "No source usefulness history available yet."),
+    )
+    append_table_section(
+        lines,
+        "Decision Safety Effectiveness",
+        {
+            "headers": ["Symbol", "Gate", "Bucket", "Move %", "Assessment"],
+            "rows": compact_learning_rows(as_list(safety.get("top_rows")), ["symbol", "decision_gate_status", "review_bucket", "later_price_movement_pct", "assessment"]),
+        },
+        text(safety.get("empty_state"), "No decision-safety effectiveness rows available yet."),
+    )
+    return lines
+
+
 def render_dashboard_html(context: dict[str, object]) -> str:
     metadata = as_dict(context.get("metadata"))
     summary = normalized_summary(context)
@@ -991,6 +1206,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
       <button class="tab-button" type="button" aria-selected="true" data-tab-target="recommendationsTab">Recommendations</button>
       <button class="tab-button" type="button" aria-selected="false" data-tab-target="holdingsTab">Current Holdings</button>
       <button class="tab-button" type="button" aria-selected="false" data-tab-target="healthTrendsTab">Health & Trends</button>
+      <button class="tab-button" type="button" aria-selected="false" data-tab-target="learningReviewTab">Learning Review</button>
       <button class="tab-button" type="button" aria-selected="false" data-tab-target="dataIngestionTab">Data Ingestion</button>
       <button class="tab-button" type="button" aria-selected="false" data-tab-target="researchSourcesTab">Research Sources</button>
       <button class="tab-button" type="button" aria-selected="false" data-tab-target="feedbackTab">Feedback</button>
@@ -1044,6 +1260,10 @@ def render_dashboard_html(context: dict[str, object]) -> str:
       </div>
       <section><div class="section-title"><h2>Score Movement</h2><span class="section-note">Base score plus transparent signal overlay</span></div>{html_table(as_list(score_movement.get("headers")), as_list(score_movement.get("rows")), "compact-table")}</section>
       <section><div class="section-title"><h2>Trend Insights</h2><span class="section-note">Score, price trend, and data-gap context</span></div>{html_table(as_list(trend_insights.get("headers")), as_list(trend_insights.get("rows")), "compact-table")}</section>
+    </div>
+
+    <div id="learningReviewTab" class="tab-panel" hidden>
+      {render_learning_review_html(context)}
     </div>
 
     <div id="dataIngestionTab" class="tab-panel" hidden>
@@ -1543,6 +1763,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
         *daily_decision_review_markdown_lines(context),
         *decision_safety_markdown_lines(summary),
         *data_reliability_review_markdown_lines(context),
+        *learning_review_markdown_lines(context),
         f"Reason: {summary.get('top_notes', '')}",
         "",
         "## Report Reliability",
