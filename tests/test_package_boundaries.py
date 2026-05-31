@@ -69,6 +69,7 @@ class PackageBoundaryTests(unittest.TestCase):
             "stock_trading.storage.manual_trade_journal_repository",
             "stock_trading.storage.synthesis_repository",
             "stock_trading.config",
+            "stock_trading.decision_safety_outcomes",
             "stock_trading.provider_repository",
             "stock_trading.recommendation_repository",
             "stock_trading.verification_queue",
@@ -122,6 +123,7 @@ class PackageBoundaryTests(unittest.TestCase):
             "stock_trading/analysis_snapshot.py",
             "stock_trading/analysis_targets.py",
             "stock_trading/ai_synthesis_readiness.py",
+            "stock_trading/decision_safety_outcomes.py",
         ):
             assert_no_imports(
                 self,
