@@ -1,0 +1,88 @@
+{
+  "scenario_id": "not_enough_historical_data",
+  "scenario_label": "Not enough historical data",
+  "evaluation_mode": "model_evaluation",
+  "review_only": true,
+  "recommendation_only": true,
+  "prediction_record": {
+    "prediction_id": "pred-new-crwd-2026-01-02",
+    "recommendation_run_id": "run-2026-01-02",
+    "symbol": "CRWD",
+    "company": "CrowdStrike",
+    "model_name": "official_recommendation_model",
+    "model_version": "v1.0.0",
+    "model_role": "official",
+    "decision_mode": "long_term_buy_add",
+    "horizon": "60_trading_days",
+    "created_at": "2026-01-02T08:00:00",
+    "decision_date": "2026-01-02",
+    "official_action": "Watch",
+    "score": 75.0,
+    "target_price": null,
+    "target_confidence": "Low",
+    "decision_gate_status": "Blocked",
+    "expected_direction": "uncertain",
+    "expected_return_low": -0.05,
+    "expected_return_high": 0.08,
+    "confidence": "low",
+    "thesis": "Candidate needs more history before evaluation is meaningful.",
+    "risks": ["limited_history"],
+    "invalidation_conditions": ["history_missing"],
+    "evidence_ids": [],
+    "source_ids": ["price_history"],
+    "data_available_as_of": "2026-01-02T08:00:00",
+    "outcome_status": "not_enough_history",
+    "evaluated_at": null
+  },
+  "benchmark_comparison": {
+    "benchmark_id": "qqq-60d",
+    "benchmark_symbol": "QQQ",
+    "benchmark_name": "Nasdaq 100 ETF",
+    "benchmark_return": null,
+    "comparison_window_start": "2026-01-02",
+    "comparison_window_end": null,
+    "excess_return": null,
+    "benchmark_data_status": "not_enough_history",
+    "benchmark_warning": "evaluation_window_incomplete"
+  },
+  "outcome": {
+    "actual_return": null,
+    "drawdown": null,
+    "target_progress": "not_enough_history",
+    "worked": null,
+    "outcome_label": "not_enough_history"
+  },
+  "validity_guardrails": {
+    "no_lookahead_data": true,
+    "stored_historical_recommendation": true,
+    "official_vs_shadow_distinguished": true,
+    "benchmark_same_window": true,
+    "missing_data_warns_not_optimistic": true,
+    "survivorship_bias_reviewed": true,
+    "review_only_results": true
+  },
+  "model_trust_score_v1": {
+    "trust_score": 0.0,
+    "trust_level": "observe",
+    "sample_size": 1,
+    "confidence": "low",
+    "warnings": ["not_enough_historical_data", "small_sample_size"],
+    "drivers": ["insufficient_history"],
+    "review_only": true
+  },
+  "expected_behavior": {
+    "evaluation_result": "not_enough_history",
+    "scenario_assertions": ["not_enough_history_warning", "no_optimistic_assumption", "official_recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_automatic_score_changes": true,
+    "no_automatic_target_changes": true,
+    "no_automatic_decision_safety_changes": true,
+    "no_automatic_source_weight_changes": true,
+    "no_automatic_recommendation_changes_from_feedback_or_outcomes": true,
+    "no_model_promotion_into_official_recommendations": true
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "scenario_id": "ai_thesis_validated",
+  "scenario_label": "AI thesis validated by later evidence",
+  "evaluation_mode": "model_evaluation",
+  "review_only": true,
+  "recommendation_only": true,
+  "prediction_record": {
+    "prediction_id": "pred-ai-nvda-2026-01-02",
+    "recommendation_run_id": "run-2026-01-02",
+    "symbol": "NVDA",
+    "company": "NVIDIA",
+    "model_name": "ai_thesis_review",
+    "model_version": "v1.0.0",
+    "model_role": "shadow",
+    "decision_mode": "ai_thesis_review",
+    "horizon": "60_trading_days",
+    "created_at": "2026-01-02T08:00:00",
+    "decision_date": "2026-01-02",
+    "official_action": "Add",
+    "score": 88.0,
+    "target_price": 980.0,
+    "target_confidence": "Medium",
+    "decision_gate_status": "Ready",
+    "expected_direction": "up",
+    "expected_return_low": 0.05,
+    "expected_return_high": 0.16,
+    "confidence": "medium",
+    "thesis": "AI demand and data-center evidence should support continued upside.",
+    "risks": ["capex_digest", "valuation"],
+    "invalidation_conditions": ["ai_demand_evidence_weakens"],
+    "evidence_ids": ["ev-nvda-ai-thesis-2026-01"],
+    "source_ids": ["official_ir", "sec", "ai_brief"],
+    "data_available_as_of": "2026-01-02T08:00:00",
+    "outcome_status": "evaluated",
+    "evaluated_at": "2026-04-01T08:00:00"
+  },
+  "benchmark_comparison": {
+    "benchmark_id": "qqq-60d",
+    "benchmark_symbol": "QQQ",
+    "benchmark_name": "Nasdaq 100 ETF",
+    "benchmark_return": 0.04,
+    "comparison_window_start": "2026-01-02",
+    "comparison_window_end": "2026-04-01",
+    "excess_return": 0.08,
+    "benchmark_data_status": "available",
+    "benchmark_warning": ""
+  },
+  "outcome": {
+    "actual_return": 0.12,
+    "drawdown": -0.05,
+    "target_progress": "on_track",
+    "worked": true,
+    "outcome_label": "ai_thesis_validated"
+  },
+  "validity_guardrails": {
+    "no_lookahead_data": true,
+    "stored_historical_recommendation": true,
+    "official_vs_shadow_distinguished": true,
+    "benchmark_same_window": true,
+    "missing_data_warns_not_optimistic": true,
+    "survivorship_bias_reviewed": true,
+    "review_only_results": true
+  },
+  "model_trust_score_v1": {
+    "trust_score": 0.54,
+    "trust_level": "observe",
+    "sample_size": 14,
+    "confidence": "low",
+    "warnings": ["shadow_model_non_authoritative"],
+    "drivers": ["ai_thesis_validated", "positive_excess_return"],
+    "review_only": true
+  },
+  "expected_behavior": {
+    "evaluation_result": "ai_thesis_validated",
+    "scenario_assertions": ["ai_thesis_supported", "shadow_model_non_authoritative", "official_recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_automatic_score_changes": true,
+    "no_automatic_target_changes": true,
+    "no_automatic_decision_safety_changes": true,
+    "no_automatic_source_weight_changes": true,
+    "no_automatic_recommendation_changes_from_feedback_or_outcomes": true,
+    "no_model_promotion_into_official_recommendations": true
+  }
+}

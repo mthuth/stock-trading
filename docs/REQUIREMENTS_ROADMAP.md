@@ -11,6 +11,7 @@ Related strategy docs:
 - [Wave 7 Handoff](WAVE7_HANDOFF.md)
 - [Wave 8 Earnings Review Requirements](WAVE8_EARNINGS_REVIEW_REQUIREMENTS.md)
 - [Wave 10 Tactical Review Requirements](WAVE10_TACTICAL_REVIEW_REQUIREMENTS.md)
+- [Wave 11 Model Evaluation Requirements](WAVE11_MODEL_EVALUATION_REQUIREMENTS.md)
 - [Decision Modes](DECISION_MODES.md)
 - [Model Learning Strategy](MODEL_LEARNING_STRATEGY.md)
 - [Local App Strategy](LOCAL_APP_STRATEGY.md)
@@ -224,6 +225,8 @@ Likely scope:
 ## Wave 11: Model Evaluation And Backtesting
 
 Goal: evaluate historical predictions, outcomes, sources, and safety gates.
+
+Read [Wave 11 Model Evaluation Requirements](WAVE11_MODEL_EVALUATION_REQUIREMENTS.md) before starting implementation.
 
 Likely scope:
 

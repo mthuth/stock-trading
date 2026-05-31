@@ -1,0 +1,88 @@
+{
+  "scenario_id": "tactical_setup_fails",
+  "scenario_label": "Tactical setup fails",
+  "evaluation_mode": "model_evaluation",
+  "review_only": true,
+  "recommendation_only": true,
+  "prediction_record": {
+    "prediction_id": "pred-tac-pltr-2026-01-02",
+    "recommendation_run_id": "run-2026-01-02",
+    "symbol": "PLTR",
+    "company": "Palantir",
+    "model_name": "official_tactical_review",
+    "model_version": "v1.0.0",
+    "model_role": "official",
+    "decision_mode": "tactical_trade",
+    "horizon": "5_to_20_days",
+    "created_at": "2026-01-02T08:00:00",
+    "decision_date": "2026-01-02",
+    "official_action": "Watch",
+    "score": 77.5,
+    "target_price": null,
+    "target_confidence": "Low",
+    "decision_gate_status": "Blocked",
+    "expected_direction": "up",
+    "expected_return_low": 0.00,
+    "expected_return_high": 0.08,
+    "confidence": "low",
+    "thesis": "Weak reversal review might improve if confirmation appears.",
+    "risks": ["weak_confirmation", "volatility"],
+    "invalidation_conditions": ["recent_low_breaks"],
+    "evidence_ids": ["ev-pltr-reversal-2026-01-02"],
+    "source_ids": ["price_history"],
+    "data_available_as_of": "2026-01-02T08:00:00",
+    "outcome_status": "evaluated",
+    "evaluated_at": "2026-02-01T08:00:00"
+  },
+  "benchmark_comparison": {
+    "benchmark_id": "qqq-20d",
+    "benchmark_symbol": "QQQ",
+    "benchmark_name": "Nasdaq 100 ETF",
+    "benchmark_return": 0.03,
+    "comparison_window_start": "2026-01-02",
+    "comparison_window_end": "2026-02-01",
+    "excess_return": -0.10,
+    "benchmark_data_status": "available",
+    "benchmark_warning": ""
+  },
+  "outcome": {
+    "actual_return": -0.07,
+    "drawdown": -0.16,
+    "target_progress": "not_applicable",
+    "worked": false,
+    "outcome_label": "tactical_setup_failed"
+  },
+  "validity_guardrails": {
+    "no_lookahead_data": true,
+    "stored_historical_recommendation": true,
+    "official_vs_shadow_distinguished": true,
+    "benchmark_same_window": true,
+    "missing_data_warns_not_optimistic": true,
+    "survivorship_bias_reviewed": true,
+    "review_only_results": true
+  },
+  "model_trust_score_v1": {
+    "trust_score": 0.38,
+    "trust_level": "observe",
+    "sample_size": 8,
+    "confidence": "low",
+    "warnings": ["setup_failed", "small_sample_size"],
+    "drivers": ["negative_tactical_outcome"],
+    "review_only": true
+  },
+  "expected_behavior": {
+    "evaluation_result": "tactical_failed",
+    "scenario_assertions": ["tactical_horizon_respected", "setup_failed", "official_recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_automatic_score_changes": true,
+    "no_automatic_target_changes": true,
+    "no_automatic_decision_safety_changes": true,
+    "no_automatic_source_weight_changes": true,
+    "no_automatic_recommendation_changes_from_feedback_or_outcomes": true,
+    "no_model_promotion_into_official_recommendations": true
+  }
+}

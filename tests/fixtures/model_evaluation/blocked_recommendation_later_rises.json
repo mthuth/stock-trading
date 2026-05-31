@@ -1,0 +1,88 @@
+{
+  "scenario_id": "blocked_recommendation_later_rises",
+  "scenario_label": "Blocked recommendation later rises",
+  "evaluation_mode": "model_evaluation",
+  "review_only": true,
+  "recommendation_only": true,
+  "prediction_record": {
+    "prediction_id": "pred-block-alab-2026-01-02",
+    "recommendation_run_id": "run-2026-01-02",
+    "symbol": "ALAB",
+    "company": "Astera Labs",
+    "model_name": "official_recommendation_model",
+    "model_version": "v1.0.0",
+    "model_role": "official",
+    "decision_mode": "long_term_buy_add",
+    "horizon": "20_trading_days",
+    "created_at": "2026-01-02T08:00:00",
+    "decision_date": "2026-01-02",
+    "official_action": "Watch",
+    "score": 78.0,
+    "target_price": null,
+    "target_confidence": "Low",
+    "decision_gate_status": "Blocked",
+    "expected_direction": "uncertain",
+    "expected_return_low": -0.10,
+    "expected_return_high": 0.12,
+    "confidence": "low",
+    "thesis": "Provider gaps and low target confidence block buy readiness.",
+    "risks": ["provider_gap", "low_target_confidence"],
+    "invalidation_conditions": ["data_gap_resolved"],
+    "evidence_ids": ["ev-alab-price-2026-01"],
+    "source_ids": ["price_history"],
+    "data_available_as_of": "2026-01-02T08:00:00",
+    "outcome_status": "evaluated",
+    "evaluated_at": "2026-02-01T08:00:00"
+  },
+  "benchmark_comparison": {
+    "benchmark_id": "qqq-20d",
+    "benchmark_symbol": "QQQ",
+    "benchmark_name": "Nasdaq 100 ETF",
+    "benchmark_return": 0.02,
+    "comparison_window_start": "2026-01-02",
+    "comparison_window_end": "2026-02-01",
+    "excess_return": 0.20,
+    "benchmark_data_status": "available",
+    "benchmark_warning": ""
+  },
+  "outcome": {
+    "actual_return": 0.22,
+    "drawdown": -0.05,
+    "target_progress": "not_applicable",
+    "worked": false,
+    "outcome_label": "block_may_have_missed_upside"
+  },
+  "validity_guardrails": {
+    "no_lookahead_data": true,
+    "stored_historical_recommendation": true,
+    "official_vs_shadow_distinguished": true,
+    "benchmark_same_window": true,
+    "missing_data_warns_not_optimistic": true,
+    "survivorship_bias_reviewed": true,
+    "review_only_results": true
+  },
+  "model_trust_score_v1": {
+    "trust_score": 0.45,
+    "trust_level": "observe",
+    "sample_size": 12,
+    "confidence": "low",
+    "warnings": ["missed_upside_review", "small_sample_size"],
+    "drivers": ["decision_safety_missed_upside"],
+    "review_only": true
+  },
+  "expected_behavior": {
+    "evaluation_result": "missed_upside_review",
+    "scenario_assertions": ["blocked_later_rose", "no_gate_tuning", "official_recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_automatic_score_changes": true,
+    "no_automatic_target_changes": true,
+    "no_automatic_decision_safety_changes": true,
+    "no_automatic_source_weight_changes": true,
+    "no_automatic_recommendation_changes_from_feedback_or_outcomes": true,
+    "no_model_promotion_into_official_recommendations": true
+  }
+}
