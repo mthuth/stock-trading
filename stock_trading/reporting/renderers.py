@@ -450,6 +450,55 @@ def decision_gate_detail(summary: dict[str, Any]) -> str:
     return "; ".join(reasons) if reasons else text(gate.get("summary")) or "Passed"
 
 
+def render_target_drilldown_summary(target_drilldowns: dict[str, Any]) -> str:
+    table = as_dict(target_drilldowns.get("table"))
+    top = as_dict(target_drilldowns.get("top_candidate"))
+    source_rows = []
+    for row in as_list(top.get("sources")):
+        source = as_dict(row)
+        source_rows.append(
+            [
+                source.get("target_type", ""),
+                source.get("source_name", ""),
+                source.get("source_type", ""),
+                source.get("target_price_text", ""),
+                source.get("range_text", "n/a"),
+                source.get("as_of_date", ""),
+                source.get("freshness", ""),
+                source.get("confidence", ""),
+                source.get("notes", ""),
+            ]
+        )
+    labels = ", ".join(text(label) for label in as_list(top.get("labels")) if text(label)) or "No labels available"
+    top_summary = (
+        f"{text(top.get('symbol'))}: {text(top.get('blend_label'), 'missing input')} · "
+        f"{text(top.get('confidence'), 'needs review')} confidence · "
+        f"{text(top.get('target_price_text'), 'Needs target')} · range {text(top.get('range_text'), 'n/a')}"
+        if top
+        else "No top-candidate target drilldown available."
+    )
+    top_table = html_table(
+        ["Type", "Source", "Source Type", "Target", "Range", "As Of", "Freshness", "Confidence", "Notes"],
+        source_rows,
+        "compact-table",
+    )
+    summary_table = html_table(
+        as_list(table.get("headers")),
+        as_list(table.get("rows")),
+        "compact-table",
+    )
+    return (
+        "<section>"
+        '<div class="section-title"><h2>Target Source Drilldown</h2><span class="section-note">Blend status, source breadth, freshness, and confidence</span></div>'
+        f"<p><strong>Top candidate:</strong> {html.escape(top_summary)}</p>"
+        f"<p><strong>Review labels:</strong> {html.escape(labels)}</p>"
+        f"{top_table}"
+        "<h3>Ranked Target Transparency</h3>"
+        f"{summary_table}"
+        "</section>"
+    )
+
+
 def render_dashboard_html(context: dict[str, object]) -> str:
     metadata = as_dict(context.get("metadata"))
     summary = normalized_summary(context)
@@ -469,6 +518,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     feedback = as_dict(context.get("feedback"))
     artifacts = artifact_names(context)
     decision_gate = as_dict(summary.get("decision_gate"))
+    target_drilldowns = as_dict(context.get("target_drilldowns"))
 
     action_queue = queue(context, "action_queue")
     full_universe = queue(context, "full_universe")
@@ -629,7 +679,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
       <div class="metric"><span class="label">Decision Gate</span><strong>{html.escape(text(decision_gate.get("status"), "Ready"))}</strong><div class="thesis">{html.escape(decision_gate_detail(summary))}</div></div>
       <div class="metric"><span class="label">Score</span><strong>{html.escape(text(summary.get("top_score")))}</strong></div>
       <div class="metric"><span class="label">{html.escape(text(summary.get("amount_label"), "Buy Capacity"))}</span><strong>{html.escape(text(summary.get("suggested_amount_text"), money(summary.get("suggested_amount"))))}</strong></div>
-      <div class="metric"><span class="label">Blended Target</span><strong>{html.escape(text(summary.get("target_text"), money(summary.get("target_price"))))}</strong><div class="thesis">{html.escape(text(summary.get("confidence")))} confidence</div></div>
+      <div class="metric"><span class="label">Blended Target</span><strong>{html.escape(text(summary.get("target_text"), money(summary.get("target_price"))))}</strong><div class="thesis">{html.escape(text(summary.get("confidence")))} confidence · {html.escape(text(summary.get("target_quality")))}</div></div>
       <div class="metric"><span class="label">1Y Upside</span><strong>{html.escape(text(summary.get("upside_text"), pct(summary.get("upside_pct"))))}</strong><div class="thesis">{html.escape(text(summary.get("data_status")))}</div></div>
       <div class="metric"><span class="label">Reliability</span><strong>{html.escape(text(reliability.get("mode"), "n/a"))}</strong><div class="thesis">Fresh {html.escape(text(price_counts.get("fresh"), "0"))} · fallback {html.escape(text(price_counts.get("fallback"), "0"))} · missing {html.escape(text(price_counts.get("missing"), "0"))}</div></div>
       <div class="metric"><span class="label">Source Health</span><strong>{html.escape(text(source_summary.get("needs_attention"), "0"))}</strong><div class="thesis">{html.escape(text(source_summary.get("healthy"), "0"))} healthy · {html.escape(text(source_summary.get("stale"), "0"))} stale · {html.escape(text(source_summary.get("not_implemented"), "0"))} not implemented</div></div>
@@ -656,6 +706,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
       <div id="actionQueueSubtab" class="recommendation-subtab">
         {render_readiness(as_dict(context.get("readiness")))}
         {render_decision_cards(as_list(decision_briefs.get("rows")))}
+        {render_target_drilldown_summary(target_drilldowns)}
         {render_action_queue(context)}
       </div>
       <div id="longTermSubtab" class="recommendation-subtab" hidden><section><div class="section-title"><h2>Long-Term Queue</h2><span class="section-note">75% sleeve</span></div>{queue_table(context, "long_term")}</section></div>
@@ -1176,6 +1227,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
         f"- Blended target: **{summary.get('target_text', '')}**",
         f"- One-year upside: **{summary.get('upside_text', '')}**",
         f"- Confidence: **{summary.get('confidence', '')}**",
+        f"- Target quality: **{summary.get('target_quality', '')}**",
         f"- Report reliability: **{reliability.get('mode', 'n/a')}**",
         f"- Latest successful provider refresh: **{reliability.get('latest_provider_refresh', 'n/a')}**",
         "",
@@ -1195,6 +1247,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
     ]
     if kind in {"daily", "end_of_day"}:
         append_table_section(lines, "Current Holdings Used", as_dict(context.get("holdings")), "No holdings found. Add an E*TRADE snapshot or manual positions.")
+    append_table_section(lines, "Target Source Drilldown", as_dict(as_dict(context.get("target_drilldowns")).get("table")), "No target-source drilldown available.")
     append_table_section(lines, "Next-Day Watchlist", queue(context, "next_day"), "No watchlist candidates available.")
     append_table_section(lines, "Top Decision Briefs", as_dict(context.get("decision_briefs")), "No decision briefs available.")
     append_table_section(lines, "Source Health Alerts", as_dict(source_health.get("alerts")), "No source health alerts.")
