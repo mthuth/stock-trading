@@ -24,6 +24,15 @@ from engine_common import (  # noqa: E402
     RESEARCH_FILE,
 )
 from provider_client import fetch_json_url, sanitize_provider_message  # noqa: E402
+from stock_trading.sec_coverage import (  # noqa: E402
+    CikMapping,
+    SecCoverageSubject,
+    SecEndpointResult,
+    normalize_sec_ticker_map,
+    provider_status_rows,
+    subject_from_research_row,
+    summarize_symbol_coverage,
+)
 
 
 SEC_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
@@ -61,16 +70,20 @@ def sec_get_json(url: str, user_agent: str) -> tuple[str, object, str]:
 
 
 def symbols_from_research() -> list[str]:
+    return [subject.symbol for subject in subjects_from_research()]
+
+
+def subjects_from_research() -> list[SecCoverageSubject]:
     rows, _ = read_csv(RESEARCH_FILE)
-    symbols = []
+    subjects = []
     for row in rows:
-        symbol = row.get("symbol", "").strip().upper()
-        if symbol:
-            symbols.append(symbol)
-    return symbols
+        subject = subject_from_research_row(row)
+        if subject.symbol:
+            subjects.append(subject)
+    return subjects
 
 
-def load_ticker_map(user_agent: str) -> dict[str, dict[str, str]]:
+def load_ticker_map(user_agent: str) -> dict[str, CikMapping]:
     status, payload, message = sec_get_json(SEC_TICKERS_URL, user_agent)
     record_provider_payload(
         provider="SEC EDGAR",
@@ -83,19 +96,7 @@ def load_ticker_map(user_agent: str) -> dict[str, dict[str, str]]:
     if status != "ok" or not isinstance(payload, dict):
         raise RuntimeError(f"Unable to load SEC ticker map: {message}")
 
-    mapped: dict[str, dict[str, str]] = {}
-    for item in payload.values():
-        if not isinstance(item, dict):
-            continue
-        ticker = str(item.get("ticker", "")).upper()
-        cik = str(item.get("cik_str", "")).zfill(10)
-        if ticker and cik:
-            mapped[ticker] = {
-                "cik": cik,
-                "company_name": str(item.get("title", "")),
-                "exchange": "",
-            }
-    return mapped
+    return normalize_sec_ticker_map(payload)
 
 
 def filing_url(cik: str, accession: str, primary_doc: str) -> str:
@@ -204,81 +205,77 @@ def companyfacts_evidence(symbol: str, payload: object) -> list[dict[str, object
 
 def ingest_symbol(
     symbol: str,
-    ticker_map: dict[str, dict[str, str]],
+    ticker_map: dict[str, CikMapping],
     user_agent: str,
+    subject: SecCoverageSubject | None = None,
 ) -> tuple[int, list[dict[str, object]]]:
-    if symbol not in ticker_map:
-        return 0, [
-            {
-                "symbol": symbol,
-                "provider": "SEC EDGAR",
-                "field_name": "cik_mapping",
-                "status": "missing",
-                "message": "No SEC ticker CIK mapping found",
-            }
-        ]
+    subject = subject or SecCoverageSubject(symbol=symbol)
+    coverage = summarize_symbol_coverage(
+        subject,
+        ticker_map,
+        fact_concepts=tuple(FACT_CONCEPTS),
+    )
+    if coverage.coverage_status in {"not_applicable", "missing_cik", "foreign_or_adr_unmapped", "ambiguous_cik"}:
+        return 0, provider_status_rows(coverage)
 
     mapping = ticker_map[symbol]
-    cik = mapping["cik"]
-    upsert_company_identifier(symbol, cik, mapping.get("company_name", ""))
+    cik = mapping.cik
+    upsert_company_identifier(symbol, cik, mapping.company_name)
     evidence = []
-    status_rows = []
 
     submissions_url = f"{SEC_SUBMISSIONS_BASE}/CIK{cik}.json"
-    status, payload, message = sec_get_json(submissions_url, user_agent)
-    record_provider_payload("SEC EDGAR", "submissions", symbol, status, message)
-    status_rows.append(
-        {
-            "symbol": symbol,
-            "provider": "SEC EDGAR",
-            "field_name": "submissions",
-            "status": status,
-            "message": message,
-        }
-    )
-    if status == "ok":
-        evidence.extend(submission_evidence(symbol, cik, payload))
+    submissions_status, submissions_payload, submissions_message = sec_get_json(submissions_url, user_agent)
+    record_provider_payload("SEC EDGAR", "submissions", symbol, submissions_status, submissions_message)
+    if submissions_status == "ok":
+        evidence.extend(submission_evidence(symbol, cik, submissions_payload))
     time.sleep(0.12)
 
     facts_url = f"{SEC_FACTS_BASE}/CIK{cik}.json"
-    status, payload, message = sec_get_json(facts_url, user_agent)
-    record_provider_payload("SEC EDGAR", "companyfacts", symbol, status, message)
-    status_rows.append(
-        {
-            "symbol": symbol,
-            "provider": "SEC EDGAR",
-            "field_name": "companyfacts",
-            "status": status,
-            "message": message,
-        }
+    facts_status, facts_payload, facts_message = sec_get_json(facts_url, user_agent)
+    record_provider_payload("SEC EDGAR", "companyfacts", symbol, facts_status, facts_message)
+    if facts_status == "ok":
+        evidence.extend(companyfacts_evidence(symbol, facts_payload))
+
+    coverage = summarize_symbol_coverage(
+        subject,
+        ticker_map,
+        submissions=SecEndpointResult(submissions_status, submissions_message, submissions_payload),
+        companyfacts=SecEndpointResult(facts_status, facts_message, facts_payload),
+        fact_concepts=tuple(FACT_CONCEPTS),
+        latest_successful_sec_refresh=(
+            datetime.now().isoformat(timespec="seconds")
+            if submissions_status == "ok" or facts_status == "ok"
+            else ""
+        ),
     )
-    if status == "ok":
-        evidence.extend(companyfacts_evidence(symbol, payload))
     inserted = record_research_evidence(evidence)
-    return inserted, status_rows
+    return inserted, provider_status_rows(coverage)
 
 
 def main() -> int:
     load_env()
     user_agent = os.environ.get("SEC_USER_AGENT", DEFAULT_USER_AGENT)
-    symbols = sys.argv[1:] if len(sys.argv) > 1 else symbols_from_research()
-    symbols = [symbol.upper() for symbol in symbols]
+    if len(sys.argv) > 1:
+        subjects = [SecCoverageSubject(symbol=symbol.upper()) for symbol in sys.argv[1:]]
+    else:
+        subjects = subjects_from_research()
     ticker_map = load_ticker_map(user_agent)
 
     total_inserted = 0
     all_status = []
-    for symbol in symbols:
-        inserted, status_rows = ingest_symbol(symbol, ticker_map, user_agent)
+    for subject in subjects:
+        inserted, status_rows = ingest_symbol(subject.symbol, ticker_map, user_agent, subject=subject)
         total_inserted += inserted
         all_status.extend(status_rows)
-        print(f"{symbol}: inserted_evidence={inserted}")
+        status_text = ", ".join(f"{row['field_name']}={row['status']}" for row in status_rows)
+        print(f"{subject.symbol}: inserted_evidence={inserted}; {status_text}")
         time.sleep(0.12)
 
     gaps = sum(1 for row in all_status if row["status"] != "ok")
     run_id = record_provider_run(
         "SEC EDGAR",
         "ok" if all_status else "failed",
-        f"symbols={len(symbols)}; inserted_evidence={total_inserted}; gaps={gaps}",
+        f"symbols={len(subjects)}; inserted_evidence={total_inserted}; gaps={gaps}",
         all_status,
     )
     print(f"Recorded SEC provider run {run_id} with {gaps} gaps")
