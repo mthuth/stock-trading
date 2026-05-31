@@ -1,0 +1,16 @@
+[
+  {
+    "claim_type": "bull_case",
+    "relation": "supported",
+    "summary": "Later IR evidence and independent checks continued to support Azure AI demand.",
+    "source": "evidence_events",
+    "as_of": "2026-06-01"
+  },
+  {
+    "claim_type": "key_evidence",
+    "relation": "supported",
+    "summary": "Follow-up evidence corroborated the original demand signal.",
+    "source": "source_usefulness",
+    "as_of": "2026-06-01"
+  }
+]
