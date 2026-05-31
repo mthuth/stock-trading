@@ -160,6 +160,7 @@ Older or compatibility database files may exist in `data/`; confirm the active p
 - [docs/ROADMAP_STATUS.md](docs/ROADMAP_STATUS.md): completed waves, current integration needs, next recommended work, and deferred decisions.
 - [docs/WAVE7_HANDOFF.md](docs/WAVE7_HANDOFF.md): Wave 7 long-term capital deployment handoff and guardrails.
 - [docs/WAVE7_REQUIREMENTS.md](docs/WAVE7_REQUIREMENTS.md): Wave 7 long-term capital deployment requirements and fixture scenarios.
+- [docs/WAVE8_EARNINGS_REVIEW_REQUIREMENTS.md](docs/WAVE8_EARNINGS_REVIEW_REQUIREMENTS.md): Wave 8 earnings event review requirements and fixture scenarios.
 - [docs/DECISION_MODES.md](docs/DECISION_MODES.md): decision modes, recommendation horizons, sleeves, and mode-specific guardrails.
 - [docs/MODEL_LEARNING_STRATEGY.md](docs/MODEL_LEARNING_STRATEGY.md): prediction records, outcome evaluation, model trust, source usefulness, and shadow-model rules.
 - [docs/LOCAL_APP_STRATEGY.md](docs/LOCAL_APP_STRATEGY.md): path from static reports to a local decision console.

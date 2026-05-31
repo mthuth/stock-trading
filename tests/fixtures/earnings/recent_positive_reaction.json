@@ -1,0 +1,63 @@
+{
+  "scenario_id": "recent_positive_reaction",
+  "scenario_label": "Recent earnings positive reaction",
+  "decision_mode": "earnings_event",
+  "recommendation_only": true,
+  "symbol": "AMZN",
+  "company": "Amazon.com",
+  "scope": "approved_universe",
+  "sleeve": "long_term_core",
+  "event_phase": "post_earnings",
+  "earnings_event": {
+    "earnings_date": "2026-05-29",
+    "time_of_day": "after_close",
+    "fiscal_period": "FY2026 Q1",
+    "days_to_or_since_earnings": -2,
+    "event_status": "recent",
+    "source": "official_ir_earnings_release",
+    "source_status": "ok",
+    "earnings_confidence": "high",
+    "provider_gaps": [],
+    "filing_pattern": "us_operating_company"
+  },
+  "current_recommendation": {
+    "action": "Add",
+    "decision_gate_status": "Ready",
+    "safe_to_buy": true,
+    "target_confidence": "Medium"
+  },
+  "review_decision": {
+    "pre_earnings": "not_applicable",
+    "post_earnings": "buy_after_earnings",
+    "reason": "Revenue, guidance, margin commentary, and market reaction improved after earnings.",
+    "official_recommendation_impact": "none_review_only"
+  },
+  "earnings_signals": {
+    "guidance": "improved",
+    "estimates": "improved",
+    "margins": "improved",
+    "revenue": "improved",
+    "eps": "improved",
+    "ai_capex_commentary": "improved",
+    "risk_language": "neutral",
+    "market_reaction": "improved",
+    "thesis_impact": "improved"
+  },
+  "next_review_action": "Review updated target sources and AI brief after official filings are available.",
+  "expected_behavior": {
+    "queue_status": "post_earnings_review",
+    "review_label": "Buy after earnings review",
+    "scenario_assertions": ["recent_event", "positive_reaction", "review_only_opportunity"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_short_selling": true,
+    "no_full_tactical_same_day_engine": true,
+    "no_automatic_scoring_changes": true,
+    "no_automatic_target_changes": true,
+    "no_automatic_decision_safety_changes_from_ai": true,
+    "no_automatic_model_tuning": true
+  }
+}

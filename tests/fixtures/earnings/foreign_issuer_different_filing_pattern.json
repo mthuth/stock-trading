@@ -1,0 +1,63 @@
+{
+  "scenario_id": "foreign_issuer_different_filing_pattern",
+  "scenario_label": "Foreign issuer / different filing pattern",
+  "decision_mode": "earnings_event",
+  "recommendation_only": true,
+  "symbol": "TSM",
+  "company": "Taiwan Semiconductor Manufacturing",
+  "scope": "approved_universe",
+  "sleeve": "long_term_core",
+  "event_phase": "pre_earnings",
+  "earnings_event": {
+    "earnings_date": "2026-06-18",
+    "time_of_day": "before_open",
+    "fiscal_period": "FY2026 Q2",
+    "days_to_or_since_earnings": 14,
+    "event_status": "upcoming",
+    "source": "company_ir_calendar",
+    "source_status": "foreign_issuer_fallback",
+    "earnings_confidence": "medium",
+    "provider_gaps": ["sec_companyfacts_equivalent_needed"],
+    "filing_pattern": "foreign_issuer_20f_6k_ir"
+  },
+  "current_recommendation": {
+    "action": "Hold",
+    "decision_gate_status": "Ready",
+    "safe_to_buy": true,
+    "target_confidence": "Medium"
+  },
+  "review_decision": {
+    "pre_earnings": "keep_watching",
+    "post_earnings": "not_applicable",
+    "reason": "Foreign issuer filing pattern requires IR/20-F/6-K style evidence rather than standard SEC companyfacts expectations.",
+    "official_recommendation_impact": "none_review_only"
+  },
+  "earnings_signals": {
+    "guidance": "neutral",
+    "estimates": "mixed",
+    "margins": "neutral",
+    "revenue": "neutral",
+    "eps": "neutral",
+    "ai_capex_commentary": "improved",
+    "risk_language": "neutral",
+    "market_reaction": "not_applicable",
+    "thesis_impact": "mixed"
+  },
+  "next_review_action": "Use company IR and foreign-issuer filing evidence; do not flag missing companyfacts as the only blocker.",
+  "expected_behavior": {
+    "queue_status": "upcoming_review",
+    "review_label": "Foreign issuer earnings review",
+    "scenario_assertions": ["foreign_issuer", "different_filing_pattern", "provider_gap_context"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_short_selling": true,
+    "no_full_tactical_same_day_engine": true,
+    "no_automatic_scoring_changes": true,
+    "no_automatic_target_changes": true,
+    "no_automatic_decision_safety_changes_from_ai": true,
+    "no_automatic_model_tuning": true
+  }
+}

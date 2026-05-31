@@ -1,0 +1,63 @@
+{
+  "scenario_id": "provider_gap_blocks_earnings_confidence",
+  "scenario_label": "Provider gap blocks earnings confidence",
+  "decision_mode": "earnings_event",
+  "recommendation_only": true,
+  "symbol": "CRWD",
+  "company": "CrowdStrike",
+  "scope": "watchlist",
+  "sleeve": "long_term_core",
+  "event_phase": "post_earnings",
+  "earnings_event": {
+    "earnings_date": "2026-05-30",
+    "time_of_day": "after_close",
+    "fiscal_period": "FY2027 Q1",
+    "days_to_or_since_earnings": -1,
+    "event_status": "recent",
+    "source": "earnings_calendar_provider",
+    "source_status": "provider_gap",
+    "earnings_confidence": "low",
+    "provider_gaps": ["transcript_blocked", "official_ir_parser_gap"],
+    "filing_pattern": "us_operating_company"
+  },
+  "current_recommendation": {
+    "action": "Watch",
+    "decision_gate_status": "Ready",
+    "safe_to_buy": true,
+    "target_confidence": "Medium"
+  },
+  "review_decision": {
+    "pre_earnings": "not_applicable",
+    "post_earnings": "keep_watching",
+    "reason": "Recent earnings event exists, but transcript and official IR gaps block confident interpretation.",
+    "official_recommendation_impact": "none_review_only"
+  },
+  "earnings_signals": {
+    "guidance": "missing",
+    "estimates": "missing",
+    "margins": "missing",
+    "revenue": "mixed",
+    "eps": "missing",
+    "ai_capex_commentary": "missing",
+    "risk_language": "missing",
+    "market_reaction": "mixed",
+    "thesis_impact": "missing"
+  },
+  "next_review_action": "Resolve transcript or official IR evidence gap before relying on earnings summary.",
+  "expected_behavior": {
+    "queue_status": "provider_gap_review",
+    "review_label": "Earnings confidence blocked",
+    "scenario_assertions": ["provider_gap_blocks_confidence", "low_confidence", "review_only"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_short_selling": true,
+    "no_full_tactical_same_day_engine": true,
+    "no_automatic_scoring_changes": true,
+    "no_automatic_target_changes": true,
+    "no_automatic_decision_safety_changes_from_ai": true,
+    "no_automatic_model_tuning": true
+  }
+}

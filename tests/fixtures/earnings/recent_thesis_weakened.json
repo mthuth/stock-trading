@@ -1,0 +1,63 @@
+{
+  "scenario_id": "recent_thesis_weakened",
+  "scenario_label": "Recent earnings thesis weakened",
+  "decision_mode": "earnings_event",
+  "recommendation_only": true,
+  "symbol": "SNOW",
+  "company": "Snowflake",
+  "scope": "watchlist",
+  "sleeve": "long_term_core",
+  "event_phase": "post_earnings",
+  "earnings_event": {
+    "earnings_date": "2026-05-27",
+    "time_of_day": "after_close",
+    "fiscal_period": "FY2027 Q1",
+    "days_to_or_since_earnings": -4,
+    "event_status": "recent",
+    "source": "official_ir_earnings_release",
+    "source_status": "ok",
+    "earnings_confidence": "medium",
+    "provider_gaps": ["transcript_pending"],
+    "filing_pattern": "us_operating_company"
+  },
+  "current_recommendation": {
+    "action": "Watch",
+    "decision_gate_status": "Ready",
+    "safe_to_buy": true,
+    "target_confidence": "Low"
+  },
+  "review_decision": {
+    "pre_earnings": "not_applicable",
+    "post_earnings": "avoid_earnings_setup",
+    "reason": "Guidance, margins, and risk language weakened; review thesis before any add.",
+    "official_recommendation_impact": "none_review_only"
+  },
+  "earnings_signals": {
+    "guidance": "weakened",
+    "estimates": "weakened",
+    "margins": "weakened",
+    "revenue": "mixed",
+    "eps": "weakened",
+    "ai_capex_commentary": "neutral",
+    "risk_language": "weakened",
+    "market_reaction": "weakened",
+    "thesis_impact": "weakened"
+  },
+  "next_review_action": "Review transcript and target assumptions; do not let earnings summary alter official action automatically.",
+  "expected_behavior": {
+    "queue_status": "post_earnings_review",
+    "review_label": "Thesis needs review",
+    "scenario_assertions": ["recent_event", "thesis_weakened", "review_only_warning"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_short_selling": true,
+    "no_full_tactical_same_day_engine": true,
+    "no_automatic_scoring_changes": true,
+    "no_automatic_target_changes": true,
+    "no_automatic_decision_safety_changes_from_ai": true,
+    "no_automatic_model_tuning": true
+  }
+}
