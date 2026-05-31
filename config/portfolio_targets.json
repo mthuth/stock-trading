@@ -270,6 +270,11 @@
       "high_volatility_confidence_haircut": 0.20,
       "thin_history_confidence_haircut": 0.25
     },
+    "quality_thresholds": {
+      "minimum_history_days": 20,
+      "stale_history_days": 5,
+      "volatile_daily_move_pct": 0.04
+    },
     "blended_target_caps": {
       "long_term_max_technical_contribution": 0.10,
       "short_term_max_technical_contribution": 0.45
