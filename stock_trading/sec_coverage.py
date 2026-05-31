@@ -58,7 +58,7 @@ class SecCoverageRecord:
 
     @property
     def needs_attention(self) -> bool:
-        return self.gap_status not in {"", "ok"}
+        return self.gap_status not in {"", "ok", "expected", "not_applicable", "non_operating_company"}
 
 
 def subject_from_research_row(row: Mapping[str, object]) -> SecCoverageSubject:
@@ -216,11 +216,13 @@ def summarize_symbol_coverage(
             symbol=symbol,
             company_name=company_name,
             security_type=type_label,
-            submissions_status="not_applicable",
-            companyfacts_status="not_applicable",
+            submissions_status="expected",
+            companyfacts_status="expected",
             latest_successful_sec_refresh=latest_successful_sec_refresh,
             coverage_status="not_applicable",
             issue="ETF/non-operating symbol; SEC company filing coverage is not required.",
+            gap_field="sec_coverage",
+            gap_status="expected",
         )
 
     mapping = ticker_map.get(symbol)
@@ -333,10 +335,24 @@ def provider_status_rows(record: SecCoverageRecord) -> list[dict[str, object]]:
             {
                 "symbol": record.symbol,
                 "provider": SEC_PROVIDER,
-                "field_name": "sec_coverage",
-                "status": "ok",
-                "message": record.issue,
-            }
+                "field_name": "cik_mapping",
+                "status": "expected",
+                "message": f"{record.issue} No SEC CIK mapping is required.",
+            },
+            {
+                "symbol": record.symbol,
+                "provider": SEC_PROVIDER,
+                "field_name": "submissions",
+                "status": "expected",
+                "message": f"{record.issue} SEC operating-company submissions are not required.",
+            },
+            {
+                "symbol": record.symbol,
+                "provider": SEC_PROVIDER,
+                "field_name": "companyfacts",
+                "status": "expected",
+                "message": f"{record.issue} SEC companyfacts are not required.",
+            },
         ]
     if record.gap_field == "cik_mapping":
         return [

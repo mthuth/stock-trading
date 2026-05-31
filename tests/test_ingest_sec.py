@@ -106,9 +106,17 @@ class SecCoverageTests(unittest.TestCase):
 
         rows = provider_status_rows(record)
         self.assertEqual(record.coverage_status, "not_applicable")
-        self.assertEqual(record.submissions_status, "not_applicable")
-        self.assertEqual(record.companyfacts_status, "not_applicable")
-        self.assertEqual(rows[0]["status"], "ok")
+        self.assertEqual(record.submissions_status, "expected")
+        self.assertEqual(record.companyfacts_status, "expected")
+        self.assertFalse(record.needs_attention)
+        self.assertEqual(
+            [(row["field_name"], row["status"]) for row in rows],
+            [
+                ("cik_mapping", "expected"),
+                ("submissions", "expected"),
+                ("companyfacts", "expected"),
+            ],
+        )
         self.assertIn("not required", rows[0]["message"])
 
     def test_stale_sec_data_is_visible_as_provider_gap(self) -> None:

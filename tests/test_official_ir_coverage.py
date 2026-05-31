@@ -79,6 +79,28 @@ class OfficialIRCoverageTests(unittest.TestCase):
             ],
         )
 
+    def test_etf_ir_source_gap_is_expected_non_operating(self) -> None:
+        coverage = build_official_ir_coverage(
+            [approved_row("QQQM", "Invesco NASDAQ 100 ETF", category="ETF/ballast")],
+            [],
+        )
+
+        self.assertEqual(coverage[0]["security_type"], "non_operating_company")
+        self.assertEqual(coverage[0]["ir_source_status"], "expected")
+        self.assertIn("not required", str(coverage[0]["latest_issue"]))
+        self.assertEqual(
+            coverage_gap_status_rows(coverage),
+            [
+                {
+                    "symbol": "QQQM",
+                    "provider": "Company investor relations",
+                    "field_name": "official_ir_page",
+                    "status": "expected",
+                    "message": "ETF/non-operating symbol; official company IR source is not required.",
+                }
+            ],
+        )
+
     def test_blocked_ir_source_reports_latest_issue(self) -> None:
         coverage = build_official_ir_coverage(
             [approved_row("META", "Meta Platforms")],

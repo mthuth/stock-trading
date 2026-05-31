@@ -3,9 +3,13 @@
 
 from __future__ import annotations
 
+import csv
 import re
 from collections import Counter, defaultdict
+from pathlib import Path
 from typing import Iterable, Mapping, Sequence
+
+from stock_trading.provider_gap_status import EXPECTED, INFORMATIONAL, NON_OPERATING_COMPANY
 
 
 SEVERITY_ORDER = {
@@ -15,6 +19,38 @@ SEVERITY_ORDER = {
     "informational": 3,
 }
 SEVERITY_LABELS = tuple(SEVERITY_ORDER)
+ROOT = Path(__file__).resolve().parents[1]
+RESEARCH_INPUTS_PATH = ROOT / "config" / "research_inputs.csv"
+EXPECTED_NON_OPERATING_ISSUE_TYPE = "Expected / non-operating-company"
+EXPECTED_NON_OPERATING_ACTION = (
+    "Keep visible as an expected ETF/non-operating-company gap; do not treat as an operating-company blocker."
+)
+OPERATING_COMPANY_GAP_PATTERNS = (
+    r"\bcik\b",
+    r"cik_mapping",
+    r"\bsec\b",
+    r"companyfacts",
+    r"company facts",
+    r"official[_ -]?ir",
+    r"investor relations",
+    r"\bir_page\b",
+    r"analyst[_ -]?targets?",
+    r"analyst target",
+    r"\btarget_price\b",
+    r"\btarget\b",
+    r"operating-company",
+    r"operating company",
+)
+REAL_ETF_DATA_ISSUE_PATTERNS = (
+    r"current[_ -]?price",
+    r"\bquote\b",
+    r"price[_ -]?history",
+    r"historical[_ -]?price",
+    r"\bmarket data\b",
+    r"\bholdings?\b",
+    r"\ballocation\b",
+    r"\bposition\b",
+)
 
 
 def row_value(row: object, key: str) -> str:
@@ -39,7 +75,43 @@ def gap_text(provider: str, field_name: str, status: str, message: str) -> str:
     return " ".join([provider, field_name, status, message]).lower()
 
 
+def default_non_operating_symbols(path: Path = RESEARCH_INPUTS_PATH) -> set[str]:
+    if not path.exists():
+        return set()
+    symbols: set[str] = set()
+    with path.open(newline="") as handle:
+        for row in csv.DictReader(handle):
+            symbol = str(row.get("symbol") or "").strip().upper()
+            tokens = " ".join(
+                str(row.get(key) or "") for key in ("category", "sleeve", "trade_type", "company", "company_name")
+            ).lower()
+            if symbol and ("etf" in tokens or "non_operating" in tokens or "non-operating" in tokens):
+                symbols.add(symbol)
+    return symbols
+
+
+def is_expected_non_operating_gap(
+    *,
+    symbol: str,
+    provider: str,
+    field_name: str,
+    status: str,
+    message: str,
+    non_operating_symbols: set[str] | None = None,
+) -> bool:
+    if symbol not in (non_operating_symbols or default_non_operating_symbols()):
+        return False
+    text = gap_text(provider, field_name, status, message)
+    if status in {EXPECTED, INFORMATIONAL, NON_OPERATING_COMPANY}:
+        return True
+    if any(re.search(pattern, text) for pattern in REAL_ETF_DATA_ISSUE_PATTERNS):
+        return False
+    return any(re.search(pattern, text) for pattern in OPERATING_COMPANY_GAP_PATTERNS)
+
+
 def provider_gap_severity(status: str, message: str, provider: str = "", field_name: str = "") -> str:
+    if status in {EXPECTED, INFORMATIONAL, NON_OPERATING_COMPANY}:
+        return "informational"
     text = gap_text(provider, field_name, status, message)
     if re.search(r"429|rate[-_ ]?limit|quota|too many requests|blocked|forbidden|unauthorized|401|403|payment required|paid|premium|upgrade|\bplan\b|credential|api[-_ ]?key|token", text):
         return "blocker"
@@ -55,6 +127,8 @@ def provider_gap_severity(status: str, message: str, provider: str = "", field_n
 
 
 def provider_gap_issue_type(status: str, message: str, provider: str = "", field_name: str = "") -> str:
+    if status in {EXPECTED, INFORMATIONAL, NON_OPERATING_COMPANY}:
+        return EXPECTED_NON_OPERATING_ISSUE_TYPE
     text = gap_text(provider, field_name, status, message)
     if re.search(r"429|rate[-_ ]?limit|quota|too many requests", text):
         return "Rate limited"
@@ -84,6 +158,8 @@ def recommended_next_action(
 ) -> str:
     provider_text = provider.lower()
     field_text = field_name.lower()
+    if issue_type == EXPECTED_NON_OPERATING_ISSUE_TYPE:
+        return EXPECTED_NON_OPERATING_ACTION
     symbol_arg = "" if symbol == "GLOBAL" else f" --symbol {symbol}"
     if issue_type == "Rate limited":
         return "Wait for quota reset or adjust provider cadence."
@@ -118,7 +194,11 @@ def recommended_next_action(
     return "Keep visible for audit; no immediate action required."
 
 
-def normalize_provider_gap(row: object, top_symbol: str = "") -> dict[str, object]:
+def normalize_provider_gap(
+    row: object,
+    top_symbol: str = "",
+    non_operating_symbols: set[str] | None = None,
+) -> dict[str, object]:
     provider = row_value(row, "provider") or "Unknown provider"
     field_name = row_value(row, "field_name") or row_value(row, "endpoint") or "unknown_field"
     symbol = normalized_symbol(row_value(row, "symbol"))
@@ -128,6 +208,17 @@ def normalize_provider_gap(row: object, top_symbol: str = "") -> dict[str, objec
     last_success = row_value(row, "last_success_at") or row_value(row, "last_success")
     severity = provider_gap_severity(status, message, provider, field_name)
     issue_type = provider_gap_issue_type(status, message, provider, field_name)
+    expected_gap = is_expected_non_operating_gap(
+        symbol=symbol,
+        provider=provider,
+        field_name=field_name,
+        status=status,
+        message=message,
+        non_operating_symbols=non_operating_symbols,
+    )
+    if expected_gap:
+        severity = "informational"
+        issue_type = EXPECTED_NON_OPERATING_ISSUE_TYPE
     top = top_symbol.strip().upper()
     affects_top_candidate = bool(top and symbol == top)
     return {
@@ -144,6 +235,8 @@ def normalize_provider_gap(row: object, top_symbol: str = "") -> dict[str, objec
         "last_success": last_success,
         "recommended_next_action": recommended_next_action(severity, issue_type, provider, field_name, symbol),
         "affects_top_candidate": affects_top_candidate,
+        "expected_gap": expected_gap,
+        "gap_scope": "non_operating_company" if expected_gap else "operating_or_data_gap",
     }
 
 
@@ -201,8 +294,9 @@ def build_provider_gap_review(
     top_symbol: str = "",
     limit: int = 12,
 ) -> dict[str, object]:
+    non_operating_symbols = default_non_operating_symbols()
     records = [
-        normalize_provider_gap(row, top_symbol)
+        normalize_provider_gap(row, top_symbol, non_operating_symbols=non_operating_symbols)
         for row in provider_gap_rows
         if provider_gap_status(row) not in {"ok", "healthy"}
     ]
