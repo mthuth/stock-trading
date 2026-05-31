@@ -102,6 +102,29 @@ def build_earnings_panel(context: dict[str, object]) -> dict[str, object]:
     }
 
 
+def build_tactical_panel(context: dict[str, object]) -> dict[str, object]:
+    tactical = as_dict(context.get("tactical_review"))
+    queue = as_dict(tactical.get("tactical_watchlist_queue"))
+    risks = as_dict(tactical.get("risk_zones"))
+    gaps = as_dict(tactical.get("provider_data_gaps"))
+    events = as_dict(tactical.get("earnings_event_context"))
+    outcomes = as_dict(tactical.get("tactical_outcome_history"))
+    summary = as_dict(outcomes.get("summary"))
+    return {
+        "title": "Tactical Review",
+        "status": "Review-only" if tactical else "Not available",
+        "items": [
+            {"label": "Tactical queue", "value": count_rows(queue)},
+            {"label": "Risk zones", "value": count_rows(risks)},
+            {"label": "Provider/data gaps", "value": count_rows(gaps)},
+            {"label": "Earnings/event context", "value": count_rows(events)},
+            {"label": "Outcome history", "value": summary.get("outcome_count", count_rows(outcomes))},
+            {"label": "Does not override", "value": text(tactical.get("does_not_override_long_term"), "true")},
+        ],
+        "note": "Recommendation-only tactical review; it does not override long-term capital deployment or official recommendations.",
+    }
+
+
 def build_reliability_panel(context: dict[str, object]) -> dict[str, object]:
     reliability = as_dict(context.get("reliability"))
     source_health = as_dict(as_dict(context.get("source_health")).get("summary"))
@@ -239,6 +262,7 @@ def build_console_panels(
         "latest_recommendation": build_latest_recommendation_panel(report_context),
         "capital_deployment": build_capital_deployment_panel(report_context),
         "earnings_review": build_earnings_panel(report_context),
+        "tactical_review": build_tactical_panel(report_context),
         "provider_reliability": build_reliability_panel(report_context),
         "ai_brief_status": build_ai_panel(artifacts),
         "learning_review": build_learning_panel(report_context),

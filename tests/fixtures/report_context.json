@@ -229,6 +229,117 @@
       "empty_state": "No earnings-specific provider/data gaps are visible."
     }
   },
+  "tactical_review": {
+    "review_only": true,
+    "recommendation_only": true,
+    "does_not_override_long_term": true,
+    "decision_mode": "tactical_trade",
+    "note": "Recommendation-only tactical review; it is separate from and does not override long-term capital deployment or official recommendations.",
+    "tactical_watchlist_queue": {
+      "review_only": true,
+      "recommendation_only": true,
+      "does_not_override_long_term": true,
+      "decision_mode": "tactical_trade",
+      "rows": [
+        {
+          "symbol": "NVDA",
+          "setup_label": "breakout_review",
+          "tactical_horizon": "same_week",
+          "review_action": "tactical_buy_review",
+          "setup_confidence": "medium",
+          "risk_zone_label": "moderate",
+          "invalidation_condition": "Invalidated if price action, catalyst context, or risk zone moves against the setup.",
+          "earnings_event_context": {},
+          "catalyst_context": {},
+          "provider_data_gaps": [],
+          "priority_rank": 1,
+          "priority_score": 40,
+          "outcome_history": {},
+          "long_term_context": {
+            "action": "Add",
+            "decision_gate_status": "Ready",
+            "target_confidence": "Medium"
+          },
+          "data_quality_label": "ok",
+          "review_only": true,
+          "recommendation_only": true,
+          "does_not_override_long_term": true,
+          "decision_mode": "tactical_trade",
+          "note": "Review-only tactical context."
+        }
+      ],
+      "excluded": [],
+      "note": "Recommendation-only tactical review; it does not override long-term capital deployment or official recommendations.",
+      "empty_state": "No tactical review setups are available yet."
+    },
+    "setup_labels": {
+      "rows": [{"label": "breakout_review", "count": 1, "review_only": true}],
+      "empty_state": "No tactical setup labels are available yet."
+    },
+    "tactical_horizons": {
+      "rows": [{"label": "same_week", "count": 1, "review_only": true}],
+      "empty_state": "No tactical horizons are available yet."
+    },
+    "review_actions": {
+      "rows": [{"label": "tactical_buy_review", "count": 1, "review_only": true}],
+      "empty_state": "No tactical review actions are available yet."
+    },
+    "risk_zones": {
+      "rows": [
+        {
+          "symbol": "NVDA",
+          "tactical_horizon": "same_week",
+          "setup_label": "breakout_review",
+          "risk_zone_label": "moderate",
+          "support_reference": 190.0,
+          "resistance_reference": 220.0,
+          "invalidation_condition": "Invalidated below support.",
+          "review_only": true
+        }
+      ],
+      "empty_state": "No tactical risk-zone rows are available yet."
+    },
+    "invalidation_conditions": {
+      "rows": [
+        {
+          "symbol": "NVDA",
+          "setup_label": "breakout_review",
+          "tactical_horizon": "same_week",
+          "invalidation_condition": "Invalidated if price action, catalyst context, or risk zone moves against the setup.",
+          "review_only": true
+        }
+      ],
+      "empty_state": "No tactical invalidation conditions are available yet."
+    },
+    "provider_data_gaps": {
+      "rows": [],
+      "empty_state": "No tactical provider/data gaps are visible."
+    },
+    "earnings_event_context": {
+      "rows": [
+        {
+          "symbol": "MSFT",
+          "event_type": "upcoming_earnings",
+          "earnings_date": "2026-06-05",
+          "recommended_review_action": "review_pre_earnings",
+          "review_only": true
+        }
+      ],
+      "empty_state": "No earnings/event context is attached to tactical review rows."
+    },
+    "tactical_outcome_history": {
+      "summary": {
+        "review_only": true,
+        "windows": [1, 5, 20, 60],
+        "outcome_count": 0,
+        "status_counts": {},
+        "model_tuning_impact": "none",
+        "recommendation_impact": "none"
+      },
+      "rows": [],
+      "empty_state": "No tactical outcome history is available yet."
+    }
+  },
   "reliability": {
     "mode": "Fresh provider data",
     "price_counts": {
