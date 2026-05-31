@@ -409,6 +409,186 @@ def score_summary(breakdown: ScoreBreakdown) -> str:
     )
 
 
+def score_explanation(
+    item: ResearchInput,
+    breakdown: ScoreBreakdown,
+    target: BlendedTarget | None = None,
+    insight: InsightSignal | None = None,
+    rationale: str = "",
+) -> Dict[str, object]:
+    """Build JSON-native score explainability without changing score math."""
+
+    target_upside = target.upside_pct if target else item.upside_pct
+    upside_raw = clamp(target_upside * 1.8)
+    component_specs = [
+        (
+            "upside",
+            "Upside",
+            upside_raw,
+            breakdown.upside,
+            "Estimated upside from current price to blended target.",
+            50.0,
+        ),
+        (
+            "quality",
+            "Quality",
+            item.quality_score,
+            breakdown.quality,
+            "Business quality, margins, balance sheet, moat, and durability.",
+            60.0,
+        ),
+        (
+            "momentum",
+            "Momentum",
+            item.momentum_score,
+            breakdown.momentum,
+            "Trend, relative strength, price action, and market confirmation.",
+            60.0,
+        ),
+        (
+            "catalyst",
+            "Catalyst",
+            item.catalyst_score,
+            breakdown.catalyst,
+            "Earnings, guidance, product cycle, analyst revisions, sector momentum, or news.",
+            60.0,
+        ),
+        (
+            "risk",
+            "Risk",
+            item.risk_score,
+            breakdown.risk,
+            "Risk-adjusted setup. Higher is better; lower means more valuation, volatility, or thesis risk.",
+            65.0,
+        ),
+    ]
+    components: Dict[str, float] = {
+        "upside": round(float(breakdown.upside), 4),
+        "quality": round(float(breakdown.quality), 4),
+        "momentum": round(float(breakdown.momentum), 4),
+        "catalyst": round(float(breakdown.catalyst), 4),
+        "risk": round(float(breakdown.risk), 4),
+        "owned_penalty": -round(float(breakdown.owned_penalty), 4),
+        "speculative_penalty": -round(float(breakdown.speculative_penalty), 4),
+    }
+    component_details: List[Dict[str, object]] = []
+    driver_candidates: List[Dict[str, object]] = []
+    risk_candidates: List[Dict[str, object]] = []
+    for key, label, raw_value, points, description, risk_threshold in component_specs:
+        detail = {
+            "key": key,
+            "label": label,
+            "raw": round(float(raw_value), 4),
+            "points": round(float(points), 4),
+            "description": description,
+        }
+        component_details.append(detail)
+        if points > 0:
+            driver_candidates.append(
+                {
+                    "key": key,
+                    "label": label,
+                    "points": round(float(points), 4),
+                    "description": description,
+                }
+            )
+        if raw_value < risk_threshold:
+            risk_candidates.append(
+                {
+                    "key": key,
+                    "label": label,
+                    "points": round(float(points), 4),
+                    "severity": round(float(risk_threshold - raw_value), 4),
+                    "description": f"{label} raw score is below the explainability threshold.",
+                }
+            )
+
+    if breakdown.owned_penalty:
+        risk_candidates.append(
+            {
+                "key": "owned_penalty",
+                "label": "Owned penalty",
+                "points": -round(float(breakdown.owned_penalty), 4),
+                "severity": round(float(breakdown.owned_penalty), 4),
+                "description": "Existing position reduces add attractiveness.",
+            }
+        )
+    if breakdown.speculative_penalty:
+        risk_candidates.append(
+            {
+                "key": "speculative_penalty",
+                "label": "Speculative penalty",
+                "points": -round(float(breakdown.speculative_penalty), 4),
+                "severity": round(float(breakdown.speculative_penalty), 4),
+                "description": "Speculative AI guardrail keeps the name review-only.",
+            }
+        )
+
+    signal_overlay: Dict[str, object] | None = None
+    if insight:
+        overlay_parts = [
+            ("evidence", insight.evidence_delta, insight.drivers[0] if len(insight.drivers) > 0 else ""),
+            ("price_trend", insight.trend_delta, insight.drivers[1] if len(insight.drivers) > 1 else ""),
+            ("target_confidence", insight.target_delta, insight.drivers[2] if len(insight.drivers) > 2 else ""),
+            ("data_gap", insight.data_gap_delta, insight.drivers[3] if len(insight.drivers) > 3 else ""),
+        ]
+        signal_overlay = {
+            "total_delta": round(float(insight.total_delta), 4),
+            "final_score": round(float(insight.final_score), 4),
+            "score_movement": insight.score_movement,
+            "components": {
+                key: {
+                    "delta": round(float(delta), 4),
+                    "description": description,
+                }
+                for key, delta, description in overlay_parts
+            },
+        }
+        components["signal_overlay"] = round(float(insight.total_delta), 4)
+        if insight.total_delta > 0:
+            driver_candidates.append(
+                {
+                    "key": "signal_overlay",
+                    "label": "Signal overlay",
+                    "points": round(float(insight.total_delta), 4),
+                    "description": insight.score_movement,
+                }
+            )
+        for key, delta, description in overlay_parts:
+            if delta < 0:
+                risk_candidates.append(
+                    {
+                        "key": key,
+                        "label": key.replace("_", " ").title(),
+                        "points": round(float(delta), 4),
+                        "severity": abs(round(float(delta), 4)),
+                        "description": description,
+                    }
+                )
+
+    top_drivers = sorted(
+        driver_candidates,
+        key=lambda candidate: float(candidate.get("points", 0)),
+        reverse=True,
+    )[:3]
+    top_risks = sorted(
+        risk_candidates,
+        key=lambda candidate: float(candidate.get("severity", abs(float(candidate.get("points", 0))))),
+        reverse=True,
+    )[:3]
+    return {
+        "model": breakdown.model,
+        "base_score": round(float(breakdown.total), 4),
+        "final_score": round(float(insight.final_score if insight else breakdown.total), 4),
+        "components": components,
+        "component_details": component_details,
+        "signal_overlay": signal_overlay,
+        "top_drivers": top_drivers,
+        "top_risks": top_risks,
+        "rationale": rationale,
+    }
+
+
 def score_driver_rows(item: ResearchInput, breakdown: ScoreBreakdown, target: BlendedTarget | None) -> List[List[object]]:
     if breakdown.model == "Day trade":
         weights = {"upside": 0.05, "quality": 0.10, "momentum": 0.40, "catalyst": 0.25, "risk": 0.20}
@@ -1435,6 +1615,205 @@ def target_counts_by_symbol(target_rows: Iterable[Dict[str, object]]) -> Dict[st
     return counts
 
 
+EXPECTED_TARGET_INPUTS = ("analyst", "fundamental", "technical")
+
+
+def target_source_display_type(row: Dict[str, object]) -> str:
+    source_type = str(row.get("source_type") or "").lower()
+    target_type = str(row.get("target_type") or "").lower()
+    if "manual" in source_type:
+        return "manual"
+    if target_type in {"analyst", "fundamental", "technical"}:
+        return target_type
+    if "provider" in source_type:
+        return "provider-derived"
+    return target_type or "other"
+
+
+def target_freshness_label(row: Dict[str, object]) -> str:
+    raw_days = row.get("freshness_days")
+    if raw_days in (None, ""):
+        return "Unknown freshness"
+    days = int(to_float(raw_days))
+    if days <= 7:
+        status = "Fresh"
+    elif days <= 30:
+        status = "Current"
+    elif days <= 90:
+        status = "Aging"
+    else:
+        status = "Stale"
+    return f"{status} ({days} days)"
+
+
+def target_row_has_wide_range(row: Dict[str, object]) -> bool:
+    current = to_float(row.get("current_price"))
+    low = to_float(row.get("target_low"))
+    high = to_float(row.get("target_high"))
+    if current <= 0 or low <= 0 or high <= 0:
+        return False
+    return ((high - low) / current) * 100 > 45
+
+
+def target_display_confidence(target: BlendedTarget | None, blend_label: str) -> str:
+    confidence = target.confidence if target else "needs review"
+    if confidence.lower() == "high" and blend_label != "full blend":
+        return "medium"
+    return confidence
+
+
+def target_drilldown_for_symbol(
+    symbol: str,
+    target_rows: List[Dict[str, object]],
+    target: BlendedTarget | None,
+    item: ResearchInput | None = None,
+) -> Dict[str, object]:
+    usable_rows = [
+        row for row in target_rows
+        if str(row.get("symbol") or "").upper() == symbol.upper()
+        and to_float(row.get("target_price")) > 0
+    ]
+    raw_types = {
+        str(row.get("target_type") or "").lower()
+        for row in usable_rows
+        if str(row.get("target_type") or "").lower()
+    }
+    missing_inputs = [target_type for target_type in EXPECTED_TARGET_INPUTS if target_type not in raw_types]
+
+    if not usable_rows:
+        blend_label = "missing input"
+    elif len(raw_types) >= len(EXPECTED_TARGET_INPUTS) and not missing_inputs:
+        blend_label = "full blend"
+    elif len(raw_types) >= 2:
+        blend_label = "partial blend"
+    else:
+        blend_label = "single-source target"
+
+    stale_target = any(target_freshness_label(row).startswith("Stale") for row in usable_rows)
+    if item and "stale" in (item.price_source or "").lower():
+        stale_target = True
+    wide_range = any(target_row_has_wide_range(row) for row in usable_rows)
+    if target and "wide target range" in target.blend_status:
+        wide_range = True
+
+    labels = [blend_label]
+    if stale_target:
+        labels.append("stale target")
+    if wide_range:
+        labels.append("wide range")
+    labels.extend(f"missing input: {target_type}" for target_type in missing_inputs)
+
+    source_entries = []
+    for row in usable_rows:
+        low = row.get("target_low")
+        high = row.get("target_high")
+        range_text = "n/a"
+        if low not in (None, "") and high not in (None, ""):
+            range_text = f"{fmt_money(to_float(low))}-{fmt_money(to_float(high))}"
+        source_entries.append(
+            {
+                "symbol": symbol.upper(),
+                "target_type": target_source_display_type(row),
+                "original_target_type": str(row.get("target_type") or "other"),
+                "source_name": str(row.get("source_name") or "Unknown"),
+                "source_type": str(row.get("source_type") or "other"),
+                "target_price": to_float(row.get("target_price")),
+                "target_price_text": fmt_money(to_float(row.get("target_price"))),
+                "target_low": low,
+                "target_high": high,
+                "range_text": range_text,
+                "as_of_date": str(row.get("as_of_date") or "unknown"),
+                "freshness": target_freshness_label(row),
+                "confidence": str(row.get("confidence") or "unknown"),
+                "notes": str(row.get("notes") or ""),
+            }
+        )
+
+    target_low = target.target_low if target else None
+    target_high = target.target_high if target else None
+    blended_range_text = "n/a"
+    if target_low is not None and target_high is not None:
+        blended_range_text = f"{fmt_money(target_low)}-{fmt_money(target_high)}"
+    confidence = target_display_confidence(target, blend_label)
+
+    return {
+        "symbol": symbol.upper(),
+        "blend_label": blend_label,
+        "blend_status": target.blend_status if target else "Missing usable target inputs",
+        "labels": labels,
+        "target_price": target.target_price if target else None,
+        "target_price_text": fmt_money(target.target_price) if target else "Needs target",
+        "target_low": target_low,
+        "target_high": target_high,
+        "range_text": blended_range_text,
+        "wide_range": wide_range,
+        "stale_target": stale_target,
+        "missing_inputs": missing_inputs,
+        "confidence": confidence,
+        "source_count": len(usable_rows),
+        "source_names": [entry["source_name"] for entry in source_entries],
+        "sources": source_entries,
+    }
+
+
+def target_drilldowns_by_symbol(
+    ranked: List[Dict[str, object]],
+    target_rows: List[Dict[str, object]],
+) -> Dict[str, Dict[str, object]]:
+    drilldowns: Dict[str, Dict[str, object]] = {}
+    ranked_symbols = {
+        row["input"].symbol
+        for row in ranked
+        if isinstance(row.get("input"), ResearchInput)
+    }
+    target_symbols = {
+        str(row.get("symbol") or "").upper()
+        for row in target_rows
+        if str(row.get("symbol") or "").strip()
+    }
+    for symbol in sorted(ranked_symbols | target_symbols):
+        ranked_row = next(
+            (
+                row for row in ranked
+                if isinstance(row.get("input"), ResearchInput)
+                and row["input"].symbol == symbol
+            ),
+            {},
+        )
+        item = ranked_row.get("input") if isinstance(ranked_row.get("input"), ResearchInput) else None
+        target = ranked_row.get("target") if isinstance(ranked_row.get("target"), BlendedTarget) else None
+        drilldowns[symbol] = target_drilldown_for_symbol(symbol, target_rows, target, item)
+    return drilldowns
+
+
+def target_drilldown_table_rows(
+    ranked: List[Dict[str, object]],
+    drilldowns: Dict[str, Dict[str, object]],
+) -> List[List[object]]:
+    rows: List[List[object]] = []
+    for rank, row in enumerate(ranked, start=1):
+        item = row["input"]
+        drilldown = drilldowns.get(item.symbol, {})
+        labels = ", ".join(str(label) for label in drilldown.get("labels", []))
+        missing = ", ".join(str(value) for value in drilldown.get("missing_inputs", [])) or "None"
+        source_names = ", ".join(str(value) for value in drilldown.get("source_names", [])) or "None"
+        rows.append(
+            [
+                rank,
+                item.symbol,
+                drilldown.get("blend_label", "missing input"),
+                drilldown.get("target_price_text", "Needs target"),
+                drilldown.get("range_text", "n/a"),
+                drilldown.get("confidence", "needs review"),
+                int(drilldown.get("source_count") or 0),
+                missing,
+                labels,
+                source_names,
+            ]
+        )
+    return rows
+
+
 def latest_score_history_by_symbol(limit_per_symbol: int = 8) -> Dict[str, List[Dict[str, object]]]:
     if not DB_FILE.exists():
         return {}
@@ -2359,30 +2738,27 @@ def research_brief_html(
 def source_drilldown_html(
     symbol: str,
     item: ResearchInput,
-    target_sources: Dict[str, List[Dict[str, object]]],
+    target_sources: Dict[str, object],
     evidence: Dict[str, List[Dict[str, object]]],
 ) -> str:
-    target_rows = target_sources.get(symbol, [])
+    target_drilldown = target_sources.get(symbol, {})
+    if not isinstance(target_drilldown, dict):
+        target_drilldown = {}
+    target_rows = target_drilldown.get("sources", [])
     evidence_rows = [row for row in evidence.get(symbol, []) if evidence_mentions_item(row, item)]
     target_items = []
     for row in target_rows:
-        upside = row.get("upside_pct")
-        upside_text = fmt_pct(float(upside)) if upside not in (None, "") else "n/a"
-        low = row.get("target_low")
-        high = row.get("target_high")
-        range_text = ""
-        if low not in (None, "") and high not in (None, ""):
-            range_text = f" range {fmt_money(float(low))}-{fmt_money(float(high))};"
         notes = str(row.get("notes") or "").strip()
         target_items.append(
             [
-                row.get("target_type", "target"),
+                row.get("target_type", "other"),
                 row.get("source_name", "Unknown"),
-                fmt_money(float(row.get("target_price") or 0)),
-                range_text.replace(" range ", "").replace(";", "") or "n/a",
-                upside_text,
-                row.get("confidence") or "unknown",
+                row.get("source_type", "other"),
+                row.get("target_price_text", "n/a"),
+                row.get("range_text", "n/a"),
                 row.get("as_of_date") or "unknown",
+                row.get("freshness") or "Unknown freshness",
+                row.get("confidence") or "unknown",
                 notes or "No notes captured.",
             ]
         )
@@ -2410,12 +2786,19 @@ def source_drilldown_html(
         )
     target_block = (
         html_table(
-            ["Type", "Source", "Target", "Range", "Upside", "Confidence", "Date", "How calculated / published"],
+            ["Type", "Source", "Source Type", "Target", "Range", "As Of", "Freshness", "Confidence", "Notes"],
             target_items,
             "target-source-table",
         )
         if target_items
         else "<p>No stored target-source rows yet.</p>"
+    )
+    labels = ", ".join(str(label) for label in target_drilldown.get("labels", [])) or "No target labels available"
+    blend_summary = (
+        f"{target_drilldown.get('blend_label', 'missing input')} · "
+        f"{target_drilldown.get('confidence', 'needs review')} confidence · "
+        f"{target_drilldown.get('target_price_text', 'Needs target')} · "
+        f"range {target_drilldown.get('range_text', 'n/a')}"
     )
     evidence_block = (
         "<ul>" + "".join(evidence_items) + "</ul>"
@@ -2425,6 +2808,8 @@ def source_drilldown_html(
     return f"""
       <div class="source-drilldown">
         <h4>Target Sources</h4>
+        <p><strong>Target transparency:</strong> {html.escape(blend_summary)}.</p>
+        <p><strong>Review labels:</strong> {html.escape(labels)}.</p>
         {target_block}
         <h4>Recent Evidence</h4>
         {evidence_block}
@@ -4938,7 +5323,6 @@ def run_analysis(
         research_by_symbol,
     )
     stored_blended_targets = record_blended_targets(db_run_id, blended_db_rows) if persist else 0
-    stored_targets_by_symbol = latest_target_sources_by_symbol()
     target_counts = target_counts_by_symbol(generated_target_rows)
     previous_score_history_by_symbol = latest_score_history_by_symbol()
 
@@ -4981,6 +5365,7 @@ def run_analysis(
         )
 
     ranked = sorted(scored, key=lambda row: row["score"], reverse=True)
+    target_drilldowns = target_drilldowns_by_symbol(ranked, generated_target_rows)
     score_signal_rows = score_signal_storage_rows(db_run_id, report_date, ranked)
     stored_score_signals = record_score_signals(score_signal_rows) if persist else 0
     stored_score_signals_by_symbol = latest_score_signals_by_symbol()
@@ -5246,7 +5631,7 @@ def run_analysis(
                       {score_signal_shadow_html(item.symbol, stored_score_signals_by_symbol)}
                       <p><strong>Research note:</strong> {html.escape(item.notes)}</p>
                       {research_brief_html(item.symbol, item, stored_evidence_by_symbol)}
-                      {source_drilldown_html(item.symbol, item, stored_targets_by_symbol, stored_evidence_by_symbol)}
+                      {source_drilldown_html(item.symbol, item, target_drilldowns, stored_evidence_by_symbol)}
                     </div>
                   </td>
                 </tr>
@@ -5356,22 +5741,21 @@ def run_analysis(
         insight_theme_table_rows,
         "compact-table",
     )
-    source_drilldown_rows = []
-    for row in ranked:
-        item = row["input"]
-        counts = target_counts.get(item.symbol, {"analyst": 0, "all": 0})
-        source_drilldown_rows.append(
-            [
-                item.symbol,
-                counts["analyst"],
-                counts["all"],
-                len(stored_evidence_by_symbol.get(item.symbol, [])),
-                len(stored_score_signals_by_symbol.get(item.symbol, [])),
-                evidence_summary(item.symbol, stored_evidence_by_symbol, item),
-            ]
-        )
+    target_drilldown_headers = [
+        "Rank",
+        "Symbol",
+        "Target Quality",
+        "Target",
+        "Range",
+        "Confidence",
+        "Sources",
+        "Missing Inputs",
+        "Labels",
+        "Source Names",
+    ]
+    source_drilldown_rows = target_drilldown_table_rows(ranked, target_drilldowns)
     source_drilldown_table = html_table(
-        ["Symbol", "Analyst Targets", "All Targets", "Evidence Items", "Insight Signals", "Latest Evidence"],
+        target_drilldown_headers,
         source_drilldown_rows,
         "compact-table",
     )
@@ -5705,6 +6089,7 @@ def run_analysis(
             row["position_after_buy_pct"],
             target,
         )
+        explanation = score_explanation(item, row["breakdown"], target, row.get("insight"), rationale)
         return {
             "rank": rank,
             "symbol": item.symbol,
@@ -5722,13 +6107,16 @@ def run_analysis(
             "data_status": data_status_for_target(item, target),
             "sources": target_source_label(item, target),
             "score_breakdown": score_summary_with_insight(row["breakdown"], row["insight"]),
+            "score_explanation": explanation,
             "why": rationale,
             "rationale": rationale,
             "confidence": target_confidence_text(item, target),
+            "target_drilldown": target_drilldowns.get(item.symbol, {}),
             "notes": item.notes,
         }
 
     recommendations = [recommendation_context(rank, row) for rank, row in enumerate(ranked, start=1)]
+    top_target_drilldown = target_drilldowns.get(next_item.symbol, {})
     allocation_rows = [
         {
             "symbol": symbol,
@@ -5765,6 +6153,8 @@ def run_analysis(
             "upside_text": target_upside_text(next_item, next_target),
             "confidence": target_confidence_text(next_item, next_target),
             "data_status": data_status_for_target(next_item, next_target),
+            "target_quality": top_target_drilldown.get("blend_label", ""),
+            "target_review_labels": top_target_drilldown.get("labels", []),
             "top_notes": next_item.notes,
             "decision_gate": decision_gate,
             "signal_counts": signal_counts,
@@ -5785,6 +6175,12 @@ def run_analysis(
             "top_blocker": top_health_alert[1] if top_health_alert else "",
         },
         "recommendations": recommendations,
+        "target_drilldowns": {
+            "top_symbol": next_item.symbol,
+            "top_candidate": top_target_drilldown,
+            "by_symbol": target_drilldowns,
+            "table": table_context(target_drilldown_headers, source_drilldown_rows),
+        },
         "holdings": {
             "headers": ["Symbol", "Source", "Qty", "Last", "Market Value", "Portfolio %"],
             "rows": holdings_rows,
@@ -5808,7 +6204,7 @@ def run_analysis(
                 visible_verification_queue_rows,
             ),
             "source_drilldown": table_context(
-                ["Symbol", "Analyst Targets", "All Targets", "Evidence Items", "Insight Signals", "Latest Evidence"],
+                target_drilldown_headers,
                 source_drilldown_rows,
             ),
             "full_universe": table_context(

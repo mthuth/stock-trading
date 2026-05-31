@@ -193,6 +193,18 @@ Required content:
 - Score changes.
 - Historical score trend.
 
+### Data Reliability Review
+
+Purpose: daily data-quality triage before trusting a recommendation.
+
+Required content:
+
+- Missing and stale data counts.
+- Blocked or rate-limited provider status.
+- Source health rollups and useful/noisy source signals.
+- SEC coverage and company investor-relations coverage when available.
+- Next ingestion refresh and backfill priorities.
+
 ### Research Sources
 
 Purpose: source transparency and implementation planning.

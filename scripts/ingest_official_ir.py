@@ -19,6 +19,7 @@ from urllib.request import Request, urlopen
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from engine_common import (  # noqa: E402
@@ -28,9 +29,16 @@ from engine_common import (  # noqa: E402
     record_provider_run,
     record_research_evidence,
 )
+from stock_trading.official_ir_coverage import (  # noqa: E402
+    build_official_ir_coverage,
+    classify_ir_evidence_type,
+    coverage_gap_status_rows,
+    official_ir_provider_endpoint,
+)
 
 
 IR_SOURCES_FILE = ROOT / "config" / "official_ir_sources.csv"
+RESEARCH_INPUTS_FILE = ROOT / "config" / "research_inputs.csv"
 REQUEST_TIMEOUT_SECONDS = 25
 MAX_RESPONSE_BYTES = 600_000
 DEFAULT_USER_AGENT = "StockTradingResearch/0.1 mthuth@gmail.com"
@@ -128,6 +136,16 @@ def load_ir_sources(symbol_filter: set[str] | None) -> list[dict[str, str]]:
     return sources
 
 
+def load_all_ir_source_rows() -> list[dict[str, str]]:
+    rows, _ = read_csv(IR_SOURCES_FILE)
+    return [dict(row) for row in rows]
+
+
+def load_research_input_rows() -> list[dict[str, str]]:
+    rows, _ = read_csv(RESEARCH_INPUTS_FILE)
+    return [dict(row) for row in rows]
+
+
 def fetch_page(url: str, user_agent: str) -> tuple[str, bytes, str, str]:
     request = Request(
         url,
@@ -169,7 +187,13 @@ def relevant_links(parsed: InvestorPageParser, limit: int) -> list[dict[str, str
         if key in seen:
             continue
         seen.add(key)
-        selected.append({"text": text, "href": href})
+        selected.append(
+            {
+                "text": text,
+                "href": href,
+                "ir_evidence_type": classify_ir_evidence_type(text, href),
+            }
+        )
         if len(selected) >= limit:
             break
     return selected
@@ -187,6 +211,7 @@ def page_evidence(
     summary_parts = [
         f"Official IR page snapshot for {source['company_name'] or symbol}.",
         f"Focus: {source['source_focus'] or 'investor relations'}.",
+        "Treat as company-framed primary-source context, not independent confirmation.",
     ]
     if parsed.meta_description:
         summary_parts.append(f"Page description: {parsed.meta_description}")
@@ -218,6 +243,7 @@ def page_evidence(
     ]
     for link in links:
         link_id = hashlib.sha256(link["href"].encode()).hexdigest()[:16]
+        ir_evidence_type = str(link.get("ir_evidence_type") or classify_ir_evidence_type(link["text"], link["href"]))
         rows.append(
             {
                 "run_id": None,
@@ -226,11 +252,15 @@ def page_evidence(
                 "source_name": "Company investor relations",
                 "source_type": "company release",
                 "source_url": link["href"],
-                "provider_endpoint": "official_ir_link_discovery",
+                "provider_endpoint": official_ir_provider_endpoint(ir_evidence_type),
                 "provider_id": f"{symbol}-{link_id}",
                 "source_timestamp": today,
                 "title": link["text"],
-                "summary": f"Official IR link discovered from {source['ir_url']}. Treat as a primary-source lead for future release/deck/transcript extraction.",
+                "summary": (
+                    f"Official IR {ir_evidence_type.replace('_', ' ')} link discovered from "
+                    f"{source['ir_url']}. Treat as company-framed primary-source context, "
+                    "not independent confirmation."
+                ),
                 "raw_text_ref": "",
                 "confidence": "high",
                 "corroboration_status": "primary_source",
@@ -265,14 +295,19 @@ def ingest_source(source: dict[str, str], user_agent: str, link_limit: int) -> t
                 "relevant_links": links,
             }
         )
-        evidence = page_evidence(source, parsed, links, payload_hash)
+        has_parser_signal = bool(parsed.title or parsed.meta_description or parsed.headings or links)
+        if has_parser_signal:
+            evidence = page_evidence(source, parsed, links, payload_hash)
+        else:
+            status = "parser_gap"
+            message = "Fetched official IR page but parser found no readable title, description, headings, or relevant links."
     record_provider_payload(
         "Company investor relations",
         "official_ir_page",
         source["symbol"],
         status,
         message,
-        payload_json=payload_summary if status == "ok" else None,
+        payload_json=payload_summary if body else None,
     )
     inserted = record_research_evidence(evidence)
     status_row = {
@@ -304,6 +339,20 @@ def main() -> int:
     sources = load_ir_sources(symbol_filter)
     if not sources:
         print("No official IR sources configured for requested symbols.")
+        approved_rows = load_research_input_rows()
+        source_rows = load_all_ir_source_rows()
+        if symbol_filter:
+            approved_rows = [row for row in approved_rows if str(row.get("symbol", "")).strip().upper() in symbol_filter]
+        coverage = build_official_ir_coverage(approved_rows, source_rows)
+        gap_rows = coverage_gap_status_rows(coverage)
+        if gap_rows:
+            run_id = record_provider_run(
+                "Company investor relations",
+                "failed",
+                f"sources=0; inserted_evidence=0; gaps={len(gap_rows)}",
+                gap_rows,
+            )
+            print(f"Recorded Company investor relations provider run {run_id} with {len(gap_rows)} gaps")
         return 1
     user_agent = DEFAULT_USER_AGENT
     total_inserted = 0
@@ -315,6 +364,20 @@ def main() -> int:
         print(f"{source['symbol']}: official_ir_status={status['status']} inserted={inserted}", flush=True)
         if index < len(sources) and args.delay > 0:
             time.sleep(args.delay)
+    approved_rows = load_research_input_rows()
+    if symbol_filter:
+        approved_rows = [
+            row
+            for row in approved_rows
+            if str(row.get("symbol", "")).strip().upper() in symbol_filter
+        ]
+    coverage = build_official_ir_coverage(approved_rows, load_all_ir_source_rows(), statuses)
+    known_status_symbols = {str(row.get("symbol", "")).strip().upper() for row in statuses}
+    statuses.extend(
+        row
+        for row in coverage_gap_status_rows(coverage)
+        if str(row.get("symbol", "")).strip().upper() not in known_status_symbols
+    )
     gaps = sum(1 for row in statuses if row.get("status") != "ok")
     run_id = record_provider_run(
         "Company investor relations",

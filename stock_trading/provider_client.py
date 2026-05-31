@@ -12,6 +12,8 @@ from typing import Mapping
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from stock_trading.provider_gap_status import normalize_provider_status
+
 
 TRANSIENT_HTTP_CODES = {408, 409, 425, 429, 500, 502, 503, 504}
 
@@ -45,13 +47,14 @@ def sanitize_provider_message(message: object) -> str:
 
 def classify_exception(exc: BaseException) -> tuple[str, str, bool]:
     if isinstance(exc, HTTPError):
+        status = normalize_provider_status("error", f"HTTP {exc.code}")
         if exc.code in TRANSIENT_HTTP_CODES:
-            return "http_transient", "error", True
-        return "http_blocked", "blocked", False
+            return "http_transient", status, True
+        return "http_blocked", status, False
     if isinstance(exc, (URLError, TimeoutError, socket.timeout)):
         return "network_transient", "error", True
     if isinstance(exc, json.JSONDecodeError):
-        return "json_decode", "error", False
+        return "json_decode", normalize_provider_status("error", "json decode"), False
     return exc.__class__.__name__, "error", False
 
 
@@ -87,8 +90,9 @@ def fetch_json_url(
                 payload = json.loads(response.read().decode())
             provider_message = json_provider_message(payload)
             if provider_message:
+                status = normalize_provider_status("error", provider_message)
                 return ProviderFetchResult(
-                    "blocked",
+                    status,
                     payload,
                     provider_message,
                     attempts,
@@ -130,7 +134,7 @@ def fetch_text_url(
                 content_type = response.headers.get("Content-Type", "")
                 status_code = getattr(response, "status", 200)
             if status_code >= 400:
-                status = "blocked" if status_code in {401, 403, 404, 429} else "error"
+                status = normalize_provider_status("error", f"HTTP {status_code}")
                 return ProviderTextResult(status, "", f"HTTP {status_code}", attempts, "http_status", content_type)
             return ProviderTextResult(
                 "ok",

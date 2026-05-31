@@ -1,0 +1,58 @@
+{
+  "metadata": {
+    "report_date": "golden-missing-price",
+    "generated_at": "2026-05-31T09:00:00",
+    "model_version": "golden-fixture-v1",
+    "recommendation_only": true
+  },
+  "summary": {
+    "top_symbol": "ALAB",
+    "top_company": "Astera Labs",
+    "top_action": "Add",
+    "top_score": 79.0,
+    "recommendation_label": "Recommended next buy",
+    "amount_label": "Suggested buy amount",
+    "suggested_amount": 2500.0,
+    "suggested_amount_text": "$2,500.00",
+    "current_price_text": "Needs refresh",
+    "target_text": "$95.00",
+    "upside_text": "n/a",
+    "confidence": "Medium",
+    "data_status": "Needs price",
+    "top_notes": "Golden missing price fixture."
+  },
+  "reliability": {
+    "mode": "Degraded: missing prices",
+    "price_counts": {"fresh": 0, "fallback": 0, "stale": 0, "manual": 0, "missing": 1},
+    "latest_provider_refresh": "fixture"
+  },
+  "recommendations": [
+    {
+      "rank": 1,
+      "symbol": "ALAB",
+      "company": "Astera Labs",
+      "action": "Add",
+      "score": 79.0,
+      "confidence": "Medium",
+      "data_status": "Needs price",
+      "why": "Missing price golden fixture."
+    }
+  ],
+  "holdings": {"headers": [], "rows": []},
+  "queues": {
+    "action_queue": {"headers": ["Rank", "Symbol"], "rows": [[1, "ALAB"]]},
+    "data_gaps": {"headers": ["Rank", "Symbol"], "rows": []},
+    "next_day": {"headers": ["Rank", "Symbol"], "rows": []},
+    "verification": {"headers": ["Rank", "Symbol"], "rows": []}
+  },
+  "decision_briefs": {"headers": ["Symbol", "Type"], "rows": []},
+  "insight_themes": {"headers": [], "rows": []},
+  "score_movement": {"headers": [], "rows": []},
+  "trend_insights": {"headers": [], "rows": []},
+  "data_gaps": {"headers": [], "rows": []},
+  "source_health": {"summary": {"needs_attention": 0, "healthy": 1, "stale": 0, "not_implemented": 0}},
+  "data_ingestion": {"headers": [], "rows": []},
+  "research_sources": {"headers": [], "rows": []},
+  "feedback": {"source_options": [], "recent": []},
+  "artifacts": {}
+}
