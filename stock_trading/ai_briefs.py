@@ -12,6 +12,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from stock_trading.ai_brief_guardrails import validate_ai_brief, validate_ai_briefs
+
 
 BRIEF_VERSION = "ai-briefs-v1.10"
 
@@ -211,6 +213,14 @@ def synthesis_summary(row: dict[str, object]) -> str:
     )
 
 
+def data_gap_summary(queue_row: dict[str, object], blocker_rows: list[dict[str, object]]) -> str:
+    if blocker_rows:
+        return provider_summary(blocker_rows)
+    if queue_row:
+        return queue_summary(queue_row)
+    return "No major data gaps found in the current brief context."
+
+
 def build_ai_insight_briefs(context: dict[str, object], limit: int = 8) -> dict[str, object]:
     metadata = as_dict(context.get("metadata"))
     decisions = sorted(
@@ -241,11 +251,13 @@ def build_ai_insight_briefs(context: dict[str, object], limit: int = 8) -> dict[
         headline = text(row.get("headline") or row.get("Headline") or f"{symbol} needs review.")
         uncertainty = text(row.get("risk_or_uncertainty") or row.get("Risk Or Uncertainty") or provider_summary(blocker_rows))
         next_check = text(row.get("next_check") or row.get("Next Check") or queue_row.get("next_check") or queue_row.get("Command/Next Check"))
+        data_gaps = data_gap_summary(queue_row, blocker_rows)
+        disclaimer = "Recommendation-only decision support; this brief does not place trades or recommend order execution."
         brief = (
             f"{symbol} is {action} at {number_text(score)}/100 and is classified as {insight_type}. "
             f"{headline} {movement_summary(movement)} "
             f"{evidence_summary(evidence_rows)} {synthesis_summary(synthesis_row)} "
-            f"{provider_summary(blocker_rows)} {queue_summary(queue_row)}"
+            f"{provider_summary(blocker_rows)} {queue_summary(queue_row)} {data_gaps} {disclaimer}"
         )
         refs = [
             f"decision_insights:{symbol}",
@@ -256,32 +268,35 @@ def build_ai_insight_briefs(context: dict[str, object], limit: int = 8) -> dict[
             f"verification_queue:{symbol}" if queue_row else "",
             f"provider_blockers:{symbol}" if blocker_rows else "",
         ]
-        briefs.append(
-            {
-                "symbol": symbol,
-                "rank": int(float(row.get("rank") or row.get("Rank") or len(briefs) + 1)),
-                "action": action,
-                "score": float(score) if str(score).replace(".", "", 1).replace("-", "", 1).isdigit() else score,
-                "insight_type": insight_type,
-                "headline": headline,
-                "brief": brief,
-                "why_it_matters": text(row.get("why_it_matters") or row.get("Why It Matters")),
-                "supporting_data": [
-                    text(row.get("supporting_data") or row.get("Supporting Data")),
-                    movement_summary(movement),
-                    evidence_summary(evidence_rows),
-                    synthesis_summary(synthesis_row),
-                    text(trend.get("Trend Insight") or ""),
-                ],
-                "evidence_events": evidence_rows[:3],
-                "synthesis_readiness": synthesis_row,
-                "risk_or_uncertainty": uncertainty,
-                "next_check": next_check,
-                "what_would_change_the_view": text(row.get("what_would_change_the_view") or row.get("What Would Change The View")),
-                "audit_refs": [ref for ref in refs if ref],
-            }
-        )
+        brief_row = {
+            "symbol": symbol,
+            "rank": int(float(row.get("rank") or row.get("Rank") or len(briefs) + 1)),
+            "action": action,
+            "score": float(score) if str(score).replace(".", "", 1).replace("-", "", 1).isdigit() else score,
+            "insight_type": insight_type,
+            "headline": headline,
+            "brief": brief,
+            "why_it_matters": text(row.get("why_it_matters") or row.get("Why It Matters")),
+            "supporting_data": [
+                text(row.get("supporting_data") or row.get("Supporting Data")),
+                movement_summary(movement),
+                evidence_summary(evidence_rows),
+                synthesis_summary(synthesis_row),
+                text(trend.get("Trend Insight") or ""),
+            ],
+            "evidence_events": evidence_rows[:3],
+            "synthesis_readiness": synthesis_row,
+            "risk_or_uncertainty": uncertainty,
+            "data_gaps": data_gaps,
+            "recommendation_only_disclaimer": disclaimer,
+            "next_check": next_check,
+            "what_would_change_the_view": text(row.get("what_would_change_the_view") or row.get("What Would Change The View")),
+            "audit_refs": [ref for ref in refs if ref],
+        }
+        brief_row["guardrails"] = validate_ai_brief(brief_row).to_dict()
+        briefs.append(brief_row)
 
+    guardrail_summary = validate_ai_briefs(briefs)
     return {
         "metadata": {
             "report_date": metadata.get("report_date", ""),
@@ -289,6 +304,11 @@ def build_ai_insight_briefs(context: dict[str, object], limit: int = 8) -> dict[
             "brief_version": BRIEF_VERSION,
             "llm_generated": False,
             "source_context": as_dict(context.get("artifacts")).get("context") or metadata.get("purpose", "report_context"),
+            "guardrails": {
+                key: value
+                for key, value in guardrail_summary.items()
+                if key != "results"
+            },
         },
         "briefs": briefs,
     }
@@ -311,8 +331,11 @@ def render_ai_briefs_markdown(brief_context: dict[str, object]) -> str:
                 "",
                 f"- Why it matters: {brief.get('why_it_matters', '')}",
                 f"- Risk or uncertainty: {brief.get('risk_or_uncertainty', '')}",
+                f"- Data gaps: {brief.get('data_gaps', '')}",
                 f"- Next check: `{brief.get('next_check', '')}`",
                 f"- What would change the view: {brief.get('what_would_change_the_view', '')}",
+                f"- Guardrails: {as_dict(brief.get('guardrails')).get('recommended_action', 'n/a')}",
+                f"- Recommendation-only: {brief.get('recommendation_only_disclaimer', '')}",
                 f"- Audit refs: {', '.join(text(ref) for ref in as_list(brief.get('audit_refs')))}",
                 "",
             ]
@@ -330,7 +353,10 @@ def render_ai_briefs_html(brief_context: dict[str, object]) -> str:
             f"<h2>{html.escape(text(brief.get('symbol')))} - {html.escape(text(brief.get('insight_type')))}</h2>"
             f"<p>{html.escape(text(brief.get('brief')))}</p>"
             f"<p><strong>Risk:</strong> {html.escape(text(brief.get('risk_or_uncertainty')))}</p>"
+            f"<p><strong>Data gaps:</strong> {html.escape(text(brief.get('data_gaps')))}</p>"
             f"<p><strong>Next check:</strong> {html.escape(text(brief.get('next_check')))}</p>"
+            f"<p><strong>Guardrails:</strong> {html.escape(text(as_dict(brief.get('guardrails')).get('recommended_action'), 'n/a'))}</p>"
+            f"<p><strong>Recommendation-only:</strong> {html.escape(text(brief.get('recommendation_only_disclaimer')))}</p>"
             f"<p><strong>Audit refs:</strong> {html.escape(refs)}</p>"
             "</section>"
         )
