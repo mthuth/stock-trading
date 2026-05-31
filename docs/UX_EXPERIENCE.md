@@ -56,13 +56,14 @@ Expected flow:
 
 1. Read the top recommendation summary.
 2. Confirm the Daily Decision Review for decision safety, score explainability, target confidence, and provider-gap context.
-3. Scan Product Review Path to understand which sections are decision-bearing, explanatory, review-only, or Wave 7 prep.
-4. Review the Pre-Market Readiness checklist for price data, target trust, source health, holdings context, and feedback review.
-5. Open the Action Queue.
-6. Hover or focus the action label for quick rationale.
-7. Click the row for score explanation, target sources, research brief, and evidence.
-8. Check Data Gaps, Health & Trends, or Data Reliability Review if confidence is low, target range is wide, or the source health count is elevated.
-9. Record Agree, Disagree, or Too Risky feedback.
+3. Review Long-Term Capital Deployment to answer what to buy/add today for long-term holdings, including deployable amount, safety blockers, fallback, or held capacity.
+4. Scan Product Review Path to understand which sections are decision-bearing, explanatory, or review-only.
+5. Review the Pre-Market Readiness checklist for price data, target trust, source health, holdings context, and feedback review.
+6. Open the Action Queue.
+7. Hover or focus the action label for quick rationale.
+8. Click the row for score explanation, target sources, research brief, and evidence.
+9. Check Data Gaps, Health & Trends, or Data Reliability Review if confidence is low, target range is wide, or the source health count is elevated.
+10. Record Agree, Disagree, or Too Risky feedback.
 
 Success criteria:
 
@@ -171,7 +172,21 @@ Required content:
 - Decision safety and target confidence are explicitly connected to the recommendation.
 - Provider and data reliability are visible before deeper audit tabs.
 - AI synthesis is marked explanatory with no recommendation impact.
-- Learning review and Wave 7 capital deployment prep are marked review-only or prep-only.
+- Learning review is marked review-only and stays secondary to the current decision.
+
+### Long-Term Capital Deployment Review
+
+Purpose: answer the Wave 7 daily question, "What should I buy/add today for long-term holdings?"
+
+Required content:
+
+- Primary long-term add candidate with decision-safety status and target confidence.
+- Suggested/deployable amount and capital availability source/status/as-of date.
+- Key rationale and blockers.
+- Fallback add candidate when the top candidate is blocked.
+- Hold-capacity message when no decision-safe add exists or capital availability is missing.
+- Long-term holding health summary when available.
+- Clear review-only and recommendation-only wording; no official recommendation, score, target, gate, allocation, or execution behavior changes.
 
 ### Recommendations
 
@@ -234,18 +249,6 @@ Required content:
 - Catalyst follow-through review status.
 - Source usefulness and noise review status.
 - Clear review-only wording: no score, target, action, gate, allocation, or broker impact.
-
-### Wave 7 Capital Deployment Prep
-
-Purpose: prepare the future capital deployment workflow before any broker expansion.
-
-Required content:
-
-- Current suggested amount or buy-capacity label when available.
-- Holdings and allocation context used by the current recommendation.
-- Missing manual/configured cash and as-of-date inputs.
-- Monthly buy-capacity separation from per-symbol suggested amount.
-- Explicit no order previews, no broker writes, and no automated trading wording.
 
 ### Research Sources
 
@@ -344,14 +347,14 @@ Requirements:
 Already present:
 
 - Dashboard tabs for Recommendations, Current Holdings, Health & Trends, Data Ingestion, Learning Review, Research Sources, and Feedback.
-- Product Review Path keeps the current decision, reliability checks, explanatory AI synthesis, review-only learning, and Wave 7 prep in one hierarchy.
+- Product Review Path keeps the current decision, reliability checks, explanatory AI synthesis, and review-only learning in one hierarchy.
+- Long-Term Capital Deployment Review sits directly after the current decision surface with primary add, fallback, deployable amount, capital source/status, blockers, and holding-health summary.
 - Recommendation subtabs for Action Queue, Long-Term Queue, Short-Term Queue, Next-Day Watchlist, Speculative AI Watchlist, and Data Gaps.
 - Header summary and recommendation tables expose target confidence and data status before drilldown.
 - Daily Decision Review keeps decision safety and target confidence near the recommendation before operational audit sections.
 - Data Reliability Review keeps provider/data health visible but collapsed into summary cards and details.
 - Explanatory Decision Briefs make AI synthesis context visible without implying a recommendation impact.
 - Learning Review marks manual journal, outcomes, catalyst follow-through, and source usefulness as review-only.
-- Wave 7 Capital Deployment Prep shows the capital-availability inputs still needed before broker expansion.
 - Pre-Market Readiness checklist exposes advisory checks for price data, target trust, source health, holdings context, feedback review, and next-day setup above the Action Queue.
 - Top next-day watch preview appears inside Pre-Market Readiness with a direct jump to the Next-Day Watchlist.
 - Compact print/PDF review mode keeps Pre-Market Readiness, Action Queue, Data Gaps, and Next-Day Watchlist usable as a browser-exported phone review.
@@ -367,12 +370,12 @@ Already present:
 Primary UX gaps:
 
 - Target confidence still needs to carry through CSV and end-of-day Markdown summaries.
-- Wave 7 still needs an explicit capital-availability source: manual/configured cash, monthly buy capacity, and as-of date.
+- Wave 7 capital availability still needs ongoing operator hygiene so manual/configured cash, monthly buy capacity, and as-of date stay current.
 
 ## Near-Term UX Backlog
 
 1. Add target confidence to CSV and end-of-day Markdown summaries.
-2. Define the Wave 7 capital availability schema before adding broker read paths.
+2. Add a freshness review habit for manual/configured capital availability before any future read-only broker expansion.
 
 ## Acceptance Criteria
 
