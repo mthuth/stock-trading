@@ -22,11 +22,19 @@ The product must not place trades, preview trade orders, or imply guaranteed per
 Start with these files before changing behavior:
 
 - `REQUIREMENTS.md`: product contract, recommendation labels, scoring model, target methodology, and recommendation-only constraints.
+- `docs/PRODUCT_STRATEGY.md`: product north star, portfolio strategy, risk posture, AI role, broker policy, and local app direction.
+- `docs/ROADMAP_STATUS.md`: completed waves, active integration needs, deferred decisions, and next recommended work.
+- `docs/DECISION_MODES.md`: decision modes, horizons, sleeves, and mode-specific guardrails.
+- `docs/MODEL_LEARNING_STRATEGY.md`: prediction records, outcome evaluation, model trust, source usefulness, and model-promotion rules.
+- `docs/LOCAL_APP_STRATEGY.md`: local decision console stages, event/signal architecture, and broker-read-only boundaries.
+- `docs/REQUIREMENTS_ROADMAP.md`: current roadmap, waves, ownership lanes, and merge/review guidance.
 - `docs/UX_EXPERIENCE.md`: dashboard journey, UX priorities, confidence display, feedback flow, and recommendation-only wording.
 - `pyproject.toml`: project metadata and canonical command hints.
 - `scripts/check_quality.py`: local quality gate used by this repo.
 - `tests/test_package_boundaries.py`: package-boundary contract.
 - `config/portfolio_targets.json`: allocation caps, target-blending config, speculative-AI rules, and model tuning knobs.
+
+Before starting new feature work, check `docs/ROADMAP_STATUS.md` for completed waves, active integration needs, and deferred product decisions.
 
 When touching a specific area, also read:
 
