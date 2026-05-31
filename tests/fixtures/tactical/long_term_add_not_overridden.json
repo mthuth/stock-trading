@@ -1,0 +1,76 @@
+{
+  "scenario_id": "long_term_add_not_overridden",
+  "scenario_label": "Long-term add should not be overridden",
+  "decision_mode": "tactical_trade",
+  "recommendation_only": true,
+  "review_only": true,
+  "symbol": "MSFT",
+  "company": "Microsoft",
+  "scope": "owned",
+  "sleeve": "long_term_core",
+  "tactical_horizon": "1_to_5_days",
+  "setup_type": "avoid_or_wait",
+  "setup": {
+    "status": "mixed",
+    "thesis": "Long-term add remains intact, but tactical setup is mixed and should not override capital deployment context.",
+    "evidence": ["long_term_add_ready", "short_term_momentum_mixed"],
+    "confidence": "low",
+    "prior_setup_outcome": "not_enough_history"
+  },
+  "current_recommendation": {
+    "action": "Add",
+    "decision_gate_status": "Ready",
+    "safe_to_buy": true,
+    "official_recommendation_impact": "none_review_only"
+  },
+  "tactical_review": {
+    "review_action": "hold_existing",
+    "review_label": "Hold existing",
+    "reason": "Tactical metadata should not override the long-term Add or allocation decision surface.",
+    "long_term_override": false
+  },
+  "risk_zone": {
+    "risk_level": "moderate",
+    "review_zone": "long_term_boundary_review",
+    "downside_reference": "short_term_support",
+    "upside_reference": "long_term_thesis_review",
+    "volatility_context": "normal",
+    "liquidity_context": "normal",
+    "position_context": "owned_core_position",
+    "notes": ["Review tactical context separately from long-term add."]
+  },
+  "invalidation": {
+    "invalidates_if": ["short_term_support_breaks"],
+    "confirmation_needed": ["separate_long_term_review_if_needed"],
+    "time_stop": "1_to_5_days",
+    "data_gaps": []
+  },
+  "provider_data": {
+    "price_history": "available",
+    "technical_evidence": "partial",
+    "news_catalyst": "none",
+    "earnings_context": "not_in_window",
+    "provider_gaps": []
+  },
+  "ai_context": {
+    "status": "explanatory_ready",
+    "may_change_official_recommendation": false
+  },
+  "expected_behavior": {
+    "queue_status": "hold_existing",
+    "scenario_assertions": ["long_term_add_not_overridden", "tactical_metadata_separate", "official_recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_broker_write": true,
+    "no_order_preview": true,
+    "no_short_selling_execution": true,
+    "no_margin_account_logic": true,
+    "no_real_time_trading_console": true,
+    "no_automatic_score_target_decision_safety_changes": true,
+    "no_automatic_model_tuning": true,
+    "no_automatic_source_weight_changes": true,
+    "no_broker_credential_requirement": true,
+    "no_long_term_override": true
+  }
+}
