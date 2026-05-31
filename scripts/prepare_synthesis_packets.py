@@ -17,18 +17,11 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from stock_trading import storage  # noqa: E402
-
-
-HIGH_IMPACT_TYPES = {
-    "earnings_guidance",
-    "filing_disclosure",
-    "product_launch",
-    "ai_platform_update",
-    "infrastructure_capacity",
-    "security_risk",
-    "analyst_target",
-}
-READY_LABELS = {"primary_plus_confirmed", "independent_confirmed", "multi_source_confirmed"}
+from stock_trading.ai_synthesis_readiness import (  # noqa: E402
+    HIGH_IMPACT_TYPES,
+    classify_event_review,
+    evaluate_synthesis_readiness,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -45,48 +38,8 @@ def clean(value: object) -> str:
 
 
 def review_status(row: sqlite3.Row) -> tuple[str, str, str]:
-    label = clean(row["corroboration_label"])
-    confidence = clean(row["confidence"])
-    event_type = clean(row["event_type"])
-    source_count = int(row["source_count"] or 0)
-    primary_count = int(row["primary_source_count"] or 0)
-    opinion_count = int(row["opinion_source_count"] or 0)
-
-    if label in READY_LABELS and confidence in {"high", "medium_high", "medium"}:
-        return (
-            "ready_for_synthesis",
-            "Corroborated event has enough source breadth for deterministic synthesis input.",
-            "Use in synthesis packet.",
-        )
-    if primary_count > 0 and event_type in HIGH_IMPACT_TYPES:
-        return (
-            "ready_for_synthesis",
-            "High-impact primary-source event deserves synthesis even before independent confirmation.",
-            "Use with primary-source framing.",
-        )
-    if label == "company_only":
-        return (
-            "needs_corroboration",
-            "Company-framed event should be checked against independent coverage before strong synthesis claims.",
-            "Look for independent confirmation.",
-        )
-    if label == "single_source" and event_type in HIGH_IMPACT_TYPES:
-        return (
-            "needs_review",
-            "High-impact event has only one source; review before synthesis emphasis.",
-            "Verify with another source or primary document.",
-        )
-    if opinion_count > 0 and source_count <= 1:
-        return (
-            "ignore_for_now",
-            "Opinion/context-only event has weak corroboration.",
-            "Keep visible but exclude from synthesis packet.",
-        )
-    return (
-        "needs_review",
-        "Event needs review before future AI synthesis.",
-        "Inspect source members and corroboration.",
-    )
+    review = classify_event_review(row)
+    return review.status, review.reason, review.action
 
 
 def priority(status: str, row: sqlite3.Row) -> int:
@@ -118,6 +71,72 @@ def load_clusters() -> list[sqlite3.Row]:
     return rows
 
 
+def load_provider_gaps() -> list[dict[str, object]]:
+    return [dict(row) for row in storage.latest_provider_gaps()]
+
+
+def load_verification_queue_rows() -> list[dict[str, object]]:
+    return [dict(row) for row in storage.latest_verification_queue(limit=100)]
+
+
+def load_latest_recommendation_facts() -> dict[str, dict[str, object]]:
+    if not storage.DB_FILE.exists():
+        return {}
+    conn = storage.init_db()
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        """
+        SELECT s.symbol, s.action, s.target_confidence, s.data_status
+        FROM recommendation_scores s
+        JOIN (
+            SELECT symbol, MAX(run_id) AS latest_run_id
+            FROM recommendation_scores
+            GROUP BY symbol
+        ) latest
+          ON latest.symbol = s.symbol
+         AND latest.latest_run_id = s.run_id
+        """
+    ).fetchall()
+    conn.close()
+    return {clean(row["symbol"]).upper(): dict(row) for row in rows}
+
+
+def load_source_health_by_symbol() -> dict[str, list[dict[str, object]]]:
+    if not storage.DB_FILE.exists():
+        return {}
+    conn = storage.init_db()
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        """
+        SELECT c.symbol, q.source_name, q.quality_label, q.latest_issue, q.latest_evidence_at
+        FROM evidence_event_clusters c
+        JOIN evidence_event_members m
+          ON m.cluster_id = c.id
+        JOIN source_quality_metrics q
+          ON q.source_name = m.source_name
+        JOIN (
+            SELECT source_name, MAX(metric_date) AS latest_metric_date
+            FROM source_quality_metrics
+            GROUP BY source_name
+        ) latest
+          ON latest.source_name = q.source_name
+         AND latest.latest_metric_date = q.metric_date
+        """
+    ).fetchall()
+    conn.close()
+    grouped: dict[str, list[dict[str, object]]] = defaultdict(list)
+    seen: set[tuple[str, str]] = set()
+    for row in rows:
+        symbol = clean(row["symbol"]).upper()
+        source_name = clean(row["source_name"])
+        key = (symbol, source_name)
+        if not symbol or not source_name or key in seen:
+            continue
+        grouped[symbol].append(dict(row))
+        seen.add(key)
+    return grouped
+
+
 def build_review_rows(clusters: list[sqlite3.Row]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for cluster in clusters:
@@ -146,6 +165,7 @@ def build_review_rows(clusters: list[sqlite3.Row]) -> list[dict[str, Any]]:
 
 
 def readiness_status(counts: dict[str, int]) -> tuple[str, float, str]:
+    """Backward-compatible coarse readiness fallback for older call sites."""
     ready = counts.get("ready_for_synthesis", 0)
     needs_review = counts.get("needs_review", 0)
     needs_corroboration = counts.get("needs_corroboration", 0)
@@ -161,14 +181,33 @@ def readiness_status(counts: dict[str, int]) -> tuple[str, float, str]:
     return "not_enough_data", score, "No meaningful event clusters are available."
 
 
+def rows_by_symbol(rows: list[dict[str, object]]) -> dict[str, list[dict[str, object]]]:
+    grouped: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for row in rows:
+        symbol = clean(row.get("symbol") or row.get("Symbol")).upper()
+        if symbol:
+            grouped[symbol].append(row)
+    return grouped
+
+
 def build_packets(
     clusters: list[sqlite3.Row],
     review_rows: list[dict[str, Any]],
     report_date: str,
     output_dir: Path,
     limit_per_symbol: int,
+    provider_gaps: list[dict[str, object]] | None = None,
+    recommendation_facts: dict[str, dict[str, object]] | None = None,
+    verification_queue: list[dict[str, object]] | None = None,
+    source_health_by_symbol: dict[str, list[dict[str, object]]] | None = None,
+    decision_safety_by_symbol: dict[str, dict[str, object]] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any], Path]:
     review_by_key = {row["event_key"]: row for row in review_rows}
+    provider_gaps_by_symbol = rows_by_symbol(provider_gaps or [])
+    verification_by_symbol = rows_by_symbol(verification_queue or [])
+    recommendation_facts = recommendation_facts or {}
+    source_health_by_symbol = source_health_by_symbol or {}
+    decision_safety_by_symbol = decision_safety_by_symbol or {}
     grouped: dict[str, list[sqlite3.Row]] = defaultdict(list)
     for cluster in clusters:
         grouped[clean(cluster["symbol"]).upper()].append(cluster)
@@ -179,6 +218,15 @@ def build_packets(
             "generated_at": datetime.utcnow().isoformat(timespec="seconds"),
             "llm_generated": False,
             "purpose": "deterministic_synthesis_packets",
+            "readiness_statuses": [
+                "ready_for_ai_synthesis",
+                "partially_ready",
+                "needs_review",
+                "needs_corroboration",
+                "not_enough_data",
+                "blocked_by_provider_gap",
+                "ignore_for_now",
+            ],
         },
         "symbols": {},
     }
@@ -223,19 +271,35 @@ def build_packets(
             )
             if len(usable_events) >= limit_per_symbol:
                 break
-        status, score, notes = readiness_status(review_counts)
+        facts = recommendation_facts.get(symbol, {})
+        readiness_context = {
+            "provider_gaps": provider_gaps_by_symbol.get(symbol, []),
+            "verification_queue": verification_by_symbol.get(symbol, []),
+            "source_health": source_health_by_symbol.get(symbol, []),
+            "target_confidence": facts.get("target_confidence", ""),
+            "decision_safety": decision_safety_by_symbol.get(symbol, {}),
+        }
+        readiness = evaluate_synthesis_readiness(
+            symbol,
+            symbol_clusters,
+            review_counts,
+            readiness_context,
+            report_date=report_date,
+        )
         packets["symbols"][symbol] = {
-            "readiness_status": status,
-            "readiness_score": score,
-            "notes": notes,
+            "readiness_status": readiness.status,
+            "readiness_score": readiness.score,
+            "eligible_for_ai_synthesis": readiness.eligible_for_ai_synthesis,
+            "reason_codes": readiness.reason_codes,
+            "notes": readiness.summary,
             "events": usable_events,
             "review_counts": dict(review_counts),
         }
         readiness_rows.append(
             {
                 "symbol": symbol,
-                "readiness_status": status,
-                "readiness_score": score,
+                "readiness_status": readiness.status,
+                "readiness_score": readiness.score,
                 "ready_events": int(review_counts.get("ready_for_synthesis", 0)),
                 "needs_review_events": int(review_counts.get("needs_review", 0)),
                 "needs_corroboration_events": int(review_counts.get("needs_corroboration", 0)),
@@ -244,7 +308,7 @@ def build_packets(
                 "independent_confirmed_events": independent_confirmed_events,
                 "latest_event_at": latest_event,
                 "packet_ref": packet_path.name,
-                "notes": notes,
+                "notes": readiness.summary,
             }
         )
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -263,6 +327,10 @@ def main() -> int:
         args.report_date,
         output_dir,
         args.limit_per_symbol,
+        provider_gaps=load_provider_gaps(),
+        recommendation_facts=load_latest_recommendation_facts(),
+        verification_queue=load_verification_queue_rows(),
+        source_health_by_symbol=load_source_health_by_symbol(),
     )
     stored_review = storage.record_evidence_review_queue(review_rows, rebuild=args.rebuild)
     stored_readiness = storage.record_synthesis_readiness(readiness_rows, rebuild=args.rebuild)

@@ -51,6 +51,7 @@ class PackageBoundaryTests(unittest.TestCase):
             "stock_trading.analysis_scoring",
             "stock_trading.analysis_snapshot",
             "stock_trading.analysis_targets",
+            "stock_trading.ai_synthesis_readiness",
             "stock_trading.presentation",
             "stock_trading.reporting.renderers",
             "stock_trading.storage",
@@ -115,6 +116,7 @@ class PackageBoundaryTests(unittest.TestCase):
             "stock_trading/analysis_scoring.py",
             "stock_trading/analysis_snapshot.py",
             "stock_trading/analysis_targets.py",
+            "stock_trading/ai_synthesis_readiness.py",
         ):
             assert_no_imports(
                 self,
