@@ -1,0 +1,18 @@
+[
+  {
+    "symbol": "MSFT",
+    "report_date": "2026-05-01",
+    "window_trading_days": 5,
+    "percent_change": 8.0,
+    "outcome_status": "positive_follow_through",
+    "review_only": true
+  },
+  {
+    "symbol": "AMD",
+    "setup_date": "2026-05-01",
+    "window_trading_days": 5,
+    "percent_change": 3.0,
+    "outcome_status": "positive_follow_through",
+    "review_only": true
+  }
+]
