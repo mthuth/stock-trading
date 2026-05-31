@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from stock_trading import storage  # noqa: E402
+from stock_trading.ai_prompt_packets import build_prompt_packet_context  # noqa: E402
 
 
 HIGH_IMPACT_TYPES = {
@@ -37,6 +38,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default=str(storage.REPORTS_DIR), help="Directory for synthesis packet JSON.")
     parser.add_argument("--report-date", default=datetime.utcnow().date().isoformat(), help="Report date for packet filename.")
     parser.add_argument("--limit-per-symbol", type=int, default=12, help="Maximum events per symbol packet.")
+    parser.add_argument("--prompt-context", help="Optional report-context JSON used to export AI prompt packets.")
+    parser.add_argument("--prompt-output", help="Optional path for AI prompt packet JSON output.")
     return parser.parse_args()
 
 
@@ -252,6 +255,14 @@ def build_packets(
     return readiness_rows, packets, packet_path
 
 
+def export_prompt_packets(report_context_path: Path, output_path: Path, limit: int) -> dict[str, Any]:
+    context = json.loads(report_context_path.read_text())
+    packets = build_prompt_packet_context(context, limit=limit)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(packets, indent=2, sort_keys=True))
+    return packets
+
+
 def main() -> int:
     args = parse_args()
     output_dir = Path(args.output_dir)
@@ -279,9 +290,14 @@ def main() -> int:
             "symbols": sorted(packets.get("symbols", {}).keys()),
         },
     )
+    prompt_path = None
+    if args.prompt_context:
+        prompt_path = Path(args.prompt_output) if args.prompt_output else output_dir / f"ai-prompt-packets-{args.report_date}.json"
+        export_prompt_packets(Path(args.prompt_context), prompt_path, args.limit_per_symbol)
     print(
         "Synthesis readiness complete: "
         f"review={len(review_rows)} readiness={len(readiness_rows)} packet={packet_path}"
+        + (f" prompt_packet={prompt_path}" if prompt_path else "")
     )
     return 0
 
