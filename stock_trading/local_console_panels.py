@@ -79,6 +79,31 @@ def build_capital_deployment_panel(context: dict[str, object]) -> dict[str, obje
     }
 
 
+def build_broker_readonly_panel(context: dict[str, object]) -> dict[str, object]:
+    broker = as_dict(context.get("broker_readonly"))
+    positions = as_dict(broker.get("positions_summary"))
+    fallback = as_dict(broker.get("manual_config_fallback"))
+    warnings = as_list(broker.get("warnings"))
+    return {
+        "title": "Broker Read-Only Context",
+        "status": text(broker.get("snapshot_status"), "missing"),
+        "items": [
+            {"label": "Source", "value": text(broker.get("source"), "manual_config_fallback")},
+            {"label": "As of", "value": text(broker.get("as_of"), "n/a")},
+            {"label": "Accounts", "value": text(broker.get("account_count"), "0")},
+            {"label": "Cash available", "value": text(broker.get("cash_available_text"), "n/a")},
+            {"label": "Positions", "value": text(positions.get("position_count"), "0")},
+            {"label": "Fallback", "value": "Used" if fallback.get("fallback_used", True) else "Not used"},
+            {"label": "Write capability", "value": "Disabled"},
+            {"label": "Warnings", "value": len(warnings)},
+        ],
+        "note": text(
+            broker.get("note"),
+            "Read-only broker context supports manual capital and exposure review; official recommendations stay unchanged.",
+        ),
+    }
+
+
 def build_earnings_panel(context: dict[str, object]) -> dict[str, object]:
     earnings = as_dict(context.get("earnings_review"))
     upcoming = as_dict(earnings.get("upcoming_earnings_queue"))
@@ -340,6 +365,7 @@ def build_console_panels(
     return {
         "latest_recommendation": build_latest_recommendation_panel(report_context),
         "capital_deployment": build_capital_deployment_panel(report_context),
+        "broker_readonly": build_broker_readonly_panel(report_context),
         "earnings_review": build_earnings_panel(report_context),
         "tactical_review": build_tactical_panel(report_context),
         "provider_reliability": build_reliability_panel(report_context),
