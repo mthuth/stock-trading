@@ -83,6 +83,12 @@ Import a local/manual broker snapshot without live broker calls:
 python3 scripts/import_broker_snapshot.py --input tests/fixtures/broker_readonly/sample_snapshot.json --output reports/broker-readonly-snapshot.json
 ```
 
+Generate docs-only data maintenance work requests from local gap artifacts:
+
+```bash
+python3 scripts/generate_data_maintenance_backlog.py --output-dir docs/
+```
+
 Generate analysis without persisting or rendering context:
 
 ```bash
