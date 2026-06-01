@@ -16,6 +16,7 @@ from stock_trading.reporting.alerts import build_alerts_review_view
 from stock_trading.reporting.broker_readonly import build_broker_readonly_view
 from stock_trading.reporting.capital_deployment import build_long_term_capital_deployment_view
 from stock_trading.reporting.data_reliability import build_data_reliability_review
+from stock_trading.reporting.decision_quality import build_decision_quality_view
 from stock_trading.reporting.earnings_review import build_earnings_review_view
 from stock_trading.reporting.model_competition import build_multi_model_competition_view
 from stock_trading.reporting.model_evaluation import build_model_evaluation_view
@@ -47,6 +48,7 @@ REQUIRED_CONTEXT_SECTIONS = (
     "research_sources",
     "feedback",
     "learning_review",
+    "decision_quality",
     "long_term_capital_deployment",
     "broker_readonly",
     "earnings_review",
@@ -57,6 +59,7 @@ REQUIRED_CONTEXT_SECTIONS = (
     "artifacts",
 )
 REPORT_SECTION_LABELS = (
+    "Decision Quality Review",
     "Long-Term Capital Deployment Review",
     "Broker Read-Only Context",
     "Earnings Review",
@@ -707,6 +710,41 @@ def render_daily_decision_review(context: dict[str, object]) -> str:
     )
 
 
+def render_decision_quality(context: dict[str, object]) -> str:
+    review = build_decision_quality_view(context)
+    gate_items = "".join(
+        f"<li>{html.escape(text(item))}</li>" for item in as_list(review.get("decision_gate_explanations"))
+    )
+    gate_html = f"<ul>{gate_items}</ul>" if gate_items else "<p>No decision-gate explanation rows available yet.</p>"
+    return (
+        '<section class="decision-quality-review">'
+        '<div class="section-title"><h2>Decision Quality Review</h2>'
+        '<span class="section-note">Top 5 ranked opportunities; recommendation-only daily clarity</span></div>'
+        f'<p class="section-note">{html.escape(text(review.get("note")))}</p>'
+        '<section><h3>Top 5 Ranked Opportunities Today</h3>'
+        f'{render_review_table(as_dict(review.get("top5")))}</section>'
+        '<div class="table-pair">'
+        '<section><h3>Plain-English Decision Gate</h3>'
+        f"{gate_html}</section>"
+        '<section><h3>Holdings / Capital Freshness</h3>'
+        f'{render_review_table(as_dict(review.get("holdings_freshness")))}</section>'
+        "</div>"
+        '<div class="table-pair">'
+        '<section><h3>Score Driver Glossary</h3>'
+        f'{render_review_table(as_dict(review.get("glossary")))}</section>'
+        '<section><h3>Data Maintenance Work Requests</h3>'
+        f'{render_review_table(as_dict(review.get("data_maintenance")))}</section>'
+        "</div>"
+        '<div class="table-pair">'
+        '<section><h3>Model / User Disagreement Learning</h3>'
+        f'{render_review_table(as_dict(review.get("model_user_disagreement")))}</section>'
+        '<section><h3>Queue Drilldowns</h3>'
+        f'{render_review_table(as_dict(review.get("queue_refinement")))}</section>'
+        "</div>"
+        "</section>"
+    )
+
+
 def decision_safety_markdown_lines(summary: dict[str, Any]) -> list[str]:
     review = safety_review.decision_safety_review(summary)
     return [
@@ -737,6 +775,41 @@ def daily_decision_review_markdown_lines(context: dict[str, object]) -> list[str
         f"- Provider gap review: {provider_gap_review_text(context, summary)}",
         "",
     ]
+
+
+def decision_quality_markdown_lines(context: dict[str, object]) -> list[str]:
+    review = build_decision_quality_view(context)
+    lines = [
+        "## Decision Quality Review",
+        "",
+        text(
+            review.get("note"),
+            "Decision-quality review is recommendation-only and does not change official recommendations.",
+        ),
+        "",
+    ]
+    append_table_section(lines, "Top 5 Ranked Opportunities Today", as_dict(review.get("top5")), "No top opportunity rows available.")
+    append_table_section(lines, "Score Driver Glossary", as_dict(review.get("glossary")), "No score glossary rows available.")
+    append_table_section(
+        lines,
+        "Data Maintenance Work Requests",
+        as_dict(review.get("data_maintenance")),
+        "No data maintenance requests available.",
+    )
+    append_table_section(
+        lines,
+        "Model / User Disagreement Learning",
+        as_dict(review.get("model_user_disagreement")),
+        "No model/user disagreement rows available.",
+    )
+    append_table_section(lines, "Queue Drilldowns", as_dict(review.get("queue_refinement")), "No queue drilldown rows available.")
+    append_table_section(
+        lines,
+        "Holdings Freshness",
+        as_dict(review.get("holdings_freshness")),
+        "No holdings freshness rows available.",
+    )
+    return lines
 
 
 def render_data_reliability_review(context: dict[str, object]) -> str:
@@ -1800,6 +1873,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
       <div class="metric"><span class="label">Source Health</span><strong>{html.escape(text(source_summary.get("needs_attention"), "0"))}</strong><div class="thesis">{html.escape(text(source_summary.get("healthy"), "0"))} healthy · {html.escape(text(source_summary.get("stale"), "0"))} stale · {html.escape(text(source_summary.get("not_implemented"), "0"))} not implemented</div></div>
     </div>
 
+    {render_decision_quality(context)}
     {render_daily_decision_review(context)}
     {render_long_term_capital_deployment(context)}
     {render_broker_readonly(context)}
@@ -2042,6 +2116,7 @@ def render_print_review(context: dict[str, object]) -> str:
         <div class="section-note">Generated {html.escape(generated_at)} · Report {html.escape(report_date)} · Recommendation-only · No automated trading</div>
       </section>
       {render_print_summary(context)}
+      {render_decision_quality(context)}
       {render_daily_decision_review(context)}
       {render_long_term_capital_deployment(context)}
       {render_broker_readonly(context)}
@@ -2353,7 +2428,9 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
         "watchlist": f"Next-Day Watchlist - {metadata.get('report_date', 'n/a')}",
     }
     coherence_lines = data_reliability_review_markdown_lines(context)
+    decision_quality_lines: list[str] = []
     if kind in {"daily", "end_of_day"}:
+        decision_quality_lines = decision_quality_markdown_lines(context)
         coherence_lines = [
             *long_term_capital_deployment_markdown_lines(context),
             *broker_readonly_markdown_lines(context),
@@ -2390,6 +2467,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
         f"- Report reliability: **{reliability.get('mode', 'n/a')}**",
         f"- Latest successful provider refresh: **{reliability.get('latest_provider_refresh', 'n/a')}**",
         "",
+        *decision_quality_lines,
         *daily_decision_review_markdown_lines(context),
         *decision_safety_markdown_lines(summary),
         *coherence_lines,

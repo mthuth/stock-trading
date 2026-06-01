@@ -8139,6 +8139,175 @@ def run_analysis(
         provider_gap_rows=[row for row in provider_gap_rows if isinstance(row, dict)],
         as_of_date=report_date,
     )
+    core_mega_cap_symbols = {"AAPL", "AMZN", "AVGO", "GOOG", "GOOGL", "META", "MSFT", "NVDA", "ORCL"}
+
+    def decision_quality_plain_blocker(reason: object) -> str:
+        raw = str(reason or "")
+        lowered = raw.lower()
+        if not raw:
+            return ""
+        if "watch action is not a buy action" in lowered:
+            return "The model is saying Watch, so buy/add capacity stays held until the official action clears the buy/add gate."
+        if "verification" in lowered and "open" in lowered:
+            return "A verification check is still open, so the candidate is not decision-safe yet."
+        if "low target confidence" in lowered:
+            return "Target support is thin or uncertain, so suggested amount stays blocked until confidence improves."
+        if "wide target range" in lowered:
+            return "Target estimates are spread too widely, so the app is avoiding false precision."
+        if "partial target blend" in lowered:
+            return "Only part of the target blend is available, so this is a confidence blocker."
+        if "needs price" in lowered or "missing price" in lowered:
+            return "Current price is missing, so upside and sizing are reliability-blocked rather than bearish."
+        if "provider" in lowered or "missing" in lowered or "stale" in lowered:
+            return "Provider data is missing or stale, which is a reliability blocker rather than a negative thesis."
+        return raw
+
+    def decision_quality_lane(rec: Dict[str, object]) -> str:
+        symbol = str(rec.get("symbol") or "").upper()
+        sleeve = str(rec.get("sleeve") or "").lower()
+        trade_type = str(rec.get("trade_type") or "").lower()
+        if "speculative" in sleeve or "speculative" in trade_type:
+            return "Higher-upside / speculative"
+        if "tactical" in sleeve or "short" in trade_type:
+            return "Tactical review"
+        if symbol in core_mega_cap_symbols:
+            return "Core mega-cap"
+        if str(rec.get("action") or "") == "Watch":
+            return "Watchlist / higher upside"
+        return "Long-term core"
+
+    def decision_quality_top5_rows() -> List[Dict[str, object]]:
+        rows: List[Dict[str, object]] = []
+        selected_recommendations = list(recommendations[:5])
+        if not any(decision_quality_lane(rec) == "Higher-upside / speculative" for rec in selected_recommendations):
+            speculative_candidate = next(
+                (rec for rec in recommendations[5:] if decision_quality_lane(rec) == "Higher-upside / speculative"),
+                None,
+            )
+            if speculative_candidate is not None:
+                selected_recommendations = [*selected_recommendations[:4], speculative_candidate]
+        for index, rec in enumerate(selected_recommendations[:5], start=1):
+            symbol = str(rec.get("symbol") or "").upper()
+            gate = decision_gates_by_symbol.get(symbol, {})
+            allocation = allocation_by_symbol.get(symbol, {})
+            reasons = [decision_quality_plain_blocker(reason) for reason in context_list(gate.get("reasons"))]
+            reasons = [reason for reason in reasons if reason]
+            suggested_amount = allocation.get("suggested_amount", 0.0 if gate.get("safe_to_buy") is False else rec.get("suggested_amount"))
+            rows.append(
+                {
+                    "rank": rec.get("rank", index),
+                    "symbol": symbol,
+                    "company": rec.get("company", ""),
+                    "lane": decision_quality_lane(rec),
+                    "action": rec.get("action", ""),
+                    "score": rec.get("score", ""),
+                    "decision_gate_status": gate.get("status", rec.get("decision_gate_status", "Review")),
+                    "plain_english_blocked_explanation": reasons[0] if reasons else "No blocker shown.",
+                    "suggested_amount": suggested_amount,
+                    "suggested_amount_text": fmt_money(float(suggested_amount or 0)),
+                    "top_reason": rec.get("why") or rec.get("notes") or "Ranked by the existing official score and recommendation context.",
+                    "top_blocker": reasons[0] if reasons else "No blocker shown.",
+                    "data_reliability_note": f"{rec.get('data_status', 'Data status not available')}; {rec.get('confidence', 'confidence not available')} confidence.",
+                    "holdings_capital_freshness": (
+                        f"{broker_readonly.get('source', 'manual/config')} as of {broker_readonly.get('as_of', 'n/a')}; "
+                        f"{broker_readonly.get('snapshot_status', 'missing')}."
+                    ),
+                }
+            )
+        return rows
+
+    top5_decision_quality_rows = decision_quality_top5_rows()
+    decision_gate_explanations = list(
+        dict.fromkeys(
+            [
+                str(row.get("plain_english_blocked_explanation"))
+                for row in top5_decision_quality_rows
+                if row.get("plain_english_blocked_explanation") and row.get("plain_english_blocked_explanation") != "No blocker shown."
+            ]
+        )
+    )
+    if not decision_gate_explanations:
+        decision_gate_explanations = ["Top opportunities are shown with official action, gate status, confidence, and reliability context."]
+
+    maintenance_rows: List[List[object]] = []
+    for row in visible_data_gap_rows[:5]:
+        if len(row) >= 6:
+            maintenance_rows.append(["High", "Data gap", row[1], row[2], row[5]])
+    for row in health_alert_rows[:5]:
+        if len(row) >= 7:
+            maintenance_rows.append([row[0], "Source health", row[1], row[5], row[6]])
+    for gap in [row for row in provider_gap_rows if isinstance(row, dict)][:5]:
+        symbol = str(gap.get("symbol") or gap.get("ticker") or "")
+        provider = str(gap.get("provider") or gap.get("source") or "provider")
+        missing = str(gap.get("field") or gap.get("gap") or gap.get("status") or "missing provider evidence")
+        next_action = str(gap.get("next_action") or "Create a data-maintenance work request before changing recommendations.")
+        maintenance_rows.append(["Medium", "Provider gap", f"{symbol} {provider}".strip(), missing, next_action])
+    maintenance_rows = maintenance_rows[:12]
+
+    disagreement_rows = []
+    for row in top5_decision_quality_rows:
+        action = str(row.get("action") or "")
+        gate_status = str(row.get("decision_gate_status") or "")
+        if action == "Watch" or gate_status == "Blocked":
+            disagreement_rows.append(
+                [
+                    row.get("symbol"),
+                    f"{action} / {gate_status}",
+                    "User may manually disagree after review",
+                    "Capture later in manual journal or dictated feedback; review-only.",
+                    "Does not change official recommendation",
+                ]
+            )
+    if not disagreement_rows:
+        disagreement_rows.append(
+            [
+                "Any symbol",
+                "Official model view",
+                "Manual user decision",
+                "Track future model/user disagreement without judging the user or changing the model.",
+                "Review-only",
+            ]
+        )
+
+    holdings_freshness_rows = [
+        [
+            broker_readonly.get("source", "manual_config_fallback"),
+            broker_readonly.get("as_of", "n/a"),
+            broker_readonly.get("snapshot_status", "missing"),
+            "Broker read-only context is used only for freshness/capital review; write capability is disabled.",
+        ]
+    ]
+
+    decision_quality = {
+        "review_only": True,
+        "recommendation_only": True,
+        "note": (
+            "Decision-quality review is recommendation-only; it clarifies the daily Top 5, blocked reasons, "
+            "maintenance work, and learning context without changing official recommendations."
+        ),
+        "top_5_ranked_opportunities": top5_decision_quality_rows,
+        "decision_gate_explanations": decision_gate_explanations,
+        "score_driver_glossary": {
+            "rows": [
+                ["Base evidence", "Company quality, financial context, and durable business evidence already in the official score."],
+                ["Trends", "Recent score movement, technical trend context, and directional changes. Review-only here."],
+                ["Targets", "Analyst, fundamental, and technical target evidence before blending. Thin or wide targets reduce confidence."],
+                ["Gaps", "Missing, stale, blocked, or unimplemented provider data. This is a reliability issue, not a bearish thesis by itself."],
+                ["Final action", "The controlled official label after score, target confidence, and decision-safety gates are applied."],
+            ]
+        },
+        "data_maintenance_work_requests": {"rows": maintenance_rows},
+        "model_user_disagreement_learning": {"rows": disagreement_rows},
+        "queue_refinement": {
+            "rows": [
+                ["Top 5", "First-screen daily opportunity scan", "Replaces parallel first-screen queue summaries."],
+                ["Action Queue", "Detailed recommendation drilldown", "Kept as an audit/detail surface below the decision-quality review."],
+                ["Data Gaps", "Maintenance work discovery", "Moved into Codex-ready maintenance requests plus detailed drilldown."],
+                ["Learning Review", "Review-only outcomes and disagreement context", "Kept secondary to current daily decisions."],
+            ]
+        },
+        "holdings_freshness": {"rows": holdings_freshness_rows},
+    }
     report_date = f"{now:%Y-%m-%d}"
     report_context = {
         "metadata": {
@@ -8174,6 +8343,7 @@ def run_analysis(
             "verification_queue_items": stored_verification_queue_items,
         },
         "decision_safety": decision_gate,
+        "decision_quality": decision_quality,
         "long_term_capital_deployment": long_term_capital_deployment,
         "broker_readonly": broker_readonly,
         "earnings_review": earnings_review,
