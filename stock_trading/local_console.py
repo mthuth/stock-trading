@@ -149,6 +149,7 @@ def render_local_console(manifest: dict[str, object]) -> str:
     panel_order = (
         "latest_recommendation",
         "capital_deployment",
+        "broker_readonly",
         "earnings_review",
         "tactical_review",
         "provider_reliability",

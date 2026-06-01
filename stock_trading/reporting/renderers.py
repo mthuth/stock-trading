@@ -13,6 +13,7 @@ from typing import Any
 from stock_trading.ai_briefs import write_ai_brief_artifacts
 from stock_trading.reporting import decision_safety as safety_review
 from stock_trading.reporting.alerts import build_alerts_review_view
+from stock_trading.reporting.broker_readonly import build_broker_readonly_view
 from stock_trading.reporting.capital_deployment import build_long_term_capital_deployment_view
 from stock_trading.reporting.data_reliability import build_data_reliability_review
 from stock_trading.reporting.earnings_review import build_earnings_review_view
@@ -47,6 +48,7 @@ REQUIRED_CONTEXT_SECTIONS = (
     "feedback",
     "learning_review",
     "long_term_capital_deployment",
+    "broker_readonly",
     "earnings_review",
     "tactical_review",
     "model_evaluation",
@@ -56,6 +58,7 @@ REQUIRED_CONTEXT_SECTIONS = (
 )
 REPORT_SECTION_LABELS = (
     "Long-Term Capital Deployment Review",
+    "Broker Read-Only Context",
     "Earnings Review",
     "Tactical Review",
     "Model Evaluation",
@@ -975,6 +978,53 @@ def render_review_table(table: dict[str, object], class_name: str = "compact-tab
     return html_table(as_list(table.get("headers")), rows, class_name)
 
 
+def render_broker_readonly(context: dict[str, object]) -> str:
+    review = build_broker_readonly_view(context)
+    return (
+        '<section class="broker-readonly-review">'
+        '<div class="section-title"><h2>Broker Read-Only Context</h2>'
+        '<span class="section-note">Read-only support for capital and exposure review</span></div>'
+        f'<p class="section-note">{html.escape(text(review.get("note")))}</p>'
+        f'<div class="coherence-grid">{_coherence_cards_html(review.get("cards"))}</div>'
+        '<div class="table-pair">'
+        f'<section><h3>Masked Accounts</h3>{render_review_table(as_dict(review.get("accounts")))}</section>'
+        f'<section><h3>Top Broker-Reported Positions</h3>{render_review_table(as_dict(review.get("positions")))}</section>'
+        "</div>"
+        '<div class="table-pair">'
+        f'<section><h3>Sleeve Exposure</h3>{render_review_table(as_dict(review.get("sleeves")))}</section>'
+        f'<section><h3>Concentration / Cap Warnings</h3>{render_review_table(as_dict(review.get("cap_warnings")))}</section>'
+        "</div>"
+        f'<section><h3>Stale Or Missing Snapshot Warnings</h3>{render_review_table(as_dict(review.get("stale_missing_warnings")))}</section>'
+        f'<section><h3>Broker Read-Only Warnings</h3>{render_review_table(as_dict(review.get("warnings")))}</section>'
+        "</section>"
+    )
+
+
+def broker_readonly_markdown_lines(context: dict[str, object]) -> list[str]:
+    review = build_broker_readonly_view(context)
+    lines = [
+        "## Broker Read-Only Context",
+        "",
+        text(review.get("note"), "Read-only broker context; official recommendations stay unchanged."),
+        "",
+    ]
+    for card in as_list(review.get("cards")):
+        item = as_dict(card)
+        lines.append(f"- {item.get('label', '')}: **{item.get('value', '')}** - {item.get('detail', '')}")
+    lines.append("")
+    for title, key in (
+        ("Masked Accounts", "accounts"),
+        ("Top Broker-Reported Positions", "positions"),
+        ("Sleeve Exposure", "sleeves"),
+        ("Concentration / Cap Warnings", "cap_warnings"),
+        ("Stale Or Missing Snapshot Warnings", "stale_missing_warnings"),
+        ("Broker Read-Only Warnings", "warnings"),
+    ):
+        table = as_dict(review.get(key))
+        append_table_section(lines, title, table, text(table.get("empty_state"), "No rows available."))
+    return lines
+
+
 def render_earnings_review(context: dict[str, object]) -> str:
     review = build_earnings_review_view(context)
     signals = as_dict(review.get("signals"))
@@ -1752,6 +1802,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
 
     {render_daily_decision_review(context)}
     {render_long_term_capital_deployment(context)}
+    {render_broker_readonly(context)}
     {render_earnings_review(context)}
     {render_tactical_review(context)}
     {render_product_review_path(context)}
@@ -1993,6 +2044,7 @@ def render_print_review(context: dict[str, object]) -> str:
       {render_print_summary(context)}
       {render_daily_decision_review(context)}
       {render_long_term_capital_deployment(context)}
+      {render_broker_readonly(context)}
       {render_earnings_review(context)}
       {render_tactical_review(context)}
       {render_model_evaluation(context)}
@@ -2304,6 +2356,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
     if kind in {"daily", "end_of_day"}:
         coherence_lines = [
             *long_term_capital_deployment_markdown_lines(context),
+            *broker_readonly_markdown_lines(context),
             *earnings_review_markdown_lines(context),
             *tactical_review_markdown_lines(context),
             *product_review_path_markdown_lines(context),

@@ -97,6 +97,84 @@
     "ai_synthesis_note": "AI synthesis is explanatory only and does not change the official recommendation.",
     "note": "Review-only and recommendation-only; official recommendations, scores, targets, gates, and allocation rules are unchanged."
   },
+  "broker_readonly": {
+    "read_only": true,
+    "no_order_capability": true,
+    "recommendation_only": true,
+    "note": "Read-only broker context supports manual capital and exposure review; official recommendations stay unchanged.",
+    "snapshot_status": "available",
+    "as_of": "2026-05-28T08:00:00",
+    "source": "broker_readonly",
+    "snapshot_source": "fixture_broker_snapshot",
+    "account_count": 1,
+    "masked_account_labels": ["retirement review account (acct-****-001)"],
+    "cash_available": 2500.0,
+    "cash_available_text": "$2,500.00",
+    "positions_summary": {
+      "position_count": 2,
+      "total_market_value": 16500.0,
+      "total_market_value_text": "$16,500.00",
+      "top_holdings": [
+        {
+          "symbol": "MSFT",
+          "company": "Microsoft",
+          "market_value": 9000.0,
+          "market_value_text": "$9,000.00",
+          "sleeve": "long_term_core",
+          "account_label": "retirement review account (acct-****-001)"
+        },
+        {
+          "symbol": "SMH",
+          "company": "VanEck Semiconductor ETF",
+          "market_value": 7500.0,
+          "market_value_text": "$7,500.00",
+          "sleeve": "etf_context",
+          "account_label": "retirement review account (acct-****-001)"
+        }
+      ]
+    },
+    "sleeve_exposure": {
+      "rows": [
+        {
+          "sleeve": "long_term_core",
+          "market_value": 9000.0,
+          "market_value_text": "$9,000.00",
+          "pct_of_holdings": 54.55,
+          "cap_pct": ""
+        },
+        {
+          "sleeve": "etf_context",
+          "market_value": 7500.0,
+          "market_value_text": "$7,500.00",
+          "pct_of_holdings": 45.45,
+          "cap_pct": ""
+        }
+      ],
+      "empty_state": "No broker sleeve exposure is available."
+    },
+    "concentration_cap_warnings": [],
+    "stale_missing_warnings": [],
+    "warnings": [],
+    "manual_config_fallback": {
+      "fallback_used": false,
+      "source": "configured",
+      "status": "available",
+      "available_amount": 2500.0,
+      "available_amount_text": "$2,500.00"
+    },
+    "capital_availability": {
+      "available_amount": 2500.0,
+      "source": "broker_readonly",
+      "fallback_source": "configured",
+      "as_of": "2026-05-28T08:00:00",
+      "freshness": "fresh",
+      "status": "available",
+      "context_only": true,
+      "review_only": true,
+      "recommendation_only": true,
+      "no_order_capability": true
+    }
+  },
   "earnings_review": {
     "review_only": true,
     "recommendation_only": true,

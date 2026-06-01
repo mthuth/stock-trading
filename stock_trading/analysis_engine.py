@@ -28,6 +28,9 @@ from stock_trading.allocation_safety import (
 from stock_trading.ai_thesis_evaluation import evaluate_ai_theses
 from stock_trading.benchmark_comparison import benchmark_comparison_rows
 from stock_trading.best_add_fallback import build_best_add_fallback_review
+from stock_trading.broker_capital_availability import broker_capital_availability_context
+from stock_trading.broker_holdings_context import build_broker_holdings_context
+from stock_trading.broker_readonly_view import build_broker_readonly_view
 from stock_trading.capital_deployment import capital_deployment_context
 from stock_trading.catalyst_outcomes import build_catalyst_follow_through_review
 from stock_trading.decision_safety_outcomes import build_decision_safety_effectiveness_review
@@ -67,6 +70,7 @@ from stock_trading.watchlist_policy import evaluate_watchlist_policy
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_DIR = ROOT / "config"
 REPORTS_DIR = ROOT / "reports"
+BROKER_READONLY_SNAPSHOT_FILE = REPORTS_DIR / "broker-readonly-snapshot.json"
 DB_FILE = ROOT / "data" / "stock_trading.sqlite"
 RESEARCH_FILE = CONFIG_DIR / "research_inputs.csv"
 MANUAL_ANALYST_TARGETS_FILE = CONFIG_DIR / "manual_analyst_targets.csv"
@@ -293,6 +297,39 @@ def load_source_integrations() -> Dict[str, Dict[str, str]]:
 
 def load_targets() -> Dict[str, object]:
     return json.loads(TARGETS_FILE.read_text())
+
+
+def load_broker_readonly_snapshot() -> Dict[str, object]:
+    """Load an optional local read-only broker snapshot artifact.
+
+    The daily analysis never calls a broker. It only reads a local JSON snapshot
+    that a separate manual/fixture import command may have produced.
+    """
+
+    configured = os.environ.get("BROKER_READONLY_SNAPSHOT_PATH", "").strip()
+    path = Path(configured).expanduser() if configured else BROKER_READONLY_SNAPSHOT_FILE
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {
+            "source": "broker_readonly",
+            "status": "error",
+            "read_only": True,
+            "no_order_capability": True,
+            "warnings": [f"broker_snapshot_load_error:{path}"],
+        }
+    if not isinstance(payload, dict):
+        return {
+            "source": "broker_readonly",
+            "status": "error",
+            "read_only": True,
+            "no_order_capability": True,
+            "warnings": [f"broker_snapshot_invalid_json_shape:{path}"],
+        }
+    payload.setdefault("input_ref", str(path))
+    return payload
 
 
 def latest_etrade_positions() -> Dict[str, Dict[str, float]]:
@@ -5423,6 +5460,7 @@ def run_analysis(
     source_integrations = load_source_integrations()
     source_operations = source_operations_by_name()
     targets = load_targets()
+    broker_snapshot = load_broker_readonly_snapshot()
     price_history = latest_price_history_by_symbol()
     apply_price_history_fallback(research, price_history)
     price_counts = price_reliability_counts(research)
@@ -6409,10 +6447,272 @@ def run_analysis(
                 "reason": capital_context.get("reason"),
                 "reduction_reasons": capital_context.get("reduction_reasons", []),
                 "long_term_core_sleeve": capital_context.get("long_term_core_sleeve", {}),
+                "broker_readonly": capital_context.get("broker_capital_availability", {}),
             },
             "long_term_holding_health_summary": holding_health_summary_context(holding_health_review),
             "ai_synthesis_note": "AI synthesis is explanatory only and does not change the official recommendation.",
             "note": "Review-only and recommendation-only; official recommendations, scores, targets, gates, and allocation rules are unchanged.",
+        }
+
+    def account_cash_value(account: Dict[str, object]) -> float | None:
+        for key in ("cash_available", "available_cash", "cash"):
+            if account.get(key) not in (None, ""):
+                return to_float(account.get(key), None)
+        balances = context_dict(account.get("balances"))
+        for key in ("cash_available", "available_cash", "cash"):
+            if balances.get(key) not in (None, ""):
+                return to_float(balances.get(key), None)
+        return None
+
+    def account_capacity_value(account: Dict[str, object]) -> float | None:
+        for key in ("buying_capacity", "buying_power"):
+            if account.get(key) not in (None, ""):
+                return to_float(account.get(key), None)
+        balances = context_dict(account.get("balances"))
+        for key in ("buying_capacity", "buying_power"):
+            if balances.get(key) not in (None, ""):
+                return to_float(balances.get(key), None)
+        return None
+
+    def broker_snapshot_valid(snapshot: Dict[str, object]) -> bool:
+        if not snapshot:
+            return False
+        validation = context_dict(snapshot.get("validation"))
+        if validation and validation.get("ok") is False:
+            return False
+        if snapshot.get("read_only") is False or snapshot.get("no_order_capability") is False:
+            return False
+        status = str(
+            snapshot.get("status")
+            or context_dict(snapshot.get("sync_status")).get("status")
+            or context_dict(snapshot.get("validation")).get("status")
+            or ""
+        ).lower()
+        return status not in {"blocked", "error", "failed", "invalid", "unavailable"}
+
+    def broker_cash_snapshot_for_capital(snapshot: Dict[str, object]) -> Dict[str, object]:
+        if not broker_snapshot_valid(snapshot):
+            return {}
+        summary = context_dict(snapshot.get("summary"))
+        accounts = [context_dict(account) for account in context_list(snapshot.get("accounts"))]
+        cash_values = [value for value in (account_cash_value(account) for account in accounts) if value is not None]
+        capacity_values = [value for value in (account_capacity_value(account) for account in accounts) if value is not None]
+        cash_available = summary.get("total_cash")
+        if cash_available is None:
+            cash_available = context_dict(snapshot.get("cash_summary")).get("cash_available")
+        if cash_available is None and cash_values:
+            cash_available = round(sum(cash_values), 4)
+        buying_capacity = summary.get("total_buying_capacity")
+        if buying_capacity is None and capacity_values:
+            buying_capacity = round(sum(capacity_values), 4)
+        sync = context_dict(snapshot.get("sync_status"))
+        as_of = (
+            snapshot.get("as_of")
+            or snapshot.get("as_of_date")
+            or snapshot.get("snapshot_at")
+            or sync.get("snapshot_at")
+            or sync.get("last_success_at")
+            or ""
+        )
+        return {
+            "source": "broker_readonly",
+            "status": "available",
+            "as_of": as_of,
+            "cash_available": cash_available,
+            "buying_power": buying_capacity,
+            "read_only": True,
+            "no_order_capability": True,
+        }
+
+    def apply_broker_capital_availability(
+        capital_context: Dict[str, object],
+        broker_capital: Dict[str, object],
+        decision_gate: Dict[str, object],
+    ) -> Dict[str, object]:
+        updated = dict(capital_context)
+        updated["broker_capital_availability"] = broker_capital
+        if broker_capital.get("source") != "broker_readonly":
+            return updated
+        available = to_float(broker_capital.get("available_amount"), None)
+        if available is None:
+            return updated
+        allocation = context_dict(updated.get("allocation_safety"))
+        suggested = to_float(allocation.get("suggested_amount"), None)
+        safe_to_add = bool(decision_gate.get("safe_to_buy", True))
+        if available is None:
+            deployable: float | None = None
+            held: float | None = None
+            status = "needs_manual_update"
+            reason = "Capital deployment held for review because read-only broker cash is unavailable."
+        elif not safe_to_add:
+            deployable = 0.0
+            held = available
+            status = "held_no_safe_add"
+            reason = "Capital deployment held because the current candidate is not decision-safe."
+        else:
+            deployable = min(available, suggested) if suggested is not None else available
+            held = max(0.0, available - deployable)
+            if deployable <= 0:
+                status = "held_by_allocation"
+                reason = "Capital deployment held because no allocation capacity is available."
+            elif held > 0:
+                status = "reduced_by_allocation"
+                reason = "Capital deployment reduced by existing allocation or buy-capacity limits."
+            else:
+                status = "deployable"
+                reason = "Fresh read-only broker cash is available for manual long-term add review."
+        updated.update(
+            {
+                "available_capital": round(available, 2),
+                "buy_capacity": round(available, 2),
+                "capital_source": "broker_readonly",
+                "capital_as_of_date": broker_capital.get("as_of", ""),
+                "capital_freshness": broker_capital.get("freshness", "unknown"),
+                "capital_status": broker_capital.get("status", "available"),
+                "deployable_amount": round(deployable, 2) if deployable is not None else None,
+                "held_amount": round(held, 2) if held is not None else None,
+                "status": status,
+                "reason": reason,
+                "broker_behavior": "read_only_context",
+                "order_behavior": "none",
+            }
+        )
+        return updated
+
+    def masked_account_label(account: Dict[str, object]) -> str:
+        masked = str(account.get("account_id_masked") or account.get("account_masked_id") or "")
+        if not masked:
+            raw_id = str(account.get("account_id") or account.get("accountId") or "")
+            if "*" in raw_id:
+                masked = raw_id
+            elif raw_id:
+                cleaned = "".join(char for char in raw_id if char.isalnum())
+                masked = f"acct-****{cleaned[-4:]}" if cleaned else "masked-account"
+            else:
+                masked = "masked-account"
+        label = str(account.get("account_label") or account.get("account_name") or account.get("display_name") or "")
+        return f"{label} ({masked})" if label else masked
+
+    def broker_readonly_context(
+        *,
+        snapshot: Dict[str, object],
+        broker_capital: Dict[str, object],
+        targets_config: Dict[str, object],
+        current_date: datetime,
+    ) -> Dict[str, object]:
+        manual_fallback = context_dict(broker_capital)
+        view = build_broker_readonly_view(
+            snapshot,
+            capital_availability=manual_fallback,
+            today=current_date.date(),
+        )
+        holdings = build_broker_holdings_context(
+            snapshot if snapshot else None,
+            portfolio_caps=targets_config,
+            current_date=current_date.date(),
+            manual_capital_fallback=manual_fallback,
+        )
+        accounts = [context_dict(account) for account in context_list(snapshot.get("accounts"))]
+        labels = [masked_account_label(account) for account in accounts] or context_list(view.get("masked_account_labels"))
+        sleeve_rows = []
+        for sleeve, row in context_dict(holdings.get("sleeve_exposure")).items():
+            item = context_dict(row)
+            sleeve_rows.append(
+                {
+                    "sleeve": sleeve,
+                    "market_value": item.get("market_value"),
+                    "market_value_text": fmt_money(to_float(item.get("market_value"))),
+                    "pct_of_holdings": item.get("pct_of_holdings"),
+                    "cap_pct": item.get("cap_pct"),
+                }
+            )
+        if not sleeve_rows:
+            for sleeve, row in context_dict(view.get("sleeve_exposure")).items():
+                item = context_dict(row)
+                sleeve_rows.append(
+                    {
+                        "sleeve": sleeve,
+                        "market_value": item.get("market_value"),
+                        "market_value_text": item.get("market_value_text"),
+                        "pct_of_holdings": item.get("pct_of_total"),
+                        "cap_pct": "",
+                    }
+                )
+        top_holdings = [
+            {
+                "symbol": row.get("symbol", ""),
+                "company": row.get("company", ""),
+                "market_value": row.get("market_value"),
+                "market_value_text": row.get("market_value_text")
+                or fmt_money(to_float(row.get("market_value"))),
+                "sleeve": row.get("sleeve", ""),
+                "account_label": row.get("account_label") or row.get("account_masked_id", ""),
+            }
+            for row in (context_dict(item) for item in context_list(view.get("top_holdings")))
+        ]
+        warnings = list(
+            dict.fromkeys(
+                [
+                    *[str(item) for item in context_list(view.get("warnings")) if str(item)],
+                    *[str(item) for item in context_list(holdings.get("warnings")) if str(item)],
+                    *[str(item) for item in context_list(broker_capital.get("warnings")) if str(item)],
+                ]
+            )
+        )
+        stale_missing = [
+            warning
+            for warning in warnings
+            if any(token in warning.lower() for token in ("stale", "missing", "unavailable", "not provided", "load_error"))
+        ]
+        cap_warnings = list(
+            dict.fromkeys(
+                [
+                    *[str(item) for item in context_list(view.get("concentration_warnings")) if str(item)],
+                    *[str(item) for item in context_list(holdings.get("cap_pressure_warnings")) if str(item)],
+                ]
+            )
+        )
+        cash_available = context_dict(view.get("cash_summary")).get("total_cash")
+        if cash_available is None and broker_capital.get("source") == "broker_readonly":
+            cash_available = broker_capital.get("available_amount")
+        source = "broker_readonly" if snapshot else "manual_config_fallback"
+        return {
+            "read_only": True,
+            "no_order_capability": True,
+            "recommendation_only": True,
+            "note": "Read-only broker context supports manual capital and exposure review; official recommendations stay unchanged.",
+            "snapshot_status": view.get("status") or holdings.get("snapshot_status") or "missing",
+            "as_of": view.get("as_of") or holdings.get("as_of") or broker_capital.get("as_of") or "",
+            "source": source,
+            "snapshot_source": snapshot.get("source") or view.get("data_source") or source,
+            "account_count": view.get("account_count") or holdings.get("account_count") or 0,
+            "masked_account_labels": labels,
+            "cash_available": cash_available,
+            "cash_available_text": fmt_money(to_float(cash_available)) if cash_available is not None else "n/a",
+            "positions_summary": {
+                "position_count": view.get("position_count") or holdings.get("position_count") or 0,
+                "total_market_value": view.get("total_position_market_value") or holdings.get("total_market_value"),
+                "total_market_value_text": view.get("total_position_market_value_text")
+                or fmt_money(to_float(holdings.get("total_market_value"))),
+                "top_holdings": top_holdings,
+            },
+            "sleeve_exposure": {
+                "rows": sleeve_rows,
+                "empty_state": "No broker sleeve exposure is available.",
+            },
+            "concentration_cap_warnings": cap_warnings,
+            "stale_missing_warnings": stale_missing,
+            "warnings": warnings,
+            "manual_config_fallback": {
+                "fallback_used": broker_capital.get("source") != "broker_readonly",
+                "source": broker_capital.get("fallback_source") or broker_capital.get("source") or "manual_or_config",
+                "status": broker_capital.get("status") or "needs_manual_update",
+                "available_amount": broker_capital.get("available_amount"),
+                "available_amount_text": fmt_money(to_float(broker_capital.get("available_amount")))
+                if broker_capital.get("available_amount") is not None
+                else "Needs manual update",
+            },
+            "capital_availability": broker_capital,
         }
 
     def earnings_related(value: object) -> bool:
@@ -7709,6 +8009,16 @@ def run_analysis(
         sleeve_market_values=sleeve_market_values,
         account_value=account_value,
     )
+    broker_capital = broker_capital_availability_context(
+        broker_cash_snapshot_for_capital(broker_snapshot),
+        targets,
+        today=now.date(),
+    )
+    capital_context = apply_broker_capital_availability(
+        capital_context,
+        broker_capital,
+        deploy_gate,
+    )
     recommendations_by_symbol = {
         str(row.get("symbol") or "").upper(): row
         for row in recommendations
@@ -7750,6 +8060,12 @@ def run_analysis(
         fallback_review=best_add_fallback_review,
         capital_context=capital_context,
         holding_health_review=holding_health_review,
+    )
+    broker_readonly = broker_readonly_context(
+        snapshot=broker_snapshot,
+        broker_capital=broker_capital,
+        targets_config=targets,
+        current_date=now,
     )
     earnings_universe_rows = []
     for rec in recommendations:
@@ -7859,6 +8175,7 @@ def run_analysis(
         },
         "decision_safety": decision_gate,
         "long_term_capital_deployment": long_term_capital_deployment,
+        "broker_readonly": broker_readonly,
         "earnings_review": earnings_review,
         "tactical_review": tactical_review,
         "model_evaluation": model_evaluation,
