@@ -1,0 +1,62 @@
+{
+  "source": "fixture_broker_snapshot",
+  "as_of": "2026-06-01T08:30:00",
+  "accounts": [
+    {
+      "account_id": "FAKEIRA123456789",
+      "account_label": "IRA Rollover",
+      "cash": {
+        "available_cash": 4200.0,
+        "buying_power": 4200.0
+      },
+      "positions": [
+        {
+          "symbol": "MSFT",
+          "company": "Microsoft",
+          "quantity": 20,
+          "market_value": 8500.0,
+          "sleeve": "long_term_core"
+        },
+        {
+          "symbol": "NVDA",
+          "company": "NVIDIA",
+          "quantity": 30,
+          "market_value": 12600.0,
+          "sleeve": "long_term_core"
+        },
+        {
+          "symbol": "QQQM",
+          "company": "Invesco NASDAQ 100 ETF",
+          "quantity": 40,
+          "market_value": 7800.0,
+          "sleeve": "etf_context"
+        },
+        {
+          "symbol": "CRWD",
+          "company": "CrowdStrike",
+          "quantity": 10,
+          "market_value": 3200.0,
+          "sleeve": "long_term_core"
+        }
+      ]
+    },
+    {
+      "account_id": "FAKETAXABLE987654321",
+      "account_label": "Taxable Review",
+      "cash": {
+        "available_cash": 800.0,
+        "buying_power": 800.0,
+        "margin_buying_power": 5000.0
+      },
+      "positions": [
+        {
+          "symbol": "AMZN",
+          "company": "Amazon",
+          "quantity": 12,
+          "market_value": 2200.0,
+          "sleeve": "long_term_core"
+        }
+      ]
+    }
+  ]
+}
