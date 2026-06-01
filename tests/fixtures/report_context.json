@@ -30,6 +30,58 @@
       "summary": "Decision-safe buy candidate."
     }
   },
+  "decision_quality": {
+    "review_only": true,
+    "recommendation_only": true,
+    "note": "Decision-quality review is recommendation-only; official recommendations are unchanged.",
+    "top_5_ranked_opportunities": [
+      {
+        "rank": 1,
+        "symbol": "NVDA",
+        "company": "NVIDIA Corp.",
+        "lane": "Core mega-cap",
+        "action": "Add",
+        "score": 84.2,
+        "decision_gate_status": "Ready",
+        "suggested_amount_text": "$2,500.00",
+        "top_reason": "Score is high enough to add and the proposed buy stays within position caps.",
+        "top_blocker": "No blocker shown.",
+        "data_reliability_note": "Blended; Medium confidence."
+      }
+    ],
+    "decision_gate_explanations": [
+      "Top opportunities are shown with official action, gate status, confidence, and reliability context."
+    ],
+    "score_driver_glossary": {
+      "rows": [
+        ["Base evidence", "Company quality, financial context, and durable business evidence already in the official score."],
+        ["Trends", "Recent score movement, technical trend context, and directional changes. Review-only here."],
+        ["Targets", "Analyst, fundamental, and technical target evidence before blending. Thin or wide targets reduce confidence."],
+        ["Gaps", "Missing, stale, blocked, or unimplemented provider data. This is a reliability issue, not a bearish thesis by itself."],
+        ["Final action", "The controlled official label after score, target confidence, and decision-safety gates are applied."]
+      ]
+    },
+    "data_maintenance_work_requests": {
+      "rows": [
+        ["Low", "Fixture", "NVDA", "No fixture maintenance request.", "No action required."]
+      ]
+    },
+    "model_user_disagreement_learning": {
+      "rows": [
+        ["Any symbol", "Official model view", "Manual user decision", "Track future disagreement without changing the model.", "Review-only"]
+      ]
+    },
+    "queue_refinement": {
+      "rows": [
+        ["Top 5", "First-screen daily opportunity scan", "Reduces repeated queue summaries."]
+      ]
+    },
+    "holdings_freshness": {
+      "rows": [
+        ["configured", "2026-05-28", "fresh", "Fixture holdings/capital context is current."]
+      ]
+    }
+  },
   "top5_opportunities": {
     "review_only": true,
     "recommendation_only": true,

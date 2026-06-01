@@ -148,6 +148,7 @@ def render_local_console(manifest: dict[str, object]) -> str:
     report_context = as_dict(manifest.get("report_context"))
     panel_order = (
         "latest_recommendation",
+        "decision_quality",
         "capital_deployment",
         "broker_readonly",
         "earnings_review",

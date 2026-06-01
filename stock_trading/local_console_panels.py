@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from stock_trading.reporting.decision_quality import build_decision_quality_view
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -56,6 +58,32 @@ def build_latest_recommendation_panel(context: dict[str, object]) -> dict[str, o
             {"label": "Suggested amount", "value": text(summary.get("suggested_amount_text"), "n/a")},
         ],
         "note": text(summary.get("top_notes"), "No latest recommendation context is available yet."),
+    }
+
+
+def build_decision_quality_panel(context: dict[str, object]) -> dict[str, object]:
+    review = build_decision_quality_view(context)
+    top5 = as_list(review.get("top5_rows"))
+    maintenance = as_dict(review.get("data_maintenance"))
+    disagreement = as_dict(review.get("model_user_disagreement"))
+    freshness = as_dict(review.get("holdings_freshness"))
+    first = as_dict(top5[0]) if top5 else {}
+    return {
+        "title": "Decision Quality Review",
+        "status": "Top 5 daily review",
+        "items": [
+            {"label": "Top opportunities", "value": len(top5)},
+            {"label": "Lead opportunity", "value": text(first.get("symbol"), "n/a")},
+            {"label": "Lead lane", "value": text(first.get("lane"), "n/a")},
+            {"label": "Lead gate", "value": text(first.get("decision_gate_status"), "n/a")},
+            {"label": "Data maintenance", "value": count_rows(maintenance)},
+            {"label": "Disagreement rows", "value": count_rows(disagreement)},
+            {"label": "Freshness rows", "value": count_rows(freshness)},
+        ],
+        "note": text(
+            review.get("note"),
+            "Decision-quality review is recommendation-only and does not change official recommendations.",
+        ),
     }
 
 
@@ -364,6 +392,7 @@ def build_console_panels(
 ) -> dict[str, object]:
     return {
         "latest_recommendation": build_latest_recommendation_panel(report_context),
+        "decision_quality": build_decision_quality_panel(report_context),
         "capital_deployment": build_capital_deployment_panel(report_context),
         "broker_readonly": build_broker_readonly_panel(report_context),
         "earnings_review": build_earnings_panel(report_context),

@@ -85,6 +85,7 @@ class LocalConsoleIntegrationTests(unittest.TestCase):
             self.assertTrue(manifest["recommendation_only"])
             self.assertEqual(manifest["report_context"]["report_date"], "2026-05-31")
             self.assertIn("latest_recommendation", manifest["panels"])
+            self.assertIn("decision_quality", manifest["panels"])
             self.assertIn("capital_deployment", manifest["panels"])
             self.assertIn("earnings_review", manifest["panels"])
             self.assertIn("tactical_review", manifest["panels"])
@@ -97,6 +98,7 @@ class LocalConsoleIntegrationTests(unittest.TestCase):
 
             self.assertIn("Local Decision Console", html)
             self.assertIn("Latest Recommendation", html)
+            self.assertIn("Decision Quality Review", html)
             self.assertIn("Long-Term Capital Deployment", html)
             self.assertIn("Earnings Review", html)
             self.assertIn("Tactical Review", html)
@@ -108,6 +110,7 @@ class LocalConsoleIntegrationTests(unittest.TestCase):
             self.assertIn("Run History", html)
             self.assertIn("No automatic trading", html)
             self.assertIn("No order preview", html)
+            self.assertLess(html.index("Decision Quality Review"), html.index("Long-Term Capital Deployment"))
             self.assertNotIn("<button", html.lower())
             self.assertNotIn("place trade", html.lower())
             self.assertNotIn("preview order", html.lower())
