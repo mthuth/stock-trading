@@ -1,0 +1,72 @@
+{
+  "scenario_id": "masked_account_identifiers",
+  "scenario_label": "Masked account identifiers",
+  "broker_layer": "broker_readonly",
+  "review_only": true,
+  "recommendation_only": true,
+  "read_only": true,
+  "official_recommendation_unchanged": true,
+  "sync_status": {
+    "status": "available",
+    "snapshot_at": "2026-06-01T08:00:00",
+    "last_success_at": "2026-06-01T08:00:00",
+    "stale_after_hours": 24,
+    "warnings": [],
+    "fallback_used": false
+  },
+  "accounts": [
+    {
+      "account_id_masked": "acct-****-007",
+      "account_label": "masked retirement fixture",
+      "account_type": "retirement",
+      "broker_name": "FixtureBroker",
+      "snapshot_at": "2026-06-01T08:00:00",
+      "source": "fixture_broker_snapshot",
+      "source_status": "available",
+      "currency": "USD",
+      "total_market_value": 42000.0,
+      "cash_available": 1800.0,
+      "buying_capacity": 1800.0,
+      "read_only": true,
+      "warnings": []
+    }
+  ],
+  "positions": [],
+  "cash_context": {
+    "source": "broker_read_only_snapshot",
+    "cash_available": 1800.0,
+    "buying_capacity": 1800.0,
+    "manual_config_fallback_used": false,
+    "as_of": "2026-06-01T08:00:00",
+    "warnings": [],
+    "context_only_fields": []
+  },
+  "allocation_context": {
+    "account_value": 42000.0,
+    "sleeves": [],
+    "cap_warnings": [],
+    "notes": "Account identifiers are masked in fixtures and future artifacts."
+  },
+  "expected_behavior": {
+    "capital_review_result": "masked_account_ids_visible",
+    "scenario_assertions": ["account_ids_masked", "read_only_context", "official_recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_order_preview": true,
+    "no_order_placement": true,
+    "no_order_modification": true,
+    "no_order_cancellation": true,
+    "no_broker_write_actions": true,
+    "no_margin_day_trading_compliance_engine": true,
+    "no_options_short_execution": true,
+    "no_live_broker_calls_in_tests": true,
+    "no_real_credentials_in_repo": true,
+    "no_automatic_score_changes_from_broker_data": true,
+    "no_automatic_target_changes_from_broker_data": true,
+    "no_automatic_recommendation_changes_from_broker_data": true,
+    "no_automatic_decision_safety_changes_from_broker_data": true,
+    "no_automatic_source_weight_changes_from_broker_data": true,
+    "no_automatic_model_tuning_from_broker_data": true
+  }
+}

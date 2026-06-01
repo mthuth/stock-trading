@@ -68,6 +68,7 @@ The app should reduce friction in review, not increase automation risk.
 6. Optional Broker Read-Only Context
    - Deferred until cash/holdings uncertainty harms recommendations.
    - Must remain read-only and never support order placement, preview, modification, or cancellation.
+   - Read [Wave 14 Broker Read-Only Requirements](WAVE14_BROKER_READONLY_REQUIREMENTS.md) before adding broker snapshot, holdings, cash, or allocation context.
 
 ## Event / Signal Architecture
 
@@ -179,3 +180,5 @@ Before broker integration, the app should support capital availability through:
 - Later optional broker read-only snapshot.
 
 Broker integration must remain read-only and should only be added when cash/holding accuracy becomes a recommendation blocker.
+
+See [Wave 14 Broker Read-Only Requirements](WAVE14_BROKER_READONLY_REQUIREMENTS.md) for the required read-only scope, credential rules, fallback behavior, and fixture scenarios.

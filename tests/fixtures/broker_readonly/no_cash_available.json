@@ -1,0 +1,90 @@
+{
+  "scenario_id": "no_cash_available",
+  "scenario_label": "No cash available",
+  "broker_layer": "broker_readonly",
+  "review_only": true,
+  "recommendation_only": true,
+  "read_only": true,
+  "official_recommendation_unchanged": true,
+  "sync_status": {
+    "status": "available",
+    "snapshot_at": "2026-06-01T08:00:00",
+    "last_success_at": "2026-06-01T08:00:00",
+    "stale_after_hours": 24,
+    "warnings": ["no_cash_available"],
+    "fallback_used": false
+  },
+  "accounts": [
+    {
+      "account_id_masked": "acct-****-001",
+      "account_label": "retirement review account",
+      "account_type": "retirement",
+      "broker_name": "FixtureBroker",
+      "snapshot_at": "2026-06-01T08:00:00",
+      "source": "fixture_broker_snapshot",
+      "source_status": "available",
+      "currency": "USD",
+      "total_market_value": 50000.0,
+      "cash_available": 0.0,
+      "buying_capacity": 0.0,
+      "read_only": true,
+      "warnings": ["no_cash_available"]
+    }
+  ],
+  "positions": [
+    {
+      "account_id_masked": "acct-****-001",
+      "symbol": "NVDA",
+      "company": "NVIDIA",
+      "quantity": 40,
+      "market_value": 6000.0,
+      "last_price": 150.0,
+      "sleeve": "long_term_core",
+      "position_pct": 0.12,
+      "cost_basis": 120.0,
+      "cost_basis_status": "available",
+      "source": "fixture_broker_snapshot",
+      "snapshot_at": "2026-06-01T08:00:00",
+      "warnings": []
+    }
+  ],
+  "cash_context": {
+    "source": "broker_read_only_snapshot",
+    "cash_available": 0.0,
+    "buying_capacity": 0.0,
+    "manual_config_fallback_used": false,
+    "as_of": "2026-06-01T08:00:00",
+    "warnings": ["buy_capacity_held"],
+    "context_only_fields": []
+  },
+  "allocation_context": {
+    "account_value": 50000.0,
+    "sleeves": [
+      {"sleeve": "long_term_core", "market_value": 6000.0, "allocation_pct": 0.12}
+    ],
+    "cap_warnings": [],
+    "notes": "No cash is available in the read-only snapshot."
+  },
+  "expected_behavior": {
+    "capital_review_result": "hold_capacity_no_cash",
+    "scenario_assertions": ["no_cash_available", "buy_capacity_held", "official_recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_order_preview": true,
+    "no_order_placement": true,
+    "no_order_modification": true,
+    "no_order_cancellation": true,
+    "no_broker_write_actions": true,
+    "no_margin_day_trading_compliance_engine": true,
+    "no_options_short_execution": true,
+    "no_live_broker_calls_in_tests": true,
+    "no_real_credentials_in_repo": true,
+    "no_automatic_score_changes_from_broker_data": true,
+    "no_automatic_target_changes_from_broker_data": true,
+    "no_automatic_recommendation_changes_from_broker_data": true,
+    "no_automatic_decision_safety_changes_from_broker_data": true,
+    "no_automatic_source_weight_changes_from_broker_data": true,
+    "no_automatic_model_tuning_from_broker_data": true
+  }
+}
