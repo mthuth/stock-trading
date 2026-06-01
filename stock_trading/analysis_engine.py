@@ -41,6 +41,9 @@ from stock_trading.fundamental_target_config import (
 from stock_trading.long_term_add_queue import build_long_term_add_queue
 from stock_trading.long_term_holding_health import build_holding_health_review
 from stock_trading.manual_trade_journal import list_manual_journal_entries
+from stock_trading.model_competition import build_model_competition_scoreboard
+from stock_trading.model_debate_packets import build_model_debate_packets
+from stock_trading.model_promotion_readiness import build_model_promotion_readiness_review
 from stock_trading.model_registry import build_model_registry
 from stock_trading.model_trust import build_model_trust_score
 from stock_trading.post_earnings_review import build_post_earnings_reviews
@@ -49,6 +52,8 @@ from stock_trading.pre_earnings_review import review_pre_earnings_setup
 from stock_trading.provider_gap_summary import build_provider_gap_review
 from stock_trading.recommendation_outcomes import build_recommendation_outcome_review
 from stock_trading.recommendation_backtests import recommendation_backtest
+from stock_trading.shadow_models import build_shadow_model_registry
+from stock_trading.shadow_recommendations import run_shadow_model_suite
 from stock_trading.source_usefulness import build_source_usefulness, summarize_source_usefulness
 from stock_trading.tactical_outcomes import summarize_tactical_outcomes, tactical_outcome_rows
 from stock_trading.tactical_risk import tactical_risk_zones
@@ -7294,6 +7299,272 @@ def run_analysis(
             "empty_state": "No active review alerts. Existing recommendations remain unchanged.",
         }
 
+    MULTI_MODEL_NOTE = (
+        "Recommendation-only shadow competition; shadow outputs are non-authoritative and do not change official recommendations."
+    )
+
+    SHADOW_POLICIES = (
+        "conservative_long_term",
+        "aggressive_growth",
+        "risk_skeptic",
+        "source_quality_weighted",
+        "tactical_momentum",
+        "earnings_event",
+    )
+
+    def compact_shadow_model(row: Dict[str, object]) -> Dict[str, object]:
+        return {
+            "model_name": row.get("model_name", ""),
+            "model_version": row.get("model_version", ""),
+            "model_role": row.get("model_role", "shadow"),
+            "allowed_decision_modes": context_list(row.get("allowed_decision_modes")),
+            "allowed_horizons": context_list(row.get("allowed_horizons")),
+            "promotion_status": row.get("promotion_status", "not_eligible"),
+            "review_only": True,
+            "shadow_only": True,
+        }
+
+    def shadow_rows_for_display(shadow_suite: Dict[str, object]) -> List[Dict[str, object]]:
+        rows: List[Dict[str, object]] = []
+        for run in context_list(shadow_suite.get("runs")):
+            run_dict = context_dict(run)
+            for row in context_list(run_dict.get("rows"))[:3]:
+                item = context_dict(row)
+                rows.append(
+                    {
+                        "model_name": item.get("model_name", run_dict.get("model_name", "")),
+                        "model_version": item.get("model_version", run_dict.get("model_version", "")),
+                        "model_role": item.get("model_role", run_dict.get("model_role", "shadow")),
+                        "symbol": item.get("symbol", ""),
+                        "shadow_action": item.get("shadow_action", ""),
+                        "shadow_score": item.get("shadow_score", ""),
+                        "confidence": item.get("confidence", ""),
+                        "horizon": item.get("horizon", ""),
+                        "official_action": item.get("official_action", ""),
+                        "review_only": True,
+                        "shadow_only": True,
+                    }
+                )
+        return rows
+
+    def shadow_results_for_scoreboard(shadow_suite: Dict[str, object]) -> List[Dict[str, object]]:
+        rows: List[Dict[str, object]] = []
+        for run in context_list(shadow_suite.get("runs")):
+            run_dict = context_dict(run)
+            output_rows = [context_dict(row) for row in context_list(run_dict.get("rows"))]
+            rows.append(
+                {
+                    "model_name": run_dict.get("model_name", ""),
+                    "model_version": run_dict.get("model_version", ""),
+                    "model_role": run_dict.get("model_role", "shadow"),
+                    "official_or_shadow": "shadow",
+                    "decision_mode": "long_term_buy_add",
+                    "horizon": "12_months",
+                    "sample_size": 0,
+                    "average_return": None,
+                    "average_excess_return": None,
+                    "warnings": [
+                        "insufficient_sample_size",
+                        "benchmark_data_missing",
+                        *[str(item) for item in context_list(run_dict.get("warnings")) if str(item)],
+                    ],
+                    "shadow_output_count": len(output_rows),
+                }
+            )
+        return rows
+
+    def scoreboard_table_rows(scoreboard: Dict[str, object]) -> List[Dict[str, object]]:
+        rows = []
+        for row in context_list(scoreboard.get("scoreboard_rows")):
+            item = context_dict(row)
+            rows.append(
+                {
+                    "rank": item.get("competition_rank", ""),
+                    "model_name": item.get("model_name", ""),
+                    "version": item.get("model_version", ""),
+                    "status": item.get("official_or_shadow", ""),
+                    "decision_mode": item.get("decision_mode", ""),
+                    "horizon": item.get("horizon", ""),
+                    "sample_size": item.get("sample_size", 0),
+                    "score": item.get("competition_score", ""),
+                    "warnings": ", ".join(str(warning) for warning in context_list(item.get("warnings"))[:3]),
+                    "review_only": True,
+                }
+            )
+        return rows
+
+    def debate_summary_rows(packets: List[Dict[str, object]]) -> List[Dict[str, object]]:
+        rows = []
+        for packet in packets:
+            consensus = context_dict(packet.get("consensus_view"))
+            disagreement = context_dict(packet.get("disagreement_summary"))
+            rows.append(
+                {
+                    "symbol": packet.get("symbol", ""),
+                    "models_compared": len(context_list(packet.get("competing_models"))),
+                    "consensus_status": consensus.get("status", "missing_shadow_models"),
+                    "dominant_stance": consensus.get("dominant_stance", "none"),
+                    "disagreement_status": disagreement.get("status", ""),
+                    "review_only": True,
+                    "shadow_only": True,
+                }
+            )
+        return rows
+
+    def readiness_summary_rows(readiness: Dict[str, object]) -> List[Dict[str, object]]:
+        return [
+            {
+                "model_name": row.get("model_name", ""),
+                "model_version": row.get("model_version", ""),
+                "label": row.get("promotion_readiness_label", ""),
+                "readiness_score": row.get("readiness_score", ""),
+                "sample_size": row.get("sample_size", 0),
+                "recommended_action": row.get("recommended_human_review_action", ""),
+                "no_auto_promotion": row.get("no_auto_promotion", True),
+            }
+            for row in (context_dict(item) for item in context_list(readiness.get("models")))
+        ]
+
+    def build_multi_model_competition_context(
+        *,
+        recommendations: List[Dict[str, object]],
+        long_term_add_queue: Dict[str, object],
+        tactical_review: Dict[str, object],
+        earnings_review: Dict[str, object],
+        model_evaluation: Dict[str, object],
+        provider_gap_rows: List[Dict[str, object]],
+        as_of_date: str,
+    ) -> Dict[str, object]:
+        registry = build_shadow_model_registry()
+        active_models = [compact_shadow_model(context_dict(row)) for row in context_list(registry.get("models"))]
+        shadow_suite = run_shadow_model_suite(
+            SHADOW_POLICIES,
+            recommendations,
+            long_term_add_queue=context_dict(long_term_add_queue).get("rows", []),
+            tactical_context=context_dict(tactical_review.get("tactical_watchlist_queue")).get("rows", []),
+            earnings_context=[
+                *context_list(context_dict(earnings_review.get("upcoming_earnings_queue")).get("rows")),
+                *context_list(context_dict(earnings_review.get("recent_earnings_queue")).get("rows")),
+            ],
+            source_context=[],
+            report_date=as_of_date,
+            evaluation_horizon="12_months",
+        )
+        shadow_outputs = shadow_rows_for_display(shadow_suite)
+        official_baseline = {
+            "model_name": "official_recommendation_model",
+            "model_version": MODEL_VERSION,
+            "model_role": "official",
+            "official_or_shadow": "official",
+            "decision_mode": "long_term_buy_add",
+            "horizon": "12_months",
+            "sample_size": context_dict(context_dict(model_evaluation.get("recommendation_backtest")).get("summary")).get("enough_history_count", 0),
+            "average_excess_return": None,
+            "warnings": [
+                "benchmark_data_missing",
+                "insufficient_sample_size",
+            ],
+        }
+        scoreboard = build_model_competition_scoreboard(
+            [official_baseline],
+            shadow_results_for_scoreboard(shadow_suite),
+            sample_size_threshold=30,
+        )
+        scoreboard_rows = scoreboard_table_rows(scoreboard)
+        top_recommendations = recommendations[:3]
+        debate_input_rows = [
+            {
+                **row,
+                "action": row.get("shadow_action", ""),
+                "score": row.get("shadow_score", ""),
+                "model_name": row.get("model_name", ""),
+                "model_version": row.get("model_version", ""),
+                "source_type": "shadow",
+            }
+            for row in shadow_outputs
+        ]
+        debate_packets = build_model_debate_packets(
+            top_recommendations,
+            debate_input_rows,
+            model_competition_rows=scoreboard_rows,
+            provider_gaps=provider_gap_rows[:20],
+            report_date=as_of_date,
+        )
+        readiness = build_model_promotion_readiness_review(
+            [
+                {
+                    "model_name": row.get("model_name", ""),
+                    "model_version": row.get("version", ""),
+                    "current_status": "shadow",
+                    "sample_size": row.get("sample_size", 0),
+                    "model_competition": {
+                        "average_excess_return_pct": None,
+                        "hit_rate": None,
+                    },
+                    "benchmark_comparison": {"status": "missing"},
+                    "warning_flags": ["insufficient_sample_size", "benchmark_data_missing"],
+                }
+                for row in scoreboard_rows
+                if row.get("status") == "shadow"
+            ]
+        )
+        warnings = list(
+            dict.fromkeys(
+                [
+                    "Shadow outputs are non-authoritative review context.",
+                    "Insufficient sample size for model competition.",
+                    "Benchmark data is missing or insufficient for model competition.",
+                    *[
+                        str(warning)
+                        for warning in context_list(context_dict(scoreboard.get("summary")).get("warnings"))
+                        if str(warning)
+                    ],
+                ]
+            )
+        )
+        return {
+            "review_only": True,
+            "recommendation_only": True,
+            "shadow_only": True,
+            "no_auto_promotion": True,
+            "note": MULTI_MODEL_NOTE,
+            "active_shadow_models": {
+                "model_count": len(active_models),
+                "rows": active_models[:12],
+                "empty_state": "No shadow models are registered yet.",
+            },
+            "official_baseline_comparison": {
+                "model_name": official_baseline["model_name"],
+                "model_version": official_baseline["model_version"],
+                "official_status": "official",
+                "shadow_model_count": len(shadow_results_for_scoreboard(shadow_suite)),
+                "official_recommendations_unchanged": True,
+                "note": "Official baseline remains authoritative; shadow models are comparison-only.",
+            },
+            "shadow_recommendations": {
+                "run_count": shadow_suite.get("run_count", 0),
+                "rows": shadow_outputs[:20],
+                "empty_state": "No shadow recommendation rows are available yet.",
+            },
+            "model_competition_scoreboard": {
+                "metadata": context_dict(scoreboard.get("metadata")),
+                "summary": context_dict(scoreboard.get("summary")),
+                "rows": scoreboard_rows[:20],
+                "empty_state": "No model competition scoreboard rows are available yet.",
+            },
+            "debate_packet_summary": {
+                "packet_count": len(debate_packets),
+                "rows": debate_summary_rows(debate_packets),
+                "empty_state": "No model debate packets are available yet.",
+            },
+            "promotion_readiness_summary": {
+                "metadata": context_dict(readiness.get("metadata")),
+                "rows": readiness_summary_rows(readiness),
+                "empty_state": "No promotion-readiness rows are available yet.",
+            },
+            "warnings": warnings,
+        }
+
     def recommendation_context(rank: int, row: Dict[str, object]) -> Dict[str, object]:
         item = row["input"]
         target = row.get("target")
@@ -7543,6 +7814,15 @@ def run_analysis(
         as_of_date=report_date,
         generated_at=now.isoformat(timespec="seconds"),
     )
+    multi_model_competition = build_multi_model_competition_context(
+        recommendations=recommendations,
+        long_term_add_queue=long_term_add_queue,
+        tactical_review=tactical_review,
+        earnings_review=earnings_review,
+        model_evaluation=model_evaluation,
+        provider_gap_rows=[row for row in provider_gap_rows if isinstance(row, dict)],
+        as_of_date=report_date,
+    )
     report_date = f"{now:%Y-%m-%d}"
     report_context = {
         "metadata": {
@@ -7583,6 +7863,7 @@ def run_analysis(
         "tactical_review": tactical_review,
         "model_evaluation": model_evaluation,
         "alerts_review": alerts_review,
+        "multi_model_competition": multi_model_competition,
         "long_term_add_queue": long_term_add_queue,
         "reliability": {
             "mode": reliability_status,
