@@ -1,0 +1,85 @@
+{
+  "not_enough_data": {
+    "model_name": "shadow_long_term_quality",
+    "model_version": "shadow-v1",
+    "current_status": "shadow",
+    "sample_size": 3,
+    "benchmark_comparison": {"status": "missing"},
+    "drawdown_metrics": {},
+    "model_competition": {"win_rate_vs_official": 0.5},
+    "ai_thesis_evaluation": {}
+  },
+  "promising_but_too_small": {
+    "model_name": "shadow_long_term_quality",
+    "model_version": "shadow-v1",
+    "current_status": "shadow",
+    "sample_size": 18,
+    "benchmark_comparison": {"status": "available", "average_excess_return_pct": 6.0},
+    "drawdown_metrics": {"max_drawdown_pct": 5.0},
+    "model_competition": {"win_rate_vs_official": 0.64, "risk_control_rate": 0.7},
+    "ai_thesis_evaluation": {"accuracy": 0.7}
+  },
+  "ready_for_human_review": {
+    "model_name": "shadow_long_term_quality",
+    "model_version": "shadow-v2",
+    "current_status": "shadow",
+    "sample_size": 80,
+    "benchmark_comparison": {"status": "available", "average_excess_return_pct": 8.0},
+    "drawdown_metrics": {"max_drawdown_pct": 7.0},
+    "model_competition": {"win_rate_vs_official": 0.66, "risk_control_rate": 0.75},
+    "ai_thesis_evaluation": {"accuracy": 0.72}
+  },
+  "high_drawdown": {
+    "model_name": "shadow_tactical_momentum",
+    "model_version": "shadow-v1",
+    "current_status": "shadow",
+    "sample_size": 90,
+    "benchmark_comparison": {"status": "available", "average_excess_return_pct": 7.0},
+    "drawdown_metrics": {"max_drawdown_pct": 28.0},
+    "model_competition": {"win_rate_vs_official": 0.62, "risk_control_rate": 0.7},
+    "ai_thesis_evaluation": {"accuracy": 0.7}
+  },
+  "benchmark_missing": {
+    "model_name": "shadow_earnings_review",
+    "model_version": "shadow-v1",
+    "current_status": "shadow",
+    "sample_size": 90,
+    "benchmark_comparison": {"status": "missing"},
+    "drawdown_metrics": {"max_drawdown_pct": 6.0},
+    "model_competition": {"win_rate_vs_official": 0.63, "risk_control_rate": 0.72},
+    "ai_thesis_evaluation": {"accuracy": 0.7}
+  },
+  "guardrail_failure": {
+    "model_name": "shadow_tactical_momentum",
+    "model_version": "shadow-v2",
+    "current_status": "shadow",
+    "sample_size": 90,
+    "benchmark_comparison": {"status": "available", "average_excess_return_pct": 9.0},
+    "drawdown_metrics": {"max_drawdown_pct": 6.0},
+    "model_competition": {"win_rate_vs_official": 0.67, "risk_control_rate": 0.8, "guardrail_failed": true},
+    "ai_thesis_evaluation": {"accuracy": 0.75},
+    "warning_flags": ["guardrail_failed"]
+  },
+  "reject_or_rework": {
+    "model_name": "shadow_speculative_ai",
+    "model_version": "shadow-v1",
+    "current_status": "shadow",
+    "sample_size": 35,
+    "benchmark_comparison": {"status": "available", "average_excess_return_pct": -10.0},
+    "drawdown_metrics": {"max_drawdown_pct": 18.0},
+    "model_competition": {"win_rate_vs_official": 0.32, "risk_control_rate": 0.0},
+    "ai_thesis_evaluation": {"accuracy": 0.0},
+    "warning_flags": ["overfit_warning", "poor_risk_explanation", "unstable_by_horizon"]
+  },
+  "bias_warning": {
+    "model_name": "shadow_long_term_quality",
+    "model_version": "shadow-v3",
+    "current_status": "shadow",
+    "sample_size": 90,
+    "benchmark_comparison": {"status": "available", "average_excess_return_pct": 8.0},
+    "drawdown_metrics": {"max_drawdown_pct": 6.0},
+    "model_competition": {"win_rate_vs_official": 0.67, "risk_control_rate": 0.8},
+    "ai_thesis_evaluation": {"accuracy": 0.75},
+    "warning_flags": ["look_ahead_bias"]
+  }
+}
