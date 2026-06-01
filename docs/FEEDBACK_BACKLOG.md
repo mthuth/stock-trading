@@ -39,3 +39,24 @@ Wave 15 should group these items into five implementation tracks:
 5. Feedback loop process: `FB-013`.
 
 Wave 15 should not add new model families, broker behavior, new tactical features, automatic tuning, broker writes, order previews, or trading behavior.
+
+## Wave 15 Dashboard Usability Iteration 1 Items
+
+Current UI focus: Dashboard Usability Iteration 1 - Top Action Queue Drilldown.
+
+This iteration should be narrow. It should make the first page easier to read by combining the useful Daily Decision Review detail with the useful Action Queue list shape. It should not introduce new model, data, broker, trading, scoring, target, allocation, provider, AI, or decision-safety behavior.
+
+| ID | Title | Status | Wave | Primary lane | Source | Desired outcome |
+| --- | --- | --- | --- | --- | --- | --- |
+| `UI-001` | Combine Daily Decision Review with Action Queue into a Top 10 expandable section | proposed | Wave 15 | UX / dashboard hierarchy | Wave 15 dashboard readability follow-up | First page starts with a Top 10 Action Queue where each row can expand into Daily Decision Review-style detail. |
+| `UI-002` | Add per-symbol expandable drilldowns for Score Drivers, Target Sources, and Provider Gaps | proposed | Wave 15 | UX / drilldown organization | Wave 15 dashboard readability follow-up | Each expanded Top 10 row shows Score Drivers, Target Source Drilldown, and Provider Gap Review for that symbol without forcing separate first-page sections. |
+| `UI-003` | Move dashboard navigation near the top | proposed | Wave 15 | UX / navigation | Wave 15 dashboard readability follow-up | Dashboard navigation is available near the top so Matt can jump to sections without scanning to the bottom. |
+| `UI-004` | Reduce top-page redundancy before doing broader redesign | proposed | Wave 15 | UX / simplification | Wave 15 dashboard readability follow-up | Daily Decision Review, Action Queue, and repeated decision surfaces are consolidated before any larger visual redesign. |
+| `UI-005` | Treat remaining dashboard sections as future sub-tabs/drilldowns | proposed | Wave 16 candidate | UX / information architecture | Wave 15 dashboard readability follow-up | Valuable but secondary dashboard data is preserved for future tabs or drilldowns rather than competing with the first-page action queue. |
+
+Iteration guidance:
+
+- Make small UI changes until the first page is usable.
+- Do not make many other page changes in the same branch.
+- Preserve existing data value while moving detail into expandable rows, sub-tabs, or drilldowns.
+- Keep recommendation-only and review-only wording visible.

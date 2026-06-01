@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from stock_trading.ai_briefs import write_ai_brief_artifacts
+from stock_trading.decision_gate_explanations import explain_decision_gate
 from stock_trading.reporting import decision_safety as safety_review
 from stock_trading.reporting.alerts import build_alerts_review_view
 from stock_trading.reporting.broker_readonly import build_broker_readonly_view
@@ -29,6 +30,10 @@ from stock_trading.reporting.product_coherence import (
 )
 from stock_trading.reporting.tactical_review import build_tactical_review_view
 from stock_trading.reporting.top_action_queue import render_top_action_queue_html
+from stock_trading.reporting.top5_opportunities import (
+    render_top5_opportunities_html,
+    top5_opportunities_markdown_lines,
+)
 
 
 REQUIRED_CONTEXT_SECTIONS = (
@@ -48,6 +53,7 @@ REQUIRED_CONTEXT_SECTIONS = (
     "research_sources",
     "feedback",
     "learning_review",
+    "top5_opportunities",
     "long_term_capital_deployment",
     "broker_readonly",
     "earnings_review",
@@ -65,6 +71,7 @@ REPORT_SECTION_LABELS = (
     "Model Evaluation",
     "Alerts And Review Triggers",
     "Multi-Model Shadow Competition",
+    "Top 5 Ranked Opportunities",
     "Product Review Path",
     "Learning Review",
     "Wave 7 Capital Deployment Prep",
@@ -462,6 +469,24 @@ def normalized_summary(context: dict[str, object]) -> dict[str, Any]:
                 "summary": "; ".join(reasons),
             }
     if gate:
+        explanation = as_dict(gate.get("decision_gate_explanation"))
+        if not explanation:
+            explanation = explain_decision_gate(
+                {
+                    "action": text(gate.get("candidate_action") or summary.get("top_action")).replace(" blocked", ""),
+                    "candidate_action": text(gate.get("candidate_action") or summary.get("top_action")).replace(" blocked", ""),
+                    "decision_gate_status": text(gate.get("status")),
+                    "safe_to_buy": gate.get("safe_to_buy"),
+                    "blocked_reasons": as_list(gate.get("reasons")),
+                    "target_confidence": summary.get("confidence"),
+                    "data_status": summary.get("data_status"),
+                    "current_price_status": summary.get("current_price_text"),
+                    "watchlist_policy": gate.get("watchlist_policy"),
+                    "allocation_safety": summary.get("allocation_safety"),
+                    "decision_gate": gate,
+                }
+            )
+        gate["decision_gate_explanation"] = explanation
         summary["decision_gate"] = gate
         if not gate.get("safe_to_buy"):
             action = text(gate.get("candidate_action") or summary.get("top_action")).replace(" blocked", "")
@@ -483,6 +508,9 @@ def normalized_report_context(context: dict[str, object]) -> dict[str, object]:
 
 def decision_gate_detail(summary: dict[str, Any]) -> str:
     gate = as_dict(summary.get("decision_gate"))
+    explanation = as_dict(gate.get("decision_gate_explanation"))
+    if explanation.get("plain_summary"):
+        return text(explanation.get("plain_summary"))
     reasons = [text(reason) for reason in as_list(gate.get("reasons")) if text(reason)]
     return "; ".join(reasons) if reasons else text(gate.get("summary")) or "Passed"
 
@@ -490,9 +518,33 @@ def decision_gate_detail(summary: dict[str, Any]) -> str:
 def render_decision_safety_review(context: dict[str, object]) -> str:
     summary = normalized_summary(context)
     review = safety_review.decision_safety_review(summary)
+    explanation = as_dict(as_dict(summary.get("decision_gate")).get("decision_gate_explanation"))
     reasons = [text(reason) for reason in as_list(review.get("reasons")) if text(reason)]
     reason_items = "".join(f"<li>{html.escape(reason)}</li>" for reason in reasons) or "<li>None</li>"
-    summary_text = text(review.get("summary")) or ("Passed the decision-safety gate." if review.get("safe_to_buy") else "Review required.")
+    ready_steps = [text(item) for item in as_list(explanation.get("what_would_make_buy_ready")) if text(item)]
+    ready_html = ""
+    if ready_steps:
+        ready_items = "".join(f"<li>{html.escape(item)}</li>" for item in ready_steps)
+        ready_html = (
+            '<div class="decision-safety-reasons"><span class="label">What would make this buy-ready?</span>'
+            f"<ul>{ready_items}</ul></div>"
+        )
+    summary_text = (
+        text(explanation.get("buyer_friendly_explanation"))
+        or text(review.get("summary"))
+        or ("Passed the decision-safety gate." if review.get("safe_to_buy") else "Review required.")
+    )
+    missing_data_note = text(explanation.get("missing_data_note"))
+    not_bearish_note = text(explanation.get("not_bearish_note"))
+    note_html = ""
+    if missing_data_note or not_bearish_note:
+        note_html = (
+            '<p class="decision-safety-note">'
+            f"{html.escape(missing_data_note)}"
+            f"{' ' if missing_data_note and not_bearish_note else ''}"
+            f"{html.escape(not_bearish_note)}"
+            "</p>"
+        )
     return (
         '<section class="decision-safety-review">'
         '<div class="section-title"><h2>Decision Safety Review</h2><span class="section-note">Top candidate gate</span></div>'
@@ -510,6 +562,8 @@ def render_decision_safety_review(context: dict[str, object]) -> str:
         "</div>"
         '<div class="decision-safety-reasons"><span class="label">Blocked reasons</span>'
         f"<ul>{reason_items}</ul></div>"
+        f"{ready_html}"
+        f"{note_html}"
         "</section>"
     )
 
@@ -710,17 +764,24 @@ def render_daily_decision_review(context: dict[str, object]) -> str:
 
 def decision_safety_markdown_lines(summary: dict[str, Any]) -> list[str]:
     review = safety_review.decision_safety_review(summary)
-    return [
+    explanation = as_dict(as_dict(summary.get("decision_gate")).get("decision_gate_explanation"))
+    ready_steps = [text(item) for item in as_list(explanation.get("what_would_make_buy_ready")) if text(item)]
+    lines = [
         "## Decision Safety Review",
         "",
         f"- Review state: **{review.get('review_label', '')}**",
         f"- Status: **{review.get('status', 'Ready')}**",
         f"- Candidate action: **{review.get('candidate_action', '') or 'n/a'}**",
         f"- Suggested amount: **{review.get('suggested_amount_text', '') or 'n/a'}**",
-        f"- Summary: {review.get('summary', '') or 'Passed'}",
+        f"- Summary: {explanation.get('buyer_friendly_explanation') or review.get('summary', '') or 'Passed'}",
         f"- Blocked reasons: {safety_review.reasons_text(review)}",
-        "",
     ]
+    if ready_steps:
+        lines.append(f"- What would make this buy-ready: {'; '.join(ready_steps)}")
+    if explanation.get("missing_data_note"):
+        lines.append(f"- Data note: {explanation.get('missing_data_note')}")
+    lines.append("")
+    return lines
 
 
 def daily_decision_review_markdown_lines(context: dict[str, object]) -> list[str]:
@@ -1834,6 +1895,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
       <div class="metric"><span class="label">Source Health</span><strong>{html.escape(text(source_summary.get("needs_attention"), "0"))}</strong><div class="thesis">{html.escape(text(source_summary.get("healthy"), "0"))} healthy · {html.escape(text(source_summary.get("stale"), "0"))} stale · {html.escape(text(source_summary.get("not_implemented"), "0"))} not implemented</div></div>
     </div>
 
+    {render_top5_opportunities_html(as_dict(context.get("top5_opportunities")))}
     {render_daily_decision_review(context)}
     {render_long_term_capital_deployment(context)}
     {render_broker_readonly(context)}
@@ -2065,6 +2127,7 @@ def render_print_review(context: dict[str, object]) -> str:
         <h1>Pre-Market Review</h1>
         <div class="section-note">Generated {html.escape(generated_at)} · Report {html.escape(report_date)} · Recommendation-only · No automated trading</div>
       </section>
+      {render_top5_opportunities_html(as_dict(context.get("top5_opportunities")))}
       {render_print_summary(context)}
       {render_daily_decision_review(context)}
       {render_long_term_capital_deployment(context)}
@@ -2397,6 +2460,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
         "",
         "Recommendation-only; no automated trading.",
         "",
+        *top5_opportunities_markdown_lines(as_dict(context.get("top5_opportunities"))),
         "## Summary",
         "",
         f"{summary.get('recommendation_label', 'Top candidate')}: **{summary.get('top_symbol', '')} - {summary.get('top_company', '')}**",

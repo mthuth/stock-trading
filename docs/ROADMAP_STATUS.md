@@ -14,6 +14,9 @@ Current state:
 - Wave 14 dashboard validation feedback has been captured in [Post-Wave Validation Log](POST_WAVE_VALIDATION_LOG.md), [Feedback Backlog](FEEDBACK_BACKLOG.md), and [Roadmap Decision Log](ROADMAP_DECISION_LOG.md).
 - The next wave is Wave 15: Daily Decision Quality Beta.
 - Wave 15 should focus on dashboard clarity, top 5 opportunity ranking, decision trust, data maintenance, holdings freshness, and queue refinement.
+- Current UI focus: Dashboard Usability Iteration 1 - Top Action Queue Drilldown.
+- The next UI changes should be small and feedback-driven until the first page becomes usable.
+- This UI iteration should not add new model/data/broker/trading features.
 - Wave 15 should not add new model families, broker behavior, new tactical features, automatic tuning, broker writes, order previews, or trading behavior.
 
 ## Completed Waves
@@ -38,9 +41,30 @@ Current state:
 
 ## Current / In-Progress Work
 
-Post-Wave-14 validation feedback is being captured as documentation-only planning input.
+Post-Wave-14 validation feedback and Wave 15 dashboard readability follow-up are being captured as documentation-only planning input.
 
 Current active work should be considered Wave 15 preparation: convert dashboard validation feedback into clear backlog items and roadmap decisions before implementation branches begin.
+
+### Current UI Focus: Dashboard Usability Iteration 1 - Top Action Queue Drilldown
+
+The next dashboard UI iteration should be narrow and feedback-driven.
+
+Focus:
+
+- Combine Daily Decision Review detail with the Action Queue list shape.
+- Create a top-of-page Top 10 Action Queue.
+- Make each of the 10 rows expandable.
+- In each expanded row, include Daily Decision Review-style detail, Score Drivers, Target Source Drilldown, and Provider Gap Review.
+- Move dashboard navigation currently near the bottom toward the top.
+- Reduce top-page redundancy before broader redesign.
+- Preserve other useful dashboard data as future sub-tabs or drilldowns.
+
+Guardrails:
+
+- Do not make many other page changes yet.
+- Do not add new model/data/broker/trading features in this UI iteration.
+- Do not change scoring, target logic, target confidence, allocation, decision safety, provider behavior, broker behavior, recommendation labels, or trading behavior.
+- Keep the experience recommendation-only and review-only.
 
 ## Next Recommended Wave
 
@@ -54,6 +78,7 @@ Wave 15 should focus on:
 
 - Dashboard clarity and hierarchy.
 - Top 5 opportunity ranking on the first screen.
+- Top 10 expandable Action Queue as the immediate dashboard usability iteration.
 - Clear distinction between core mega-cap candidates and higher-upside/speculative opportunities.
 - Plain-English decision-gate explanations.
 - Missing data as confidence/reliability and sizing blockers, not bearish thesis language.
@@ -78,8 +103,12 @@ Wave 15 should not add:
 ## Integration Backlog
 
 - Break `FB-001` through `FB-013` into Wave 15 implementation branches.
+- Break `UI-001` through `UI-005` into the first dashboard usability implementation branch before broader redesign work.
+- Implement Dashboard Usability Iteration 1 - Top Action Queue Drilldown as a small UI change.
 - Consolidate repeated decision sections into hierarchy and drilldowns.
 - Add first-screen top 5 ranked opportunity presentation.
+- Add top-of-page Top 10 Action Queue with expandable per-symbol detail.
+- Move dashboard navigation toward the top.
 - Distinguish core mega-cap candidates from higher-upside/speculative opportunities.
 - Clarify decision-gate blocked wording.
 - Track model/user disagreement as review-only learning context.
