@@ -28,6 +28,10 @@ from stock_trading.reporting.product_coherence import (
     build_review_path,
 )
 from stock_trading.reporting.tactical_review import build_tactical_review_view
+from stock_trading.reporting.top5_opportunities import (
+    render_top5_opportunities_html,
+    top5_opportunities_markdown_lines,
+)
 
 
 REQUIRED_CONTEXT_SECTIONS = (
@@ -47,6 +51,7 @@ REQUIRED_CONTEXT_SECTIONS = (
     "research_sources",
     "feedback",
     "learning_review",
+    "top5_opportunities",
     "long_term_capital_deployment",
     "broker_readonly",
     "earnings_review",
@@ -64,6 +69,7 @@ REPORT_SECTION_LABELS = (
     "Model Evaluation",
     "Alerts And Review Triggers",
     "Multi-Model Shadow Competition",
+    "Top 5 Ranked Opportunities",
     "Product Review Path",
     "Learning Review",
     "Wave 7 Capital Deployment Prep",
@@ -1785,6 +1791,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
   </header>
   <main>
     <div class="screen-dashboard">
+    {render_top5_opportunities_html(as_dict(context.get("top5_opportunities")))}
     <div class="summary">
       <div class="metric">
         <span class="label">{html.escape(text(summary.get("recommendation_label"), "Top Candidate"))}</span>
@@ -2041,6 +2048,7 @@ def render_print_review(context: dict[str, object]) -> str:
         <h1>Pre-Market Review</h1>
         <div class="section-note">Generated {html.escape(generated_at)} · Report {html.escape(report_date)} · Recommendation-only · No automated trading</div>
       </section>
+      {render_top5_opportunities_html(as_dict(context.get("top5_opportunities")))}
       {render_print_summary(context)}
       {render_daily_decision_review(context)}
       {render_long_term_capital_deployment(context)}
@@ -2373,6 +2381,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
         "",
         "Recommendation-only; no automated trading.",
         "",
+        *top5_opportunities_markdown_lines(as_dict(context.get("top5_opportunities"))),
         "## Summary",
         "",
         f"{summary.get('recommendation_label', 'Top candidate')}: **{summary.get('top_symbol', '')} - {summary.get('top_company', '')}**",
