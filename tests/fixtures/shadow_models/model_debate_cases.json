@@ -1,0 +1,246 @@
+{
+  "agree": {
+    "official_recommendation": {
+      "symbol": "NVDA",
+      "report_date": "2026-05-31",
+      "model_name": "official_model",
+      "model_version": "v1",
+      "action": "Add",
+      "score": 88,
+      "decision_mode": "long_term_buy_add",
+      "horizon": "12_months",
+      "rationale": "Official model sees durable AI infrastructure demand."
+    },
+    "shadow_recommendations": [
+      {
+        "symbol": "NVDA",
+        "model_name": "growth_shadow",
+        "model_version": "v1",
+        "action": "Add",
+        "score": 91,
+        "decision_mode": "long_term_buy_add",
+        "horizon": "12_months",
+        "target_confidence": "high",
+        "bull_case": "Demand and margin evidence remain strong.",
+        "rationale": "Growth model emphasizes AI accelerator demand."
+      },
+      {
+        "symbol": "NVDA",
+        "model_name": "quality_shadow",
+        "model_version": "v1",
+        "action": "Add",
+        "score": 86,
+        "decision_mode": "long_term_buy_add",
+        "horizon": "12_months",
+        "target_confidence": "high",
+        "bull_case": "Balance-sheet and moat quality support the long-term add.",
+        "rationale": "Quality model emphasizes profitability and market leadership."
+      }
+    ],
+    "evidence_context": [
+      {
+        "symbol": "NVDA",
+        "model_name": "growth_shadow",
+        "source_name": "Company IR",
+        "headline": "Data center demand remains strong",
+        "summary": "Management commentary supports AI infrastructure demand.",
+        "confidence": "high",
+        "corroboration_label": "primary_plus_independent"
+      }
+    ],
+    "model_competition_rows": [
+      {
+        "symbol": "NVDA",
+        "model_name": "growth_shadow",
+        "rank_score": 92,
+        "summary": "Best long-term add backtest among supplied models."
+      }
+    ]
+  },
+  "disagree": {
+    "official_recommendation": {
+      "symbol": "MSFT",
+      "report_date": "2026-05-31",
+      "model_name": "official_model",
+      "model_version": "v1",
+      "action": "Add",
+      "score": 82,
+      "decision_mode": "long_term_buy_add",
+      "horizon": "12_months",
+      "rationale": "Official model likes durable cloud and AI exposure."
+    },
+    "shadow_recommendations": [
+      {
+        "symbol": "MSFT",
+        "model_name": "conservative_shadow",
+        "model_version": "v2",
+        "action": "Hold",
+        "score": 58,
+        "decision_mode": "long_term_buy_add",
+        "horizon": "12_months",
+        "target_confidence": "medium",
+        "bear_case": "Valuation and capex risk argue for patience.",
+        "risk_summary": "High AI capex could pressure free cash flow."
+      },
+      {
+        "symbol": "MSFT",
+        "model_name": "growth_shadow",
+        "model_version": "v1",
+        "action": "Add",
+        "score": 84,
+        "decision_mode": "long_term_buy_add",
+        "horizon": "12_months",
+        "target_confidence": "high",
+        "bull_case": "Cloud and Copilot monetization support upside.",
+        "rationale": "Growth model emphasizes durable revenue expansion."
+      }
+    ],
+    "evidence_context": [
+      {
+        "symbol": "MSFT",
+        "source_name": "Industry research",
+        "headline": "AI capex debate remains unresolved",
+        "confidence": "medium",
+        "corroboration_label": "single_source"
+      }
+    ],
+    "provider_gaps": [
+      {
+        "symbol": "MSFT",
+        "provider": "Analyst targets",
+        "field": "target breadth",
+        "status": "missing",
+        "latest_issue": "Only one fresh target source."
+      }
+    ]
+  },
+  "aggressive_vs_conservative": {
+    "official_recommendation": {
+      "symbol": "AMD",
+      "report_date": "2026-05-31",
+      "model_name": "official_model",
+      "model_version": "v1",
+      "action": "Watch",
+      "score": 74,
+      "decision_mode": "long_term_buy_add",
+      "horizon": "12_months"
+    },
+    "shadow_recommendations": [
+      {
+        "symbol": "AMD",
+        "model_name": "aggressive_growth",
+        "model_version": "v1",
+        "action": "Buy",
+        "score": 89,
+        "decision_mode": "long_term_buy_add",
+        "horizon": "12_months",
+        "bull_case": "Aggressive model expects AI server share gains."
+      },
+      {
+        "symbol": "AMD",
+        "model_name": "risk_control",
+        "model_version": "v3",
+        "action": "Avoid",
+        "score": 41,
+        "decision_mode": "long_term_buy_add",
+        "horizon": "12_months",
+        "bear_case": "Risk model sees weak target confidence and execution risk."
+      }
+    ],
+    "target_context": {
+      "target_confidence": "low",
+      "range_width": "wide"
+    }
+  },
+  "tactical_vs_long_term": {
+    "official_recommendation": {
+      "symbol": "AVGO",
+      "report_date": "2026-05-31",
+      "model_name": "official_model",
+      "model_version": "v1",
+      "action": "Add",
+      "score": 83,
+      "decision_mode": "long_term_buy_add",
+      "horizon": "12_months"
+    },
+    "shadow_recommendations": [
+      {
+        "symbol": "AVGO",
+        "model_name": "long_term_quality",
+        "model_version": "v1",
+        "action": "Add",
+        "score": 85,
+        "decision_mode": "long_term_buy_add",
+        "horizon": "12_months",
+        "bull_case": "Quality model favors durable AI networking exposure."
+      },
+      {
+        "symbol": "AVGO",
+        "model_name": "tactical_momentum",
+        "model_version": "v1",
+        "review_action": "tactical_sell_review",
+        "priority_score": 72,
+        "decision_mode": "tactical_trade",
+        "tactical_horizon": "5_trading_days",
+        "bear_case": "Tactical model sees short-term exhaustion risk."
+      }
+    ]
+  },
+  "earnings_disagreement": {
+    "official_recommendation": {
+      "symbol": "AMZN",
+      "report_date": "2026-05-31",
+      "model_name": "official_model",
+      "model_version": "v1",
+      "action": "Hold",
+      "score": 76,
+      "decision_mode": "long_term_buy_add",
+      "horizon": "12_months"
+    },
+    "shadow_recommendations": [
+      {
+        "symbol": "AMZN",
+        "model_name": "earnings_reaction",
+        "model_version": "v1",
+        "review_action": "review_for_add_after_earnings",
+        "score": 80,
+        "decision_mode": "earnings_event",
+        "horizon": "20_trading_days",
+        "bull_case": "Earnings reaction confirmed margin improvement."
+      },
+      {
+        "symbol": "AMZN",
+        "model_name": "risk_control",
+        "model_version": "v2",
+        "action": "Hold",
+        "score": 62,
+        "decision_mode": "long_term_buy_add",
+        "horizon": "12_months",
+        "bear_case": "Risk model wants more post-earnings confirmation."
+      }
+    ]
+  },
+  "missing_evidence": {
+    "official_recommendation": {
+      "symbol": "TSLA",
+      "report_date": "2026-05-31",
+      "model_name": "official_model",
+      "model_version": "v1",
+      "action": "Watch",
+      "score": 64,
+      "decision_mode": "long_term_buy_add",
+      "horizon": "12_months"
+    },
+    "shadow_recommendations": [
+      {
+        "symbol": "TSLA",
+        "model_name": "speculative_ai_shadow",
+        "model_version": "v1",
+        "action": "Watch",
+        "score": 67,
+        "decision_mode": "speculative_watchlist",
+        "horizon": "60_trading_days"
+      }
+    ]
+  }
+}
