@@ -1,0 +1,32 @@
+{
+  "manual_journal_entries": [
+    {
+      "decision_date": "2026-06-01",
+      "report_date": "2026-06-01",
+      "symbol": "MSFT",
+      "action_taken": "bought",
+      "amount": 1200.0,
+      "rationale": "Matt likes MSFT and chose to add despite Watch language."
+    }
+  ],
+  "recommendations": [
+    {
+      "report_date": "2026-06-01",
+      "symbol": "MSFT",
+      "company": "Microsoft",
+      "action": "Watch",
+      "score": 78.0,
+      "decision_gate_status": "Ready",
+      "decision_gate_reasons": []
+    }
+  ],
+  "outcomes": [
+    {
+      "report_date": "2026-06-01",
+      "symbol": "MSFT",
+      "window_trading_days": 20,
+      "outcome_status": "positive_follow_through",
+      "percent_change": 6.5
+    }
+  ]
+}
