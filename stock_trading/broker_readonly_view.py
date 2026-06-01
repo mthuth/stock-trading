@@ -11,6 +11,8 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any, Iterable, Mapping
 
+from stock_trading.holdings_freshness import build_holdings_freshness
+
 
 RECOMMENDATION_ONLY_NOTE = (
     "Broker context is read-only and recommendation-only. It is for manual capital "
@@ -242,8 +244,16 @@ def build_empty_view(
     capital_availability: Mapping[str, object] | None,
     data_source: str,
     as_of: str,
+    today: date,
+    stale_after_days: int,
 ) -> dict[str, object]:
     capital = as_dict(capital_availability)
+    freshness = build_holdings_freshness(
+        None,
+        source=data_source,
+        today=today,
+        stale_after_hours=max(0, stale_after_days) * 24,
+    )
     fallback = {
         "available_amount": rounded(optional_amount(capital.get("available_amount"))),
         "available_amount_text": money_text(optional_amount(capital.get("available_amount"))),
@@ -271,6 +281,9 @@ def build_empty_view(
         "warnings": [EMPTY_STATE_NOTE],
         "data_source": data_source,
         "as_of": as_of,
+        "last_pulled_at": "",
+        "freshness_summary": freshness,
+        "freshness_label": freshness["freshness_label"],
         "empty_state": EMPTY_STATE_NOTE,
         "read_only": True,
         "no_order_capability": True,
@@ -295,7 +308,13 @@ def build_broker_readonly_view(
     as_of = text(snapshot.get("as_of") or snapshot.get("as_of_timestamp") or snapshot.get("synced_at"))
     accounts = snapshot_accounts(snapshot)
     if not snapshot or not accounts:
-        return build_empty_view(capital_availability=capital_availability, data_source=data_source, as_of=as_of)
+        return build_empty_view(
+            capital_availability=capital_availability,
+            data_source=data_source,
+            as_of=as_of,
+            today=today,
+            stale_after_days=stale_after_days,
+        )
 
     positions = all_positions(accounts)
     total_cash = sum(account_cash(account) for account in accounts)
@@ -303,6 +322,12 @@ def build_broker_readonly_view(
     total_position_value = sum(amount(position.get("market_value")) for position in positions)
     total_value = total_cash + total_position_value
     age = age_days(as_of, today)
+    freshness = build_holdings_freshness(
+        snapshot,
+        source=data_source,
+        today=today,
+        stale_after_hours=max(0, stale_after_days) * 24,
+    )
     warnings: list[str] = []
     if age is None:
         warnings.append("Broker snapshot is missing an as-of timestamp.")
@@ -351,6 +376,9 @@ def build_broker_readonly_view(
         "warnings": list(dict.fromkeys(warnings)),
         "data_source": data_source,
         "as_of": as_of,
+        "last_pulled_at": freshness["last_pulled_at"],
+        "freshness_summary": freshness,
+        "freshness_label": freshness["freshness_label"],
         "snapshot_age_days": age,
         "empty_state": "",
         "read_only": True,
