@@ -190,7 +190,7 @@ class Wave11ModelEvaluationIntegrationTests(unittest.TestCase):
         self.assertLess(dashboard.index("Long-Term Capital Deployment Review"), dashboard.index("Earnings Review"))
         self.assertLess(dashboard.index("Earnings Review"), dashboard.index("Tactical Review"))
         self.assertLess(dashboard.index("Tactical Review"), dashboard.index("Model Evaluation"))
-        self.assertLess(dashboard.index("Model Evaluation"), dashboard.index("Learning Review"))
+        self.assertLess(dashboard.index("Model Evaluation"), dashboard.index('id="learningReviewTab"'))
         self.assertIn("## Model Evaluation", markdown)
         self.assertLess(markdown.index("## Tactical Review"), markdown.index("## Model Evaluation"))
         self.assertLess(markdown.index("## Model Evaluation"), markdown.index("## Learning Review"))

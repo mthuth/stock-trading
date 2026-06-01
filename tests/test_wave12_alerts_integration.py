@@ -158,7 +158,7 @@ class Wave12AlertsIntegrationTests(unittest.TestCase):
         self.assertLess(dashboard.index("Earnings Review"), dashboard.index("Tactical Review"))
         self.assertLess(dashboard.index("Tactical Review"), dashboard.index("Model Evaluation"))
         self.assertLess(dashboard.index("Model Evaluation"), dashboard.index("Alerts And Review Triggers"))
-        self.assertLess(dashboard.index("Alerts And Review Triggers"), dashboard.index("Learning Review"))
+        self.assertLess(dashboard.index("Alerts And Review Triggers"), dashboard.index('id="learningReviewTab"'))
         self.assertIn("## Alerts And Review Triggers", markdown)
         self.assertLess(markdown.index("## Model Evaluation"), markdown.index("## Alerts And Review Triggers"))
         self.assertLess(markdown.index("## Alerts And Review Triggers"), markdown.index("## Learning Review"))
