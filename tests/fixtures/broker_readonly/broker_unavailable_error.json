@@ -1,0 +1,56 @@
+{
+  "scenario_id": "broker_unavailable_error",
+  "scenario_label": "Broker unavailable/error",
+  "broker_layer": "broker_readonly",
+  "review_only": true,
+  "recommendation_only": true,
+  "read_only": true,
+  "official_recommendation_unchanged": true,
+  "sync_status": {
+    "status": "error",
+    "snapshot_at": null,
+    "last_success_at": null,
+    "stale_after_hours": 24,
+    "warnings": ["broker_unavailable"],
+    "fallback_used": true
+  },
+  "accounts": [],
+  "positions": [],
+  "cash_context": {
+    "source": "manual_config_fallback",
+    "cash_available": 2500.0,
+    "buying_capacity": 2500.0,
+    "manual_config_fallback_used": true,
+    "as_of": "2026-06-01T08:00:00",
+    "warnings": ["broker_unavailable"],
+    "context_only_fields": []
+  },
+  "allocation_context": {
+    "account_value": 50000.0,
+    "sleeves": [],
+    "cap_warnings": ["broker_unavailable"],
+    "notes": "Broker error is visible but does not block configured capital review."
+  },
+  "expected_behavior": {
+    "capital_review_result": "manual_config_fallback_due_to_broker_error",
+    "scenario_assertions": ["broker_unavailable", "manual_config_fallback", "official_recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_order_preview": true,
+    "no_order_placement": true,
+    "no_order_modification": true,
+    "no_order_cancellation": true,
+    "no_broker_write_actions": true,
+    "no_margin_day_trading_compliance_engine": true,
+    "no_options_short_execution": true,
+    "no_live_broker_calls_in_tests": true,
+    "no_real_credentials_in_repo": true,
+    "no_automatic_score_changes_from_broker_data": true,
+    "no_automatic_target_changes_from_broker_data": true,
+    "no_automatic_recommendation_changes_from_broker_data": true,
+    "no_automatic_decision_safety_changes_from_broker_data": true,
+    "no_automatic_source_weight_changes_from_broker_data": true,
+    "no_automatic_model_tuning_from_broker_data": true
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "scenario_id": "stale_broker_snapshot",
+  "scenario_label": "Stale broker snapshot",
+  "broker_layer": "broker_readonly",
+  "review_only": true,
+  "recommendation_only": true,
+  "read_only": true,
+  "official_recommendation_unchanged": true,
+  "sync_status": {
+    "status": "stale",
+    "snapshot_at": "2026-05-29T08:00:00",
+    "last_success_at": "2026-05-29T08:00:00",
+    "stale_after_hours": 24,
+    "warnings": ["broker_snapshot_stale"],
+    "fallback_used": true
+  },
+  "accounts": [
+    {
+      "account_id_masked": "acct-****-001",
+      "account_label": "retirement review account",
+      "account_type": "retirement",
+      "broker_name": "FixtureBroker",
+      "snapshot_at": "2026-05-29T08:00:00",
+      "source": "fixture_broker_snapshot",
+      "source_status": "stale",
+      "currency": "USD",
+      "total_market_value": 49800.0,
+      "cash_available": 1800.0,
+      "buying_capacity": 1800.0,
+      "read_only": true,
+      "warnings": ["broker_snapshot_stale"]
+    }
+  ],
+  "positions": [],
+  "cash_context": {
+    "source": "manual_config_fallback",
+    "cash_available": 2500.0,
+    "buying_capacity": 2500.0,
+    "manual_config_fallback_used": true,
+    "as_of": "2026-06-01T08:00:00",
+    "warnings": ["broker_snapshot_stale"],
+    "context_only_fields": []
+  },
+  "allocation_context": {
+    "account_value": 50000.0,
+    "sleeves": [],
+    "cap_warnings": ["stale_holdings_not_used_for_caps"],
+    "notes": "Stale broker holdings should be shown as a reliability gap."
+  },
+  "expected_behavior": {
+    "capital_review_result": "manual_config_fallback_due_to_stale_snapshot",
+    "scenario_assertions": ["stale_snapshot_warning", "manual_config_fallback", "official_recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_order_preview": true,
+    "no_order_placement": true,
+    "no_order_modification": true,
+    "no_order_cancellation": true,
+    "no_broker_write_actions": true,
+    "no_margin_day_trading_compliance_engine": true,
+    "no_options_short_execution": true,
+    "no_live_broker_calls_in_tests": true,
+    "no_real_credentials_in_repo": true,
+    "no_automatic_score_changes_from_broker_data": true,
+    "no_automatic_target_changes_from_broker_data": true,
+    "no_automatic_recommendation_changes_from_broker_data": true,
+    "no_automatic_decision_safety_changes_from_broker_data": true,
+    "no_automatic_source_weight_changes_from_broker_data": true,
+    "no_automatic_model_tuning_from_broker_data": true
+  }
+}

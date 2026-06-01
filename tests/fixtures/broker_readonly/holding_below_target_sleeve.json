@@ -1,0 +1,91 @@
+{
+  "scenario_id": "holding_below_target_sleeve",
+  "scenario_label": "Holding below target sleeve",
+  "broker_layer": "broker_readonly",
+  "review_only": true,
+  "recommendation_only": true,
+  "read_only": true,
+  "official_recommendation_unchanged": true,
+  "sync_status": {
+    "status": "available",
+    "snapshot_at": "2026-06-01T08:00:00",
+    "last_success_at": "2026-06-01T08:00:00",
+    "stale_after_hours": 24,
+    "warnings": ["sleeve_below_target"],
+    "fallback_used": false
+  },
+  "accounts": [
+    {
+      "account_id_masked": "acct-****-001",
+      "account_label": "retirement review account",
+      "account_type": "retirement",
+      "broker_name": "FixtureBroker",
+      "snapshot_at": "2026-06-01T08:00:00",
+      "source": "fixture_broker_snapshot",
+      "source_status": "available",
+      "currency": "USD",
+      "total_market_value": 50000.0,
+      "cash_available": 2500.0,
+      "buying_capacity": 2500.0,
+      "read_only": true,
+      "warnings": []
+    }
+  ],
+  "positions": [
+    {
+      "account_id_masked": "acct-****-001",
+      "symbol": "QQQM",
+      "company": "Invesco NASDAQ 100 ETF",
+      "quantity": 45,
+      "market_value": 9000.0,
+      "last_price": 200.0,
+      "sleeve": "etf_context",
+      "position_pct": 0.18,
+      "cost_basis": 185.0,
+      "cost_basis_status": "available",
+      "source": "fixture_broker_snapshot",
+      "snapshot_at": "2026-06-01T08:00:00",
+      "warnings": []
+    }
+  ],
+  "cash_context": {
+    "source": "broker_read_only_snapshot",
+    "cash_available": 2500.0,
+    "buying_capacity": 2500.0,
+    "manual_config_fallback_used": false,
+    "as_of": "2026-06-01T08:00:00",
+    "warnings": [],
+    "context_only_fields": []
+  },
+  "allocation_context": {
+    "account_value": 50000.0,
+    "sleeves": [
+      {"sleeve": "long_term_core", "market_value": 15000.0, "allocation_pct": 0.3},
+      {"sleeve": "etf_context", "market_value": 9000.0, "allocation_pct": 0.18}
+    ],
+    "cap_warnings": ["sleeve_below_target"],
+    "notes": "Long-term core sleeve appears below target based on read-only holdings."
+  },
+  "expected_behavior": {
+    "capital_review_result": "sleeve_gap_visible",
+    "scenario_assertions": ["sleeve_below_target", "allocation_context_only", "official_recommendation_unchanged"]
+  },
+  "guardrails": {
+    "no_automatic_trading": true,
+    "no_order_preview": true,
+    "no_order_placement": true,
+    "no_order_modification": true,
+    "no_order_cancellation": true,
+    "no_broker_write_actions": true,
+    "no_margin_day_trading_compliance_engine": true,
+    "no_options_short_execution": true,
+    "no_live_broker_calls_in_tests": true,
+    "no_real_credentials_in_repo": true,
+    "no_automatic_score_changes_from_broker_data": true,
+    "no_automatic_target_changes_from_broker_data": true,
+    "no_automatic_recommendation_changes_from_broker_data": true,
+    "no_automatic_decision_safety_changes_from_broker_data": true,
+    "no_automatic_source_weight_changes_from_broker_data": true,
+    "no_automatic_model_tuning_from_broker_data": true
+  }
+}

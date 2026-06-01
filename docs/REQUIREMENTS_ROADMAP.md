@@ -14,6 +14,7 @@ Related strategy docs:
 - [Wave 11 Model Evaluation Requirements](WAVE11_MODEL_EVALUATION_REQUIREMENTS.md)
 - [Wave 12 Alerts And Review Triggers Requirements](WAVE12_ALERTS_REVIEW_TRIGGERS_REQUIREMENTS.md)
 - [Wave 13 Multi-Model Shadow Competition Requirements](WAVE13_MULTI_MODEL_SHADOW_REQUIREMENTS.md)
+- [Wave 14 Broker Read-Only Requirements](WAVE14_BROKER_READONLY_REQUIREMENTS.md)
 - [Decision Modes](DECISION_MODES.md)
 - [Model Learning Strategy](MODEL_LEARNING_STRATEGY.md)
 - [Local App Strategy](LOCAL_APP_STRATEGY.md)
@@ -275,6 +276,8 @@ Rules:
 ## Wave 14: Broker Read-Only Integration
 
 Goal: improve holdings/cash context only if manual/configured capital availability is insufficient.
+
+Read [Wave 14 Broker Read-Only Requirements](WAVE14_BROKER_READONLY_REQUIREMENTS.md) before starting implementation.
 
 Rules:
 
