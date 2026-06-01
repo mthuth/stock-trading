@@ -65,6 +65,7 @@ from stock_trading.tactical_setups import classify_tactical_setup
 from stock_trading.tactical_watchlist import build_tactical_watchlist_queue
 from stock_trading.target_confidence import calibrate_target_confidence
 from stock_trading.technical_targets import calculate_technical_target
+from stock_trading.top5_opportunities import build_top5_opportunities
 from stock_trading.watchlist_policy import evaluate_watchlist_policy
 
 
@@ -8156,6 +8157,10 @@ def run_analysis(
         provider_gap_rows=[row for row in provider_gap_rows if isinstance(row, dict)],
         as_of_date=report_date,
     )
+    top5_opportunities = build_top5_opportunities(
+        long_term_queue_candidates,
+        provider_gap_rows=[row for row in provider_gap_rows if isinstance(row, dict)],
+    )
     report_date = f"{now:%Y-%m-%d}"
     report_context = {
         "metadata": {
@@ -8198,6 +8203,7 @@ def run_analysis(
         "model_evaluation": model_evaluation,
         "alerts_review": alerts_review,
         "multi_model_competition": multi_model_competition,
+        "top5_opportunities": top5_opportunities,
         "long_term_add_queue": long_term_add_queue,
         "reliability": {
             "mode": reliability_status,
