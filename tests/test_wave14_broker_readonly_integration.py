@@ -31,8 +31,19 @@ def broker_section() -> dict[str, object]:
         "note": "Read-only broker context supports manual capital and exposure review; official recommendations stay unchanged.",
         "snapshot_status": "available",
         "as_of": "2026-06-01T08:00:00",
+        "last_pulled_at": "2026-06-01T08:05:00",
         "source": "broker_readonly",
         "snapshot_source": "fixture_broker_snapshot",
+        "freshness_summary": {
+            "source": "broker_readonly",
+            "source_detail": "fixture_broker_snapshot",
+            "as_of": "2026-06-01T08:00:00",
+            "last_pulled_at": "2026-06-01T08:05:00",
+            "freshness_label": "fresh",
+            "warning": "",
+            "read_only": True,
+            "no_order_capability": True,
+        },
         "account_count": 1,
         "masked_account_labels": ["retirement review account (acct-****-001)"],
         "cash_available": 2500.0,
@@ -84,6 +95,10 @@ class Wave14BrokerReadonlyIntegrationTests(unittest.TestCase):
         html = render_broker_readonly(context)
 
         self.assertIn("Broker Read-Only Context", html)
+        self.assertIn("Holdings source", html)
+        self.assertIn("Last pulled", html)
+        self.assertIn("Freshness", html)
+        self.assertIn("Read-only snapshot", html)
         self.assertIn("acct-****-001", html)
         self.assertIn("$2,500.00", html)
         self.assertIn("Top Broker-Reported Positions", html)
