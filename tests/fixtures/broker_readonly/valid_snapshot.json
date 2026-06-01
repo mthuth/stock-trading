@@ -1,0 +1,51 @@
+{
+  "created_at": "2026-06-01T08:30:00",
+  "as_of": "2026-06-01T08:00:00",
+  "provider": "fixture_broker",
+  "source": "fixture",
+  "sync_status": "ok",
+  "accounts": [
+    {
+      "account_id_masked": "acct_****1111",
+      "account_type": "IRA_ROLLOVER",
+      "display_name": "Fixture IRA",
+      "currency": "USD",
+      "cash_available": 2500,
+      "total_market_value": 47500,
+      "total_equity": 50000,
+      "buying_power": 2500,
+      "margin_enabled": false,
+      "sync_status": "ok",
+      "as_of": "2026-06-01T08:00:00"
+    }
+  ],
+  "positions": [
+    {
+      "account_id_masked": "acct_****1111",
+      "symbol": "MSFT",
+      "quantity": 10,
+      "market_value": 4200,
+      "price": 420,
+      "cost_basis": 3900,
+      "unrealized_gain_loss": 300,
+      "sleeve": "long_term_core",
+      "as_of": "2026-06-01T08:00:00",
+      "source": "fixture"
+    },
+    {
+      "account_id_masked": "acct_****1111",
+      "symbol": "NVDA",
+      "quantity": 12,
+      "market_value": 13200,
+      "price": 1100,
+      "cost_basis": 9600,
+      "unrealized_gain_loss": 3600,
+      "sleeve": "long_term_core",
+      "as_of": "2026-06-01T08:00:00",
+      "source": "fixture"
+    }
+  ],
+  "warnings": [],
+  "read_only": true,
+  "no_order_capability": true
+}
