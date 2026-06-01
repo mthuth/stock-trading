@@ -1,0 +1,55 @@
+{
+  "source": "fixture_broker_read_only_snapshot",
+  "as_of": "2026-06-01T08:00:00",
+  "accounts": [
+    {
+      "account_id": "acct-***-001",
+      "account_type": "IRA_ROLLOVER_FIXTURE",
+      "cash_available": 2500.0,
+      "positions": [
+        {
+          "symbol": "MSFT",
+          "company": "Microsoft",
+          "quantity": 10,
+          "market_value": 4200.0,
+          "cost_basis": 3500.0
+        },
+        {
+          "symbol": "NVDA",
+          "company": "NVIDIA",
+          "quantity": 8,
+          "market_value": 7200.0,
+          "cost_basis": 4800.0
+        },
+        {
+          "symbol": "AMD",
+          "company": "Advanced Micro Devices",
+          "quantity": 20,
+          "market_value": 3000.0,
+          "cost_basis": 0
+        }
+      ]
+    },
+    {
+      "account_id": "acct-***-002",
+      "account_type": "BROKERAGE_READ_ONLY_FIXTURE",
+      "cash_available": 1500.0,
+      "positions": [
+        {
+          "symbol": "MSFT",
+          "company": "Microsoft",
+          "quantity": 5,
+          "market_value": 2100.0,
+          "cost_basis": 1750.0
+        },
+        {
+          "symbol": "SOUN",
+          "company": "SoundHound AI",
+          "quantity": 100,
+          "market_value": 900.0,
+          "cost_basis": 600.0
+        }
+      ]
+    }
+  ]
+}
