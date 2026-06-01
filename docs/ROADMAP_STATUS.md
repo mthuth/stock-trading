@@ -9,12 +9,12 @@ The app has moved from a basic research generator toward a decision-support and 
 Current state:
 
 - Recommendation-only daily research/reporting is established.
-- Decision safety, target confidence, allocation safety, watchlist-only enforcement, provider/source health, and AI synthesis guardrails are present.
-- Waves 1-5 are complete.
-- Wave 6 learning foundations are merged: manual journal, recommendation outcomes, decision-safety effectiveness, catalyst follow-through, and source usefulness.
-- PR #38 is merged, so the product strategy, roadmap, decision-mode, learning, and local-app direction docs are now part of `main`.
-- Current Wave 6.5 work is product integration and stabilization, with Wave 7 handoff preparation as the immediate docs focus.
-- Wave 7 should be Long-Term Capital Deployment after Wave 6.5 stabilization is complete.
+- Decision safety, target confidence, allocation safety, watchlist-only enforcement, provider/source health, AI synthesis guardrails, learning loops, local console surfaces, shadow-model review, alerts, and broker read-only context are present.
+- Waves 1-14 are complete through Wave 14 broker read-only integration.
+- Wave 14 dashboard validation feedback has been captured in [Post-Wave Validation Log](POST_WAVE_VALIDATION_LOG.md), [Feedback Backlog](FEEDBACK_BACKLOG.md), and [Roadmap Decision Log](ROADMAP_DECISION_LOG.md).
+- The next wave is Wave 15: Decision Quality Beta.
+- Wave 15 should focus on dashboard clarity, decision trust, data maintenance, holdings freshness, and queue refinement.
+- Wave 15 should not add new model families, broker behavior, new tactical features, automatic tuning, broker writes, order previews, or trading behavior.
 
 ## Completed Waves
 
@@ -22,66 +22,65 @@ Current state:
 | --- | --- | --- |
 | Wave 1: Stabilize And Protect | Complete | Package boundaries, regression/golden context coverage, and recommendation-safety guardrails were established. |
 | Wave 2: Improve Decision Review | Complete | Decision safety, provider gaps, target drilldowns, score explainability, and dashboard review flow were integrated. |
-| Wave 3: Improve Data Quality | Complete | Provider gap normalization, SEC/IR/source coverage, and provider review UX were added. |
+| Wave 3: Improve Data Quality | Complete | Provider gap normalization, source health, SEC/IR/source coverage, and provider review UX were added. |
 | Wave 4: Model Transparency And Allocation Safety | Complete | Technical/fundamental target transparency, target confidence calibration, watchlist-only enforcement, and allocation safety landed. |
 | Wave 5: AI Synthesis | Complete | AI prompt packets, evidence guardrails, synthesis readiness, AI brief review workflow, and LLM research brief drafting landed as explanatory outputs. |
-| Wave 6: Learning System Foundations | Complete | PRs #33, #34, #35, #36, and #37 are merged: manual journal, outcome tracking, decision-safety effectiveness, catalyst follow-through, and source usefulness. |
-| Strategy Docs Refresh | Complete | PR #38 is merged: product strategy, roadmap status, decision modes, model learning strategy, and local app strategy are documented. |
+| Wave 6: Learning System Foundations | Complete | Manual journal, recommendation outcomes, decision-safety effectiveness, catalyst follow-through, and source usefulness landed as review-only learning foundations. |
+| Strategy Docs Refresh | Complete | Product strategy, roadmap status, decision modes, model learning strategy, and local app strategy are documented. |
+| Wave 7: Long-Term Capital Deployment | Complete | Long-term add queue, capital deployment context, best-add fallback, holding health, and dashboard integration landed as recommendation-only decision support. |
+| Wave 8: Earnings Event Review | Complete | Earnings event queues, pre/post earnings review, earnings signals, and integration landed as review-only context. |
+| Wave 9: Local Decision Console Shell | Complete | Local console requirements, manifest, static render shell, and integration landed as local read-only review surfaces. |
+| Wave 10: Tactical Trade Review | Complete | Tactical requirements, risk zones, setup classifier, watchlist queue, tactical outcomes, and integration landed as review-only surfaces separate from long-term recommendations. |
+| Wave 11: Model Evaluation And Backtesting | Complete | Prediction records, model registry, trust score, recommendation backtests, benchmark comparisons, AI thesis evaluation, and integration landed as review-only learning context. |
+| Wave 12: Alerts And Review Triggers | Complete | Alert requirements, inbox/view model, lifecycle, deduplication, artifact export, rule engine, and integration landed as review prompts only. |
+| Wave 13: Multi-Model Shadow Competition | Complete | Shadow model contracts, debate packets, promotion-readiness review, shadow recommendation runner, comparison scoreboard, and integration landed as shadow-only review context. |
+| Wave 14: Broker Read-Only Integration | Complete | Broker read-only requirements, connector stubs/contracts, fixture importer, holdings/capital context, read-only view, and integration landed without broker write behavior. |
 
 ## Current / In-Progress Work
 
-No Wave 7 implementation PRs were present when this document was updated after PR #38 merged.
+Post-Wave-14 validation feedback is being captured as documentation-only planning input.
 
-Current active work should be considered Wave 6.5: product integration and stabilization. The main deliverable for this status audit is [Wave 7 Handoff](WAVE7_HANDOFF.md), which prepares future agents for Long-Term Capital Deployment without authorizing app behavior changes.
+Current active work should be considered Wave 15 preparation: convert dashboard validation feedback into clear backlog items and roadmap decisions before implementation branches begin.
 
 ## Next Recommended Wave
 
-### Current: Wave 6.5 Product Integration And Stabilization
+### Wave 15: Decision Quality Beta
 
-Goal: integrate Wave 6 learning outputs, update roadmap status, and align the product around long-term capital deployment and learning without changing model behavior.
+Goal: make the dashboard feel trustworthy, clear, and less repetitive for the daily decision question:
 
-Suggested scope:
+> What should I buy/add today?
 
-- Integrate Wave 6 learning outputs conceptually across docs and future report-context expectations.
-- Update roadmap status after merged learning PRs.
-- Add report-context schema/status validation later if appropriate.
-- Align dashboard/report context around capital deployment and learning.
-- Ensure manual journal, outcomes, catalyst follow-through, source usefulness, and decision-safety effectiveness remain review-only.
-- Prepare for Wave 7.
+Wave 15 should focus on:
 
-Exit criteria:
+- Dashboard clarity and hierarchy.
+- Plain-English decision-gate explanations.
+- Missing data as confidence/reliability and sizing blockers, not bearish thesis language.
+- Score driver definitions and glossary/help text.
+- "Why now / why this / edge" explanations for obvious mega-cap recommendations.
+- Refined long-term and short-term queues.
+- Data gap maintenance queue and Codex-ready work requests.
+- Holdings/broker snapshot freshness display.
+- Research source activation and records visibility.
+- Dictated feedback as the primary post-wave validation loop.
 
-- Roadmap/status docs reflect PRs #33-#38.
-- [Wave 7 Handoff](WAVE7_HANDOFF.md) gives future agents a clear long-term capital deployment brief.
-- No learning output changes score, action, target, target confidence, suggested amount, decision gate, source weighting, provider behavior, broker behavior, or trading behavior.
-- Provider gap cleanup and ETF expected-gap work are left as scoped follow-up branches.
+Wave 15 should not add:
 
-Future development should not move into Wave 7 before Wave 6 integration and stabilization are done.
-
-### Next: Wave 7 Long-Term Capital Deployment
-
-Wave 7 should focus on the daily question:
-
-> What should I buy/add today for long-term holdings?
-
-Likely Wave 7 branches:
-
-- `codex/long-term-add-queue`
-- `codex/capital-deployment-context`
-- `codex/best-add-if-blocked`
-- `codex/long-term-holding-health-v1`
-- `codex/capital-deployment-dashboard`
-
-Wave 7 must remain recommendation-only. It should not add automatic trading, broker writes, order previews, tactical same-day trading, shorting, automatic model tuning, automatic source-weight changes, or AI-driven official recommendation changes.
+- New model families.
+- New broker behavior.
+- New tactical features.
+- Automatic tuning.
+- Automatic score, target, recommendation, decision-safety, allocation, source-weight, or model changes.
+- Broker writes, order previews, order placement, or trading behavior.
 
 ## Integration Backlog
 
-- Align learning outputs into a coherent report-context/dashboard story.
-- Decide how manual journal, recommendation outcomes, source usefulness, catalyst follow-through, and decision-safety effectiveness should appear in daily review.
-- Add capital-availability context before expanding broker read-only integration.
-- Add status/schema validation for learning outputs if future report context starts depending on them.
-- Keep AI synthesis, learning outputs, and feedback review-only until a future model-impact phase.
-- Clarify ETF expected-gap handling in report context and provider gap summaries.
+- Break `FB-001` through `FB-010` into Wave 15 implementation branches.
+- Consolidate repeated decision sections into hierarchy and drilldowns.
+- Clarify decision-gate blocked wording.
+- Add score driver definitions and mega-cap edge explanations.
+- Convert data gaps and research-source next actions into maintenance work requests.
+- Show broker/holdings snapshot source and freshness wherever holdings appear.
+- Keep AI synthesis, learning outputs, broker context, model competition, alerts, and feedback review-only until a future model-impact phase explicitly approves otherwise.
 
 ## Provider/Data Backlog
 
@@ -96,17 +95,17 @@ Priority backlog:
 - Improve official IR parser behavior and page-link fallback.
 - Decide later whether paid FMP/Finnhub/Benzinga analyst/news/transcript coverage is justified.
 
+Wave 15 should make these gaps easier to convert into daily maintenance work requests.
+
 ## Deferred Decisions
 
 - Paid analyst target coverage.
 - Dedicated ETF logic.
-- Broker read-only integration.
-- Tactical trade mode.
-- Earnings event mode.
+- Additional broker behavior beyond read-only context.
+- New tactical features beyond refinement of existing queues.
 - Future short-candidate review.
 - Model-impact feedback/source weighting.
 - Automatic score tuning.
-- Local decision console implementation.
 - Intraday signal console.
 
 ## Known Product Risks
@@ -117,16 +116,18 @@ Priority backlog:
 - AI briefs sounding more confident than source evidence allows.
 - Learning metrics being mistaken for approved model tuning.
 - Decision safety over-blocking good opportunities while trust is still being built.
-- Broker integration pressure before capital availability is modeled safely.
+- Missing price/provider data being read as negative thesis instead of lower confidence or sizing block.
+- Broker/holdings data being shown without obvious freshness/source timestamp.
+- Repetitive dashboard sections making the daily answer feel less decisive.
+- Mega-cap recommendations feeling obvious without explaining why now, why this one, or what edge exists.
 - Tactical or speculative ideas leaking into long-term buy/add recommendations.
 
 ## Required Stabilization Before Moving On
 
-Before Wave 7 begins:
+Before Wave 15 implementation begins:
 
-- Confirm Wave 6 outputs are documented and review-only.
-- Confirm no learning output changes score, action, target, target confidence, suggested amount, decision gate, or broker behavior.
-- Decide the first capital-availability shape: configured/manual cash, monthly buy capacity, as-of date, and optional future read-only broker snapshot.
-- Turn provider gap action plan items into scoped data cleanup branches.
-- Document ETF expected-gap handling.
+- Confirm Wave 14 dashboard feedback is captured in the validation log, feedback backlog, and decision log.
+- Confirm Wave 15 scope stays focused on decision quality, dashboard clarity, data maintenance, holdings freshness, and queue refinement.
+- Confirm Wave 15 does not add new model families, broker behavior, new tactical features, automatic tuning, broker writes, order previews, or trading behavior.
+- Keep feedback/docs updates separate from app-code implementation unless a Wave 15 branch explicitly scopes implementation.
 - Keep `python3 scripts/check_quality.py` passing after docs and future integration changes.
