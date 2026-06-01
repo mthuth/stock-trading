@@ -39,10 +39,24 @@ REQUIRED_MODEL_FIELDS = (
     "created_at",
     "allowed_decision_modes",
     "allowed_horizons",
+    "input_requirements",
+    "output_schema_version",
     "score_impact",
     "recommendation_impact",
+    "target_impact",
+    "decision_safety_impact",
+    "allocation_impact",
+    "promotion_status",
     "notes",
 )
+IMPACT_FIELDS = (
+    "score_impact",
+    "recommendation_impact",
+    "target_impact",
+    "decision_safety_impact",
+    "allocation_impact",
+)
+PROMOTION_STATUSES = {"not_eligible", "review_only", "promotion_review", "promoted"}
 REVIEW_ONLY_NOTE = (
     "Review-only model registry. Registered models do not change scores, targets, "
     "decision-safety gates, source weights, official recommendations, broker behavior, "
@@ -100,8 +114,11 @@ def normalize_model_registration(
     row["created_at"] = text(row.get("created_at")) or generated_at_text(created_at)
     row["allowed_decision_modes"] = [normalize_token(value) for value in as_list(row.get("allowed_decision_modes"))]
     row["allowed_horizons"] = [normalize_token(value) for value in as_list(row.get("allowed_horizons"))]
-    row["score_impact"] = normalize_token(row.get("score_impact") or "none")
-    row["recommendation_impact"] = normalize_token(row.get("recommendation_impact") or "none")
+    row["input_requirements"] = [normalize_token(value) for value in as_list(row.get("input_requirements") or ["decision_time_inputs"])]
+    row["output_schema_version"] = text(row.get("output_schema_version") or "model-output-v1")
+    for field in IMPACT_FIELDS:
+        row[field] = normalize_token(row.get(field) or "none")
+    row["promotion_status"] = normalize_token(row.get("promotion_status") or "review_only")
     row["notes"] = text(row.get("notes") or REVIEW_ONLY_NOTE)
     row["review_only"] = True
     row["recommendation_only_note"] = text(row.get("recommendation_only_note") or REVIEW_ONLY_NOTE)
@@ -134,7 +151,7 @@ def validate_model_registration(model: Mapping[str, object]) -> dict[str, object
         if horizon not in HORIZONS:
             errors.append(_error(f"allowed_horizons[{index}]", f"Unknown horizon: {horizon}."))
 
-    for field in ("score_impact", "recommendation_impact"):
+    for field in IMPACT_FIELDS:
         impact = text(row.get(field) or "none")
         if impact != "none" and not text(row.get("impact_approval_ref")):
             errors.append(
@@ -144,8 +161,16 @@ def validate_model_registration(model: Mapping[str, object]) -> dict[str, object
                 )
             )
 
-    if official_or_shadow == "shadow" and text(row.get("recommendation_impact")) != "none":
-        errors.append(_error("recommendation_impact", "Shadow models must be non-authoritative."))
+    promotion_status = text(row.get("promotion_status"))
+    if promotion_status not in PROMOTION_STATUSES:
+        errors.append(_error("promotion_status", f"Unknown promotion_status: {promotion_status}."))
+
+    if official_or_shadow == "shadow":
+        for field in IMPACT_FIELDS:
+            if text(row.get(field)) != "none":
+                errors.append(_error(field, "Shadow models must be non-authoritative."))
+        if promotion_status == "promoted":
+            errors.append(_error("promotion_status", "Shadow models cannot be promoted by registry declaration."))
 
     return validation_result(errors)
 
@@ -179,8 +204,10 @@ def build_model_registry(
 __all__ = [
     "DECISION_MODES",
     "HORIZONS",
+    "IMPACT_FIELDS",
     "MODEL_ROLES",
     "OFFICIAL_OR_SHADOW",
+    "PROMOTION_STATUSES",
     "REVIEW_ONLY_NOTE",
     "build_model_registry",
     "normalize_model_registration",

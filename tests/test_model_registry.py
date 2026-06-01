@@ -35,6 +35,10 @@ class ModelRegistryTests(unittest.TestCase):
         self.assertTrue(result["ok"], result)
         self.assertEqual(row["score_impact"], "none")
         self.assertEqual(row["recommendation_impact"], "none")
+        self.assertEqual(row["target_impact"], "none")
+        self.assertEqual(row["decision_safety_impact"], "none")
+        self.assertEqual(row["allocation_impact"], "none")
+        self.assertEqual(row["promotion_status"], "review_only")
         self.assertTrue(row["review_only"])
         self.assertIn("Review-only", row["recommendation_only_note"])
 
@@ -85,6 +89,32 @@ class ModelRegistryTests(unittest.TestCase):
             model_row(recommendation_impact="changes_actions", impact_approval_ref="future-approved-model-impact-pr")
         )
         self.assertTrue(approved["ok"], approved)
+
+    def test_shadow_model_rejects_all_impact_claims(self) -> None:
+        result = subject.validate_model_registration(
+            model_row(
+                model_role="shadow",
+                official_or_shadow="shadow",
+                target_impact="changes_targets",
+                decision_safety_impact="changes_gates",
+                allocation_impact="changes_amounts",
+                impact_approval_ref="future-approved-model-impact-pr",
+            )
+        )
+
+        self.assertFalse(result["ok"])
+        paths = {error["path"] for error in result["errors"]}
+        self.assertIn("target_impact", paths)
+        self.assertIn("decision_safety_impact", paths)
+        self.assertIn("allocation_impact", paths)
+
+    def test_promoted_shadow_model_is_invalid(self) -> None:
+        result = subject.validate_model_registration(
+            model_row(model_role="shadow", official_or_shadow="shadow", promotion_status="promoted")
+        )
+
+        self.assertFalse(result["ok"])
+        self.assertIn("promotion_status", {error["path"] for error in result["errors"]})
 
     def test_registry_build_is_deterministic_and_review_only(self) -> None:
         registry = subject.build_model_registry(
