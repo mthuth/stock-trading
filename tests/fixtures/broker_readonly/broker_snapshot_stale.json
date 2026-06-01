@@ -1,0 +1,22 @@
+{
+  "source": "fixture_broker_snapshot",
+  "as_of": "2026-05-20T08:30:00",
+  "accounts": [
+    {
+      "account_id": "FAKEIRA000000111",
+      "account_label": "IRA Rollover",
+      "cash": {
+        "available_cash": 1500.0
+      },
+      "positions": [
+        {
+          "symbol": "MSFT",
+          "company": "Microsoft",
+          "quantity": 5,
+          "market_value": 2000.0,
+          "sleeve": "long_term_core"
+        }
+      ]
+    }
+  ]
+}
