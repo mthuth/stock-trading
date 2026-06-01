@@ -1,0 +1,36 @@
+{
+  "fresh_broker_cash": {
+    "account_id": "SIM-ACCT-0001",
+    "status": "ok",
+    "as_of": "2026-05-31T09:30:00Z",
+    "cash_available": 3200.5
+  },
+  "stale_broker_cash": {
+    "account_id": "SIM-ACCT-0002",
+    "status": "ok",
+    "as_of": "2026-05-20T09:30:00Z",
+    "cash_available": 3500
+  },
+  "invalid_broker_cash": {
+    "account_id": "SIM-ACCT-0003",
+    "status": "ok",
+    "as_of": "2026-05-31T09:30:00Z",
+    "cash_available": "not-a-number"
+  },
+  "buying_power_only": {
+    "account_id": "SIM-ACCT-0004",
+    "status": "ok",
+    "as_of": "2026-05-31T09:30:00Z",
+    "buying_power": 9000
+  },
+  "margin_snapshot": {
+    "account_id": "SIM-ACCT-0005",
+    "status": "ok",
+    "as_of": "2026-05-31T09:30:00Z",
+    "cash_available": 1500,
+    "buying_power": 9000,
+    "margin_buying_power": 12500,
+    "options_buying_power": 2500,
+    "short_marginable_value": 4000
+  }
+}
