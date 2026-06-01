@@ -1,0 +1,3 @@
+account_id,account_name,account_type,cash,buying_capacity,as_of
+FAKE-IRA-111122223333,CSV IRA Fixture,IRA_ROLLOVER,900.00,900.00,2026-06-01
+FAKE-TAXABLE-444455556666,CSV Taxable Fixture,BROKERAGE,125.50,125.50,2026-06-01

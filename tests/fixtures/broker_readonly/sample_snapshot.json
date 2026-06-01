@@ -1,0 +1,47 @@
+{
+  "source": "manual_fixture",
+  "as_of": "2026-06-01",
+  "accounts": [
+    {
+      "account_id": "FAKE-IRA-123456789",
+      "account_name": "Masked IRA Fixture",
+      "account_type": "IRA_ROLLOVER",
+      "cash": 1800.25,
+      "buying_capacity": 1800.25,
+      "positions": [
+        {
+          "symbol": "MSFT",
+          "description": "Microsoft fixture position",
+          "quantity": 4,
+          "last_price": 430.5,
+          "asset_type": "equity",
+          "sleeve": "long_term_core"
+        },
+        {
+          "symbol": "QQQM",
+          "description": "ETF fixture position",
+          "quantity": 6,
+          "market_value": 1200,
+          "asset_type": "etf",
+          "sleeve": "etf_context"
+        }
+      ]
+    },
+    {
+      "account_id": "FAKE-TAXABLE-987654321",
+      "account_name": "Masked Taxable Fixture",
+      "account_type": "BROKERAGE",
+      "buying_capacity": 450.0,
+      "positions": [
+        {
+          "symbol": "NVDA",
+          "description": "Nvidia fixture position",
+          "quantity": 2,
+          "last_price": 1100.0,
+          "asset_type": "equity",
+          "sleeve": "long_term_core"
+        }
+      ]
+    }
+  ]
+}

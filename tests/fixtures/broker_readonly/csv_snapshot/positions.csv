@@ -1,0 +1,3 @@
+account_id,symbol,description,quantity,last_price,asset_type,sleeve
+FAKE-IRA-111122223333,MSFT,Microsoft CSV fixture,1,430.00,equity,long_term_core
+FAKE-TAXABLE-444455556666,SMH,Semiconductor ETF CSV fixture,3,240.00,etf,etf_context
