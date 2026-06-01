@@ -168,7 +168,7 @@ class Wave13MultiModelIntegrationTests(unittest.TestCase):
         self.assertLess(dashboard.index("Tactical Review"), dashboard.index("Model Evaluation"))
         self.assertLess(dashboard.index("Model Evaluation"), dashboard.index("Alerts And Review Triggers"))
         self.assertLess(dashboard.index("Alerts And Review Triggers"), dashboard.index("Multi-Model Shadow Competition"))
-        self.assertLess(dashboard.index("Multi-Model Shadow Competition"), dashboard.index("Learning Review"))
+        self.assertLess(dashboard.index("Multi-Model Shadow Competition"), dashboard.index('id="learningReviewTab"'))
         self.assertIn("## Multi-Model Shadow Competition", markdown)
         self.assertLess(markdown.index("## Alerts And Review Triggers"), markdown.index("## Multi-Model Shadow Competition"))
         self.assertLess(markdown.index("## Multi-Model Shadow Competition"), markdown.index("## Learning Review"))

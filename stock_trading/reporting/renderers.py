@@ -28,6 +28,7 @@ from stock_trading.reporting.product_coherence import (
     build_review_path,
 )
 from stock_trading.reporting.tactical_review import build_tactical_review_view
+from stock_trading.reporting.top_action_queue import render_top_action_queue_html
 
 
 REQUIRED_CONTEXT_SECTIONS = (
@@ -1685,6 +1686,26 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     .action-card-rationale strong { color:var(--text); }
     .action-audit-table { margin-top:10px; }
     .action-audit-table summary { cursor:pointer; color:var(--blue); font-weight:800; padding:5px 0; }
+    .top-action-queue-section { border-color:#b7cdf8; box-shadow:0 1px 0 rgba(29,95,208,.05); }
+    .top-action-list { display:grid; gap:10px; }
+    .top-action-item { border:1px solid var(--line); border-radius:8px; background:#fbfcfe; overflow:hidden; }
+    .top-action-item[open] { border-color:#b7cdf8; background:white; }
+    .top-action-summary { cursor:pointer; display:grid; grid-template-columns:minmax(44px,.25fr) minmax(220px,1.7fr) repeat(6,minmax(112px,1fr)); gap:9px; align-items:start; padding:12px; list-style:none; }
+    .top-action-summary::-webkit-details-marker { display:none; }
+    .top-action-main { display:grid; gap:3px; min-width:0; }
+    .top-action-main strong,.top-action-summary span strong { color:var(--text); overflow-wrap:anywhere; }
+    .top-action-main span,.top-action-summary span { color:var(--muted); font-size:13px; min-width:0; }
+    .top-action-rank { color:var(--blue); font-size:13px; font-weight:900; padding-top:2px; }
+    .top-action-status-safe strong { color:var(--green); }
+    .top-action-status-blocked strong { color:var(--amber); }
+    .top-action-detail { border-top:1px solid var(--line); display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; padding:12px; }
+    .top-action-detail-block { min-width:0; }
+    .top-action-detail-block h3 { margin-bottom:8px; }
+    .top-action-detail-block p,.top-action-detail-block li { color:var(--muted); font-size:13px; }
+    .top-action-detail-block ul { margin:6px 0 0; padding-left:18px; }
+    .top-action-facts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:8px; }
+    .top-action-facts > span { border:1px solid var(--line); border-radius:6px; background:#fff; padding:7px 8px; min-width:0; }
+    .top-action-facts strong { display:block; margin-top:2px; overflow-wrap:anywhere; }
     .decision-safety-callout { display:grid; grid-template-columns:minmax(240px,1.2fr) minmax(280px,1fr); gap:12px; align-items:start; border:1px solid var(--line); border-radius:8px; background:#fbfcfe; padding:12px; }
     .decision-safety-callout strong { display:block; font-size:18px; margin-top:2px; }
     .decision-safety-callout p { margin:6px 0 0; color:var(--muted); }
@@ -1741,7 +1762,8 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     .print-summary-card { border:1px solid var(--line); border-radius:8px; padding:10px; background:#fbfcfe; }
     .print-summary-card strong { display:block; font-size:15px; margin-top:3px; }
     .print-table { min-width:0; table-layout:auto; }
-    @media (max-width:860px) { main { padding:16px; } .summary,.two-column,.table-pair,.feedback-grid,.decision-safety-callout,.daily-review-lead,.daily-review-grid,.data-review-grid,.coherence-grid { grid-template-columns:1fr; } .action-card-head { flex-direction:column; } .action-card-metrics,.decision-safety-facts { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (max-width:1040px) { .top-action-summary,.top-action-detail { grid-template-columns:1fr; } }
+    @media (max-width:860px) { main { padding:16px; } .summary,.two-column,.table-pair,.feedback-grid,.decision-safety-callout,.daily-review-lead,.daily-review-grid,.data-review-grid,.coherence-grid { grid-template-columns:1fr; } .action-card-head { flex-direction:column; } .action-card-metrics,.decision-safety-facts,.top-action-facts { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media print {
       @page { margin:.45in; }
       :root { --bg:#fff; --panel:#fff; --text:#111827; --muted:#4b5563; --line:#d1d5db; }
@@ -1785,6 +1807,18 @@ def render_dashboard_html(context: dict[str, object]) -> str:
   </header>
   <main>
     <div class="screen-dashboard">
+    <nav class="tab-nav" aria-label="Dashboard sections">
+      <button class="tab-button" type="button" aria-selected="true" data-tab-target="recommendationsTab">Recommendations</button>
+      <button class="tab-button" type="button" aria-selected="false" data-tab-target="holdingsTab">Current Holdings</button>
+      <button class="tab-button" type="button" aria-selected="false" data-tab-target="healthTrendsTab">Health & Trends</button>
+      <button class="tab-button" type="button" aria-selected="false" data-tab-target="dataIngestionTab">Data Ingestion</button>
+      <button class="tab-button" type="button" aria-selected="false" data-tab-target="learningReviewTab">Learning Review</button>
+      <button class="tab-button" type="button" aria-selected="false" data-tab-target="researchSourcesTab">Research Sources</button>
+      <button class="tab-button" type="button" aria-selected="false" data-tab-target="feedbackTab">Feedback</button>
+    </nav>
+
+    {render_top_action_queue_html(context)}
+
     <div class="summary">
       <div class="metric">
         <span class="label">{html.escape(text(summary.get("recommendation_label"), "Top Candidate"))}</span>
@@ -1810,16 +1844,6 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     {render_model_evaluation(context)}
     {render_alerts_review(context)}
     {render_multi_model_competition(context)}
-
-    <nav class="tab-nav" aria-label="Dashboard sections">
-      <button class="tab-button" type="button" aria-selected="true" data-tab-target="recommendationsTab">Recommendations</button>
-      <button class="tab-button" type="button" aria-selected="false" data-tab-target="holdingsTab">Current Holdings</button>
-      <button class="tab-button" type="button" aria-selected="false" data-tab-target="healthTrendsTab">Health & Trends</button>
-      <button class="tab-button" type="button" aria-selected="false" data-tab-target="dataIngestionTab">Data Ingestion</button>
-      <button class="tab-button" type="button" aria-selected="false" data-tab-target="learningReviewTab">Learning Review</button>
-      <button class="tab-button" type="button" aria-selected="false" data-tab-target="researchSourcesTab">Research Sources</button>
-      <button class="tab-button" type="button" aria-selected="false" data-tab-target="feedbackTab">Feedback</button>
-    </nav>
 
     <div id="recommendationsTab" class="tab-panel">
       <nav class="subtab-nav" aria-label="Recommendation sections">

@@ -37,6 +37,16 @@ class PresentationBoundaryTests(unittest.TestCase):
             dashboard_text = dashboard.read_text()
             self.assertIn("Report Context", dashboard_text)
             self.assertIn("Recommendation-only", dashboard_text)
+            self.assertIn("Top 10 Action Queue", dashboard_text)
+            self.assertIn('id="top-action-queue"', dashboard_text)
+            self.assertIn('class="top-action-item"', dashboard_text)
+            self.assertIn("Decision Review", dashboard_text)
+            self.assertIn("Score Drivers", dashboard_text)
+            self.assertIn("Target Sources", dashboard_text)
+            self.assertIn("Provider Gaps", dashboard_text)
+            self.assertIn("Quality", dashboard_text)
+            self.assertIn("Recent AI platform demand evidence.", dashboard_text)
+            self.assertIn("Financial Modeling Prep", dashboard_text)
             self.assertIn("Action Queue", dashboard_text)
             self.assertIn("Daily Decision Review", dashboard_text)
             self.assertIn("Decision safety", dashboard_text)
@@ -87,6 +97,8 @@ class PresentationBoundaryTests(unittest.TestCase):
             self.assertIn("@media print", dashboard_text)
             self.assertIn("Ranked Data Gaps", dashboard_text)
             self.assertIn("Next-Day Watchlist", dashboard_text)
+            self.assertLess(dashboard_text.index('class="tab-nav"'), dashboard_text.index("Top 10 Action Queue"))
+            self.assertLess(dashboard_text.index("Top 10 Action Queue"), dashboard_text.index("Daily Decision Review"))
             self.assertLess(dashboard_text.index("Daily Decision Review"), dashboard_text.index("Long-Term Capital Deployment Review"))
             self.assertLess(dashboard_text.index("Long-Term Capital Deployment Review"), dashboard_text.index("Broker Read-Only Context"))
             self.assertLess(dashboard_text.index("Broker Read-Only Context"), dashboard_text.index("Earnings Review"))
@@ -96,7 +108,7 @@ class PresentationBoundaryTests(unittest.TestCase):
             self.assertLess(dashboard_text.index("Data Reliability Review"), dashboard_text.index("Model Evaluation"))
             self.assertLess(dashboard_text.index("Model Evaluation"), dashboard_text.index("Alerts And Review Triggers"))
             self.assertLess(dashboard_text.index("Alerts And Review Triggers"), dashboard_text.index("Multi-Model Shadow Competition"))
-            self.assertLess(dashboard_text.index("Multi-Model Shadow Competition"), dashboard_text.index("Learning Review"))
+            self.assertLess(dashboard_text.index('class="multi-model-competition"'), dashboard_text.index('id="learningReviewTab"'))
             markdown_text = markdown.read_text()
             self.assertIn("Daily Decision Review", markdown_text)
             self.assertIn("Long-Term Capital Deployment Review", markdown_text)
@@ -191,6 +203,12 @@ class PresentationBoundaryTests(unittest.TestCase):
 
         self.assertIn('class="action-queue-list"', dashboard_text)
         self.assertIn('class="action-card"', dashboard_text)
+        self.assertIn("Top 10 Action Queue", dashboard_text)
+        self.assertIn('class="top-action-item"', dashboard_text)
+        self.assertIn("Decision Review", dashboard_text)
+        self.assertIn("Score Drivers", dashboard_text)
+        self.assertIn("Target Sources", dashboard_text)
+        self.assertIn("Provider Gaps", dashboard_text)
         self.assertIn("NVDA", dashboard_text)
         self.assertIn("No material change", dashboard_text)
         self.assertIn("Wide range", dashboard_text)
@@ -221,6 +239,108 @@ class PresentationBoundaryTests(unittest.TestCase):
         self.assertIn("Review <span>1</span>", dashboard_text)
         self.assertIn("Info <span>1</span>", dashboard_text)
         self.assertIn("applySourceHealthFilter", dashboard_text)
+
+    def test_top_action_queue_limits_to_10_expandable_items(self) -> None:
+        context = {section: {} for section in subject.REQUIRED_CONTEXT_SECTIONS}
+        context["metadata"] = {"report_date": "2026-06-01", "generated_at": "2026-06-01T08:00:00"}
+        context["summary"] = {"top_symbol": "SYM1", "top_action": "Add", "top_score": 90.0}
+        context["reliability"] = {"mode": "Fixture", "price_counts": {"fresh": 12}}
+        context["source_health"] = {"summary": {"needs_attention": 0, "healthy": 1, "stale": 0, "not_implemented": 0}}
+        action_rows = [
+            [
+                rank,
+                f"SYM{rank}",
+                "Add",
+                f"{91 - rank:.1f}",
+                "No material change",
+                "$100.00",
+                "$125.00",
+                "25.0%",
+                "Medium",
+                "Blended",
+                "Long term",
+                f"Queue rationale {rank}",
+            ]
+            for rank in range(1, 13)
+        ]
+        context["queues"] = {
+            "action_queue": {
+                "headers": [
+                    "Rank",
+                    "Symbol",
+                    "Action",
+                    "Score",
+                    "Change",
+                    "Today",
+                    "Target",
+                    "Upside",
+                    "Confidence",
+                    "Status",
+                    "Type",
+                    "Rationale",
+                ],
+                "rows": action_rows,
+            }
+        }
+
+        dashboard_text = subject.render_dashboard_html(context)
+
+        self.assertEqual(dashboard_text.count('class="top-action-item"'), 10)
+        self.assertIn("SYM10", dashboard_text)
+        self.assertIn("SYM11", dashboard_text)
+        self.assertLess(dashboard_text.index("Top 10 Action Queue"), dashboard_text.index("Daily Decision Review"))
+
+    def test_top_action_queue_deduplicates_symbols_without_mutating_context(self) -> None:
+        context = {section: {} for section in subject.REQUIRED_CONTEXT_SECTIONS}
+        context["metadata"] = {"report_date": "2026-06-01", "generated_at": "2026-06-01T08:00:00"}
+        context["summary"] = {"top_symbol": "MSFT", "top_action": "Add", "top_score": 88.0}
+        context["reliability"] = {"mode": "Fixture", "price_counts": {"fresh": 2}}
+        context["source_health"] = {"summary": {"needs_attention": 0, "healthy": 1, "stale": 0, "not_implemented": 0}}
+        context["queues"] = {
+            "action_queue": {
+                "headers": ["Rank", "Symbol", "Action", "Score", "Status", "Rationale"],
+                "rows": [
+                    [1, "MSFT", "Add", "88.0", "Blended", "Primary Microsoft action."],
+                    [2, "MSFT", "Watch", "86.0", "Blended", "Duplicate Microsoft audit row."],
+                    [3, "NVDA", "Add", "84.0", "Blended", "Second distinct candidate."],
+                ],
+            }
+        }
+        original = json.loads(json.dumps(context))
+
+        dashboard_text = subject.render_dashboard_html(context)
+        top_section = dashboard_text[
+            dashboard_text.index('id="top-action-queue"') : dashboard_text.index('<div class="summary">')
+        ]
+
+        self.assertEqual(context, original)
+        self.assertEqual(dashboard_text.count('class="top-action-item"'), 2)
+        self.assertIn("Primary Microsoft action.", top_section)
+        self.assertNotIn("Duplicate Microsoft audit row.", top_section)
+        self.assertIn("Duplicate Microsoft audit row.", dashboard_text)
+
+    def test_top_action_queue_missing_drilldowns_show_empty_states(self) -> None:
+        context = {section: {} for section in subject.REQUIRED_CONTEXT_SECTIONS}
+        context["metadata"] = {"report_date": "2026-06-01", "generated_at": "2026-06-01T08:00:00"}
+        context["summary"] = {"top_symbol": "ABC", "top_action": "Watch", "top_score": 63.0}
+        context["reliability"] = {"mode": "Fixture", "price_counts": {"fresh": 0, "missing": 1}}
+        context["source_health"] = {"summary": {"needs_attention": 1, "healthy": 0, "stale": 0, "not_implemented": 0}}
+        context["queues"] = {
+            "action_queue": {
+                "headers": ["Rank", "Symbol", "Action", "Score", "Status", "Rationale"],
+                "rows": [[1, "ABC", "Watch", "63.0", "Missing price", "Price is unavailable for review."]],
+            }
+        }
+
+        dashboard_text = subject.render_dashboard_html(context)
+
+        self.assertIn("Top 10 Action Queue", dashboard_text)
+        self.assertIn("Missing price is a reliability/readiness issue, not a bearish thesis.", dashboard_text)
+        self.assertIn("Data unavailable in this report context.", dashboard_text)
+        self.assertIn("No score-driver detail available.", dashboard_text)
+        self.assertIn("No target-source drilldown available.", dashboard_text)
+        self.assertIn("No provider gaps found for this symbol.", dashboard_text)
+        self.assertIn("Recommendation-only", dashboard_text)
 
     def test_2026_05_29_nvda_context_is_not_rendered_as_recommended_next_buy(self) -> None:
         context = {section: {} for section in subject.REQUIRED_CONTEXT_SECTIONS}

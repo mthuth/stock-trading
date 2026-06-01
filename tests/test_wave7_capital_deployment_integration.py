@@ -115,7 +115,7 @@ class Wave7CapitalDeploymentIntegrationTests(unittest.TestCase):
         self.assertIn("Primary Add Review", dashboard)
         self.assertLess(dashboard.index("Daily Decision Review"), dashboard.index("Long-Term Capital Deployment Review"))
         self.assertLess(dashboard.index("Long-Term Capital Deployment Review"), dashboard.index("Product Review Path"))
-        self.assertLess(dashboard.index("Long-Term Capital Deployment Review"), dashboard.index("Learning Review"))
+        self.assertLess(dashboard.index("Long-Term Capital Deployment Review"), dashboard.index('id="learningReviewTab"'))
         self.assertIn("Long-Term Capital Deployment Review", markdown)
         self.assertLess(markdown.index("Daily Decision Review"), markdown.index("Long-Term Capital Deployment Review"))
         self.assertLess(markdown.index("Long-Term Capital Deployment Review"), markdown.index("Learning Review"))
