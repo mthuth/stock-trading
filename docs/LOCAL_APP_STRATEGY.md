@@ -28,6 +28,7 @@ A local decision console should help the user:
 - Read AI briefs.
 - Review model evaluation, benchmark comparisons, and model trust.
 - See alert/review-trigger summaries for manual attention.
+- Compare official baseline results against shadow-only model competitors.
 - Record and review manual journal entries.
 - Review outcomes and model trust.
 - Inspect run history.
@@ -43,7 +44,7 @@ The app should reduce friction in review, not increase automation risk.
 
 2. Local Decision Console Shell
    - Add a durable local navigation shell.
-   - Show latest recommendation review, best long-term add, earnings review, tactical review, model evaluation, alerts/review triggers, provider gaps, decision safety, target confidence, AI briefs, manual journal, outcomes, model trust, and run history.
+   - Show latest recommendation review, best long-term add, earnings review, tactical review, model evaluation, alerts/review triggers, multi-model shadow competition, provider gaps, decision safety, target confidence, AI briefs, manual journal, outcomes, model trust, and run history.
    - Keep all behavior local and recommendation-only.
    - Current Wave 9 implementation target: build a JSON manifest from existing local artifacts, render a static `reports/local-console.html` shell, and require the user to open it manually.
    - The shell must not include run buttons, real-time refreshes, broker access, order previews, or trading actions.
@@ -131,6 +132,12 @@ Model evaluation should not promote models, tune scoring, change target methodol
 Alerts should appear as a review-only manual-attention summary after model evaluation and before broader learning review. They can summarize active alerts, top priority prompts, review areas, severity/status counts, and local lifecycle metadata when available.
 
 Alerts should not override current buy/add decisions, official recommendation labels, scoring, target confidence, decision-safety rules, allocation, provider ingestion, AI generation, model tuning, or local console workflow behavior. Wave 12 does not add live notification delivery.
+
+## Multi-Model Shadow Competition
+
+Multi-model shadow competition should appear as a review-only learning section after model evaluation and alerts. It can summarize active shadow models, the official baseline comparison, competition scoreboards, debate packet summaries, promotion-readiness review, and missing-data or bias warnings.
+
+Shadow models should not override official recommendations, scoring, target methodology, target confidence, decision-safety rules, allocation, provider ingestion, AI generation, model tuning, or broker/order behavior. Promotion readiness is only a future human-review queue.
 
 ## Intraday Signal Review
 

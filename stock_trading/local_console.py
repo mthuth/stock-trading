@@ -155,6 +155,7 @@ def render_local_console(manifest: dict[str, object]) -> str:
         "ai_brief_status",
         "model_evaluation",
         "alerts_review",
+        "multi_model_competition",
         "learning_review",
         "manual_journal_outcomes",
         "artifacts",

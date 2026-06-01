@@ -218,6 +218,33 @@ def build_alerts_panel(context: dict[str, object]) -> dict[str, object]:
     }
 
 
+def build_multi_model_panel(context: dict[str, object]) -> dict[str, object]:
+    competition = as_dict(context.get("multi_model_competition"))
+    active = as_dict(competition.get("active_shadow_models"))
+    baseline = as_dict(competition.get("official_baseline_comparison"))
+    shadow = as_dict(competition.get("shadow_recommendations"))
+    scoreboard = as_dict(competition.get("model_competition_scoreboard"))
+    debate = as_dict(competition.get("debate_packet_summary"))
+    readiness = as_dict(competition.get("promotion_readiness_summary"))
+    return {
+        "title": "Multi-Model Shadow Competition",
+        "status": "Shadow-only",
+        "items": [
+            {"label": "Active shadow models", "value": text(active.get("model_count"), "0")},
+            {"label": "Official baseline", "value": text(baseline.get("model_version"), "n/a")},
+            {"label": "Shadow runs", "value": text(shadow.get("run_count"), "0")},
+            {"label": "Scoreboard rows", "value": count_rows(scoreboard)},
+            {"label": "Debate packets", "value": text(debate.get("packet_count"), "0")},
+            {"label": "Readiness rows", "value": count_rows(readiness)},
+            {"label": "No auto promotion", "value": text(competition.get("no_auto_promotion"), "true")},
+        ],
+        "note": text(
+            competition.get("note"),
+            "Recommendation-only shadow competition; shadow outputs are non-authoritative and do not change official recommendations.",
+        ),
+    }
+
+
 def build_learning_panel(context: dict[str, object]) -> dict[str, object]:
     learning = as_dict(context.get("learning_review"))
     manual = as_dict(learning.get("manual_trade_journal"))
@@ -319,6 +346,7 @@ def build_console_panels(
         "ai_brief_status": build_ai_panel(artifacts),
         "model_evaluation": build_model_evaluation_panel(report_context),
         "alerts_review": build_alerts_panel(report_context),
+        "multi_model_competition": build_multi_model_panel(report_context),
         "learning_review": build_learning_panel(report_context),
         "manual_journal_outcomes": build_manual_outcomes_panel(report_context),
         "artifacts": build_artifacts_panel(artifacts),

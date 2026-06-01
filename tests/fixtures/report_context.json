@@ -551,6 +551,143 @@
     "rows": [],
     "empty_state": "No active review alerts. Existing recommendations remain unchanged."
   },
+  "multi_model_competition": {
+    "review_only": true,
+    "recommendation_only": true,
+    "shadow_only": true,
+    "no_auto_promotion": true,
+    "note": "Recommendation-only shadow competition; shadow outputs are non-authoritative and do not change official recommendations.",
+    "active_shadow_models": {
+      "model_count": 2,
+      "rows": [
+        {
+          "model_name": "conservative_long_term",
+          "model_version": "shadow-v1",
+          "model_role": "shadow",
+          "allowed_decision_modes": ["long_term_buy_add"],
+          "allowed_horizons": ["12_months"],
+          "promotion_status": "not_eligible",
+          "review_only": true,
+          "shadow_only": true
+        },
+        {
+          "model_name": "risk_skeptic",
+          "model_version": "shadow-v1",
+          "model_role": "risk",
+          "allowed_decision_modes": ["long_term_buy_add"],
+          "allowed_horizons": ["12_months"],
+          "promotion_status": "not_eligible",
+          "review_only": true,
+          "shadow_only": true
+        }
+      ],
+      "empty_state": "No shadow models are registered yet."
+    },
+    "official_baseline_comparison": {
+      "model_name": "official_recommendation_model",
+      "model_version": "fixture-rules-v1",
+      "official_status": "official",
+      "shadow_model_count": 2,
+      "official_recommendations_unchanged": true,
+      "note": "Official baseline remains authoritative; shadow models are comparison-only."
+    },
+    "shadow_recommendations": {
+      "run_count": 2,
+      "rows": [
+        {
+          "model_name": "conservative_long_term",
+          "model_version": "shadow-v1",
+          "model_role": "shadow",
+          "symbol": "NVDA",
+          "shadow_action": "shadow_hold",
+          "shadow_score": 64.2,
+          "confidence": "medium",
+          "horizon": "12_months",
+          "official_action": "Add",
+          "review_only": true,
+          "shadow_only": true
+        }
+      ],
+      "empty_state": "No shadow recommendation rows are available yet."
+    },
+    "model_competition_scoreboard": {
+      "metadata": {
+        "review_only": true,
+        "shadow_only": true,
+        "no_model_promotion": true,
+        "model_count": 3
+      },
+      "summary": {
+        "warnings": ["insufficient_sample_size", "benchmark_data_missing"]
+      },
+      "rows": [
+        {
+          "rank": 1,
+          "model_name": "official_recommendation_model",
+          "version": "fixture-rules-v1",
+          "status": "official",
+          "decision_mode": "long_term_buy_add",
+          "horizon": "12_months",
+          "sample_size": 0,
+          "score": 0.0,
+          "warnings": "insufficient_sample_size, benchmark_data_missing",
+          "review_only": true
+        },
+        {
+          "rank": 2,
+          "model_name": "conservative_long_term",
+          "version": "shadow-v1",
+          "status": "shadow",
+          "decision_mode": "long_term_buy_add",
+          "horizon": "12_months",
+          "sample_size": 0,
+          "score": 0.0,
+          "warnings": "insufficient_sample_size, benchmark_data_missing",
+          "review_only": true
+        }
+      ],
+      "empty_state": "No model competition scoreboard rows are available yet."
+    },
+    "debate_packet_summary": {
+      "packet_count": 1,
+      "rows": [
+        {
+          "symbol": "NVDA",
+          "models_compared": 1,
+          "consensus_status": "models_agree",
+          "dominant_stance": "neutral",
+          "disagreement_status": "agreement",
+          "review_only": true,
+          "shadow_only": true
+        }
+      ],
+      "empty_state": "No model debate packets are available yet."
+    },
+    "promotion_readiness_summary": {
+      "metadata": {
+        "review_only": true,
+        "no_auto_promotion": true,
+        "model_count": 1
+      },
+      "rows": [
+        {
+          "model_name": "conservative_long_term",
+          "model_version": "shadow-v1",
+          "label": "not_enough_data",
+          "readiness_score": 0.0,
+          "sample_size": 0,
+          "recommended_action": "collect_more_shadow_outcomes",
+          "no_auto_promotion": true
+        }
+      ],
+      "empty_state": "No promotion-readiness rows are available yet."
+    },
+    "warnings": [
+      "Shadow outputs are non-authoritative review context.",
+      "Insufficient sample size for model competition.",
+      "Benchmark data is missing or insufficient for model competition."
+    ]
+  },
   "reliability": {
     "mode": "Fresh provider data",
     "price_counts": {

@@ -16,6 +16,7 @@ from stock_trading.reporting.alerts import build_alerts_review_view
 from stock_trading.reporting.capital_deployment import build_long_term_capital_deployment_view
 from stock_trading.reporting.data_reliability import build_data_reliability_review
 from stock_trading.reporting.earnings_review import build_earnings_review_view
+from stock_trading.reporting.model_competition import build_multi_model_competition_view
 from stock_trading.reporting.model_evaluation import build_model_evaluation_view
 from stock_trading.reporting.provider_gaps import (
     render_provider_gap_review_html,
@@ -50,6 +51,7 @@ REQUIRED_CONTEXT_SECTIONS = (
     "tactical_review",
     "model_evaluation",
     "alerts_review",
+    "multi_model_competition",
     "artifacts",
 )
 REPORT_SECTION_LABELS = (
@@ -58,6 +60,7 @@ REPORT_SECTION_LABELS = (
     "Tactical Review",
     "Model Evaluation",
     "Alerts And Review Triggers",
+    "Multi-Model Shadow Competition",
     "Product Review Path",
     "Learning Review",
     "Wave 7 Capital Deployment Prep",
@@ -1228,6 +1231,57 @@ def alerts_review_markdown_lines(context: dict[str, object]) -> list[str]:
     return lines
 
 
+def render_multi_model_competition(context: dict[str, object]) -> str:
+    review = build_multi_model_competition_view(context)
+    return (
+        '<section class="multi-model-competition">'
+        '<div class="section-title"><h2>Multi-Model Shadow Competition</h2>'
+        '<span class="section-note">Review-only shadow comparison; official recommendations stay unchanged</span></div>'
+        f'<p class="section-note">{html.escape(text(review.get("note")))}</p>'
+        f'<div class="coherence-grid">{_coherence_cards_html(review.get("cards"))}</div>'
+        '<div class="table-pair">'
+        f'<section><h3>Active Shadow Models</h3>{render_review_table(as_dict(review.get("active_models")))}</section>'
+        f'<section><h3>Official Baseline Comparison</h3>{render_review_table(as_dict(review.get("baseline")))}</section>'
+        "</div>"
+        f'<section><h3>Shadow Output Samples</h3>{render_review_table(as_dict(review.get("shadow_outputs")))}</section>'
+        '<div class="table-pair">'
+        f'<section><h3>Model Competition Scoreboard</h3>{render_review_table(as_dict(review.get("scoreboard")))}</section>'
+        f'<section><h3>Debate Packet Summary</h3>{render_review_table(as_dict(review.get("debate")))}</section>'
+        "</div>"
+        '<div class="table-pair">'
+        f'<section><h3>Promotion Readiness Summary</h3>{render_review_table(as_dict(review.get("readiness")))}</section>'
+        f'<section><h3>Multi-Model Warnings</h3>{render_review_table(as_dict(review.get("warnings")))}</section>'
+        "</div>"
+        "</section>"
+    )
+
+
+def multi_model_competition_markdown_lines(context: dict[str, object]) -> list[str]:
+    review = build_multi_model_competition_view(context)
+    lines = [
+        "## Multi-Model Shadow Competition",
+        "",
+        text(review.get("note"), "Recommendation-only shadow competition; official recommendations stay unchanged."),
+        "",
+    ]
+    for card in as_list(review.get("cards")):
+        item = as_dict(card)
+        lines.append(f"- {item.get('label', '')}: **{item.get('value', '')}** - {item.get('detail', '')}")
+    lines.append("")
+    for title, key in (
+        ("Active Shadow Models", "active_models"),
+        ("Official Baseline Comparison", "baseline"),
+        ("Shadow Output Samples", "shadow_outputs"),
+        ("Model Competition Scoreboard", "scoreboard"),
+        ("Debate Packet Summary", "debate"),
+        ("Promotion Readiness Summary", "readiness"),
+        ("Multi-Model Warnings", "warnings"),
+    ):
+        table = as_dict(review.get(key))
+        append_table_section(lines, title, table, text(table.get("empty_state"), "No rows available."))
+    return lines
+
+
 def learning_review_summary_value(section: dict[str, Any], *keys: str) -> object:
     summary = as_dict(section.get("summary"))
     for key in keys:
@@ -1704,6 +1758,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     {render_data_reliability_review(context)}
     {render_model_evaluation(context)}
     {render_alerts_review(context)}
+    {render_multi_model_competition(context)}
 
     <nav class="tab-nav" aria-label="Dashboard sections">
       <button class="tab-button" type="button" aria-selected="true" data-tab-target="recommendationsTab">Recommendations</button>
@@ -1942,6 +1997,7 @@ def render_print_review(context: dict[str, object]) -> str:
       {render_tactical_review(context)}
       {render_model_evaluation(context)}
       {render_alerts_review(context)}
+      {render_multi_model_competition(context)}
       {render_decision_safety_review(context)}
       {render_readiness(as_dict(context.get("readiness")))}
       <section>
@@ -2254,6 +2310,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
             *coherence_lines,
             *model_evaluation_markdown_lines(context),
             *alerts_review_markdown_lines(context),
+            *multi_model_competition_markdown_lines(context),
             *learning_review_markdown_lines(context),
         ]
     lines = [
