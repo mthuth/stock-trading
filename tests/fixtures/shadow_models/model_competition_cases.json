@@ -1,0 +1,181 @@
+{
+  "official_model_results": [
+    {
+      "model_name": "official_core",
+      "model_version": "v1.0",
+      "decision_mode": "long_term_buy_add",
+      "horizon": "60_trading_days",
+      "sample_size": 40,
+      "hit_rate": 62.0,
+      "average_return": 8.0,
+      "average_excess_return": 3.5,
+      "drawdown_warning_rate": 10.0,
+      "missed_upside_rate": 8.0,
+      "avoided_risk_rate": 52.0,
+      "target_progress_rate": 42.0,
+      "ai_thesis_alignment": 65.0,
+      "trust_level": "assist"
+    },
+    {
+      "model_name": "official_tactical",
+      "model_version": "v1.0",
+      "decision_mode": "tactical_trade",
+      "horizon": "5_trading_days",
+      "sample_size": 35,
+      "hit_rate": 55.0,
+      "average_return": 2.0,
+      "average_excess_return": 1.0,
+      "drawdown_warning_rate": 14.0,
+      "missed_upside_rate": 11.0,
+      "avoided_risk_rate": 38.0,
+      "target_progress_rate": 28.0,
+      "trust_level": "observe"
+    }
+  ],
+  "shadow_model_results": [
+    {
+      "model_name": "shadow_growth",
+      "model_version": "v0.3",
+      "decision_mode": "long_term_buy_add",
+      "horizon": "60_trading_days",
+      "sample_size": 12,
+      "hit_rate": 78.0,
+      "average_return": 18.0,
+      "average_excess_return": 10.0,
+      "drawdown_warning_rate": 12.0,
+      "missed_upside_rate": 18.0,
+      "avoided_risk_rate": 40.0,
+      "target_progress_rate": 65.0,
+      "ai_thesis_alignment": 70.0,
+      "trust_level": "observe"
+    },
+    {
+      "model_name": "shadow_aggressive",
+      "model_version": "v0.9",
+      "decision_mode": "long_term_buy_add",
+      "horizon": "60_trading_days",
+      "sample_size": 45,
+      "hit_rate": 60.0,
+      "average_return": 15.0,
+      "average_excess_return": 5.0,
+      "drawdown_warning_rate": 40.0,
+      "missed_upside_rate": 20.0,
+      "avoided_risk_rate": 35.0,
+      "target_progress_rate": 50.0,
+      "ai_thesis_alignment": 55.0,
+      "trust_level": "observe"
+    },
+    {
+      "model_name": "shadow_conservative",
+      "model_version": "v0.2",
+      "decision_mode": "long_term_buy_add",
+      "horizon": "60_trading_days",
+      "sample_size": 42,
+      "hit_rate": 58.0,
+      "average_return": 5.0,
+      "average_excess_return": 1.2,
+      "drawdown_warning_rate": 2.0,
+      "missed_upside_rate": 4.0,
+      "avoided_risk_rate": 70.0,
+      "target_progress_rate": 35.0,
+      "ai_thesis_alignment": 60.0,
+      "trust_level": "observe"
+    },
+    {
+      "model_name": "shadow_tactical",
+      "model_version": "v0.4",
+      "decision_mode": "tactical_trade",
+      "horizon": "5_trading_days",
+      "sample_size": 35,
+      "hit_rate": 64.0,
+      "average_return": 4.0,
+      "average_excess_return": 2.5,
+      "drawdown_warning_rate": 8.0,
+      "missed_upside_rate": 9.0,
+      "avoided_risk_rate": 48.0,
+      "target_progress_rate": 30.0,
+      "trust_level": "observe"
+    },
+    {
+      "model_name": "shadow_earnings",
+      "model_version": "v0.1",
+      "decision_mode": "earnings_event",
+      "horizon": "20_trading_days",
+      "sample_size": 32,
+      "hit_rate": 61.0,
+      "average_return": 6.0,
+      "average_excess_return": 2.0,
+      "drawdown_warning_rate": 9.0,
+      "missed_upside_rate": 12.0,
+      "avoided_risk_rate": 44.0,
+      "target_progress_rate": 33.0,
+      "ai_thesis_alignment": 72.0,
+      "trust_level": "observe"
+    },
+    {
+      "model_name": "shadow_missing_version",
+      "model_version": "",
+      "decision_mode": "model_shadow_review",
+      "horizon": "60_trading_days",
+      "sample_size": 35,
+      "hit_rate": 52.0,
+      "average_return": 3.0,
+      "drawdown_warning_rate": 12.0,
+      "missed_upside_rate": 10.0,
+      "avoided_risk_rate": 30.0,
+      "target_progress_rate": 20.0,
+      "trust_level": "observe"
+    }
+  ],
+  "outcome_rows": [],
+  "benchmark_comparison_rows": [
+    {
+      "model_name": "official_core",
+      "model_version": "v1.0",
+      "decision_mode": "long_term_buy_add",
+      "horizon": "60_trading_days",
+      "excess_return_pct": 3.5
+    },
+    {
+      "model_name": "shadow_tactical",
+      "model_version": "v0.4",
+      "decision_mode": "tactical_trade",
+      "horizon": "5_trading_days",
+      "excess_return_pct": 2.5
+    }
+  ],
+  "model_trust_rows": [
+    {
+      "model_name": "official_core",
+      "model_version": "v1.0",
+      "decision_mode": "long_term_buy_add",
+      "horizon": "60_trading_days",
+      "trust_level": "assist",
+      "sample_size": 40
+    },
+    {
+      "model_name": "shadow_tactical",
+      "model_version": "v0.4",
+      "decision_mode": "tactical_trade",
+      "horizon": "5_trading_days",
+      "trust_level": "observe",
+      "sample_size": 35
+    }
+  ],
+  "ai_thesis_evaluation_rows": [
+    {
+      "model_name": "official_core",
+      "model_version": "v1.0",
+      "decision_mode": "long_term_buy_add",
+      "horizon": "60_trading_days",
+      "evaluation_label": "thesis_supported"
+    },
+    {
+      "model_name": "shadow_earnings",
+      "model_version": "v0.1",
+      "decision_mode": "earnings_event",
+      "horizon": "20_trading_days",
+      "evaluation_label": "thesis_supported"
+    }
+  ]
+}
