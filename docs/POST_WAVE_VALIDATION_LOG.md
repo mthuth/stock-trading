@@ -52,3 +52,41 @@ Roadmap impact:
 - Add Wave 15: Daily Decision Quality Beta.
 - Wave 15 should focus on dashboard clarity, top 5 opportunity ranking, decision trust, data maintenance, holdings freshness, and queue refinement.
 - Wave 15 should not add new model families, broker behavior, new tactical features, or automatic tuning.
+
+## 2026-06-01 - Wave 15 Dashboard Readability Follow-Up
+
+Source: Matt's follow-up dashboard usability feedback after reviewing the post-Wave-14 / early Wave-15 dashboard direction.
+
+Validation context:
+
+- The Daily Decision Review is useful and should remain the pattern for decision detail.
+- The Action Queue has the right top-10 list shape.
+- The dashboard still needs a narrower first-page readability iteration before broader redesign work.
+- This feedback is documentation-only planning input and does not authorize application behavior changes.
+
+Key observations:
+
+1. The Daily Decision Review detail is useful.
+2. The Action Queue list shape is useful, especially as a top-10 queue.
+3. The next iteration should combine Daily Decision Review detail with the Action Queue list instead of leaving them as separate repeated sections.
+4. The first page should start with a Top 10 Action Queue.
+5. Each Top 10 row should be expandable.
+6. Each expanded row should include Daily Decision Review-style detail, Score Drivers, Target Source Drilldown, and Provider Gap Review.
+7. Dashboard navigation currently near the bottom should move toward the top.
+8. The next UI pass should avoid many other page changes.
+9. Future dashboard iterations should stay small and feedback-driven until the first page becomes usable.
+10. Existing data elements may still be valuable, but many should move into sub-tabs or drilldowns instead of competing for first-page attention.
+
+Backlog items created:
+
+- `UI-001`: Combine Daily Decision Review with Action Queue into a Top 10 expandable section.
+- `UI-002`: Add per-symbol expandable drilldowns for Score Drivers, Target Sources, and Provider Gaps.
+- `UI-003`: Move dashboard navigation near the top.
+- `UI-004`: Reduce top-page redundancy before doing broader redesign.
+- `UI-005`: Treat remaining dashboard sections as future sub-tabs/drilldowns.
+
+Roadmap impact:
+
+- Add current UI focus: Dashboard Usability Iteration 1 - Top Action Queue Drilldown.
+- The next UI changes should be small and feedback-driven.
+- This UI iteration should not add new model, data, broker, trading, scoring, target, allocation, provider, AI, or decision-safety behavior.
