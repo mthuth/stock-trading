@@ -12,8 +12,8 @@ Current state:
 - Decision safety, target confidence, allocation safety, watchlist-only enforcement, provider/source health, AI synthesis guardrails, learning loops, local console surfaces, shadow-model review, alerts, and broker read-only context are present.
 - Waves 1-14 are complete through Wave 14 broker read-only integration.
 - Wave 14 dashboard validation feedback has been captured in [Post-Wave Validation Log](POST_WAVE_VALIDATION_LOG.md), [Feedback Backlog](FEEDBACK_BACKLOG.md), and [Roadmap Decision Log](ROADMAP_DECISION_LOG.md).
-- The next wave is Wave 15: Decision Quality Beta.
-- Wave 15 should focus on dashboard clarity, decision trust, data maintenance, holdings freshness, and queue refinement.
+- The next wave is Wave 15: Daily Decision Quality Beta.
+- Wave 15 should focus on dashboard clarity, top 5 opportunity ranking, decision trust, data maintenance, holdings freshness, and queue refinement.
 - Wave 15 should not add new model families, broker behavior, new tactical features, automatic tuning, broker writes, order previews, or trading behavior.
 
 ## Completed Waves
@@ -44,21 +44,24 @@ Current active work should be considered Wave 15 preparation: convert dashboard 
 
 ## Next Recommended Wave
 
-### Wave 15: Decision Quality Beta
+### Wave 15: Daily Decision Quality Beta
 
 Goal: make the dashboard feel trustworthy, clear, and less repetitive for the daily decision question:
 
-> What should I buy/add today?
+> What are the top 5 ranked opportunities today?
 
 Wave 15 should focus on:
 
 - Dashboard clarity and hierarchy.
+- Top 5 opportunity ranking on the first screen.
+- Clear distinction between core mega-cap candidates and higher-upside/speculative opportunities.
 - Plain-English decision-gate explanations.
 - Missing data as confidence/reliability and sizing blockers, not bearish thesis language.
+- Model/user disagreement tracking when the model says Watch but the user manually buys.
 - Score driver definitions and glossary/help text.
 - "Why now / why this / edge" explanations for obvious mega-cap recommendations.
 - Refined long-term and short-term queues.
-- Data gap maintenance queue and Codex-ready work requests.
+- Data gap maintenance queue and Codex-ready docs/backlog work requests before GitHub issues.
 - Holdings/broker snapshot freshness display.
 - Research source activation and records visibility.
 - Dictated feedback as the primary post-wave validation loop.
@@ -74,11 +77,14 @@ Wave 15 should not add:
 
 ## Integration Backlog
 
-- Break `FB-001` through `FB-010` into Wave 15 implementation branches.
+- Break `FB-001` through `FB-013` into Wave 15 implementation branches.
 - Consolidate repeated decision sections into hierarchy and drilldowns.
+- Add first-screen top 5 ranked opportunity presentation.
+- Distinguish core mega-cap candidates from higher-upside/speculative opportunities.
 - Clarify decision-gate blocked wording.
+- Track model/user disagreement as review-only learning context.
 - Add score driver definitions and mega-cap edge explanations.
-- Convert data gaps and research-source next actions into maintenance work requests.
+- Convert data gaps and research-source next actions into docs/backlog maintenance work requests before creating GitHub issues.
 - Show broker/holdings snapshot source and freshness wherever holdings appear.
 - Keep AI synthesis, learning outputs, broker context, model competition, alerts, and feedback review-only until a future model-impact phase explicitly approves otherwise.
 
@@ -117,8 +123,10 @@ Wave 15 should make these gaps easier to convert into daily maintenance work req
 - Learning metrics being mistaken for approved model tuning.
 - Decision safety over-blocking good opportunities while trust is still being built.
 - Missing price/provider data being read as negative thesis instead of lower confidence or sizing block.
+- Model/user disagreement being hidden instead of captured as learning context.
 - Broker/holdings data being shown without obvious freshness/source timestamp.
 - Repetitive dashboard sections making the daily answer feel less decisive.
+- Top dashboard showing only one primary candidate instead of a useful top 5.
 - Mega-cap recommendations feeling obvious without explaining why now, why this one, or what edge exists.
 - Tactical or speculative ideas leaking into long-term buy/add recommendations.
 
@@ -127,7 +135,7 @@ Wave 15 should make these gaps easier to convert into daily maintenance work req
 Before Wave 15 implementation begins:
 
 - Confirm Wave 14 dashboard feedback is captured in the validation log, feedback backlog, and decision log.
-- Confirm Wave 15 scope stays focused on decision quality, dashboard clarity, data maintenance, holdings freshness, and queue refinement.
+- Confirm Wave 15 scope stays focused on daily decision quality, top 5 opportunity ranking, dashboard clarity, data maintenance, holdings freshness, and queue refinement.
 - Confirm Wave 15 does not add new model families, broker behavior, new tactical features, automatic tuning, broker writes, order previews, or trading behavior.
 - Keep feedback/docs updates separate from app-code implementation unless a Wave 15 branch explicitly scopes implementation.
 - Keep `python3 scripts/check_quality.py` passing after docs and future integration changes.

@@ -4,18 +4,30 @@ This log records product and roadmap decisions that should guide future branches
 
 ## Decisions
 
-### RD-001 - First Screen Decision Question
+### RD-001 - First Screen Top 5 Question
 
-Decision: The first screen must answer, "What should I buy/add today?"
+Decision: The first screen must answer, "What are the top 5 ranked opportunities today?"
 
-Rationale: The dashboard can include audits, learning loops, queues, and maintenance details, but the first scan must serve the primary daily decision before secondary review surfaces.
+Rationale: The dashboard can include audits, learning loops, queues, and maintenance details, but the first scan must show the best ranked opportunities without forcing the user to reconcile repeated sections.
 
 Implications:
 
-- The top dashboard area should prioritize the best buy/add answer, decision-safety state, confidence, sizing/capital context, and why the user should review it today.
+- The top dashboard area should prioritize the top 5 ranked opportunities, decision-safety state, confidence, sizing/capital context, and why the user should review each today.
 - Detailed queues and supporting sections should be drilldowns, not parallel repeated first-screen answers.
 
-### RD-002 - Missing Data Meaning
+### RD-002 - Top 5 Opportunity Mix
+
+Decision: The top 5 should include both core mega-cap candidates and higher-upside opportunities.
+
+Rationale: A top list made only of obvious mega-cap names can feel stale or unsurprising. A useful daily decision surface should show the best core candidates while also surfacing credible higher-upside/speculative opportunities with their risks and readiness state.
+
+Implications:
+
+- Top opportunities should be labeled by lane, such as core/mega-cap, long-term core, speculative/watchlist, tactical review, or data-blocked opportunity.
+- Higher-upside/speculative opportunities should remain gated and recommendation-only; visibility does not mean buy-readiness.
+- The top 5 should explain why each opportunity appears now.
+
+### RD-003 - Missing Data Meaning
 
 Decision: Missing price/provider data should block confidence, sizing, or verification, but it should not imply bearishness by itself.
 
@@ -27,7 +39,7 @@ Implications:
 - Missing data can block buy readiness or suggested amount.
 - Missing data should not be framed as a negative thesis unless evidence supports that interpretation.
 
-### RD-003 - Dashboard Hierarchy Over Repetition
+### RD-004 - Dashboard Hierarchy Over Repetition
 
 Decision: Repeated sections should be collapsed into hierarchy and drilldowns.
 
@@ -39,7 +51,19 @@ Implications:
 - Use supporting queues for explanation, alternatives, and audit.
 - Preserve detail without forcing the user to reconcile multiple similar sections.
 
-### RD-004 - Data Maintenance Is Product Workflow
+### RD-005 - Model/User Disagreement Is Learning Data
+
+Decision: Model/user disagreement is valuable learning data and should be tracked.
+
+Rationale: If the model says Watch but Matt manually buys, the disagreement is not necessarily an error. It is a signal about user conviction, model caution, missing evidence, or unclear explanation.
+
+Implications:
+
+- The app should capture model/user disagreement as review-only learning context.
+- User intent should not silently change official recommendations, scores, targets, decision safety, allocation, or source weights.
+- Decision briefs should explain model/user disagreement plainly, especially for familiar names like Microsoft.
+
+### RD-006 - Data Maintenance Is Product Workflow
 
 Decision: Data maintenance is part of the product workflow.
 
@@ -51,7 +75,19 @@ Implications:
 - Maintenance items should be Codex-ready with source, symbol, failure/missing reason, priority, and expected output.
 - Daily data maintenance should be visible but should not crowd out the daily buy/add decision.
 
-### RD-005 - Dictated Feedback Is Accepted SDLC Input
+### RD-007 - Data Maintenance Starts As Docs/Backlog
+
+Decision: Data maintenance starts as docs/backlog items before GitHub issues.
+
+Rationale: The app is still learning which gaps matter every day. Capturing maintenance work in docs/backlog first keeps the workflow lightweight and reviewable before creating issue-management overhead.
+
+Implications:
+
+- Data gap maintenance should first produce Codex-ready backlog entries.
+- GitHub issues can be created later when an item is recurring, high priority, or ready for separate tracking.
+- Maintenance backlog entries should preserve source, symbol, current status, and recommended next action.
+
+### RD-008 - Dictated Feedback Is Accepted SDLC Input
 
 Decision: Dictated post-wave feedback through ChatGPT is an accepted SDLC input.
 
