@@ -51,6 +51,16 @@ class BrokerReadonlyViewTests(unittest.TestCase):
         self.assertEqual(view["cash_summary"]["buying_capacity"], 5000.0)
         self.assertEqual(view["data_source"], "fixture_broker_snapshot")
         self.assertEqual(view["as_of"], "2026-06-01T08:30:00")
+        self.assertEqual(view["freshness_label"], "fresh")
+        self.assertEqual(view["freshness_summary"]["source"], "fixture")
+        self.assertEqual(view["freshness_summary"]["as_of"], "2026-06-01T08:30:00")
+        self.assertEqual(view["freshness_summary"]["last_pulled_at"], "2026-06-01T08:30:00")
+        labels = [row["label"] for row in view["freshness_summary"]["display_rows"]]
+        self.assertIn("Holdings source", labels)
+        self.assertIn("As of", labels)
+        self.assertIn("Last pulled", labels)
+        self.assertIn("Freshness", labels)
+        self.assertIn("Read-only snapshot", labels)
         self.assertTrue(view["read_only"])
         self.assertTrue(view["no_order_capability"])
         self.assertEqual(view["recommendation_only_note"], RECOMMENDATION_ONLY_NOTE)
@@ -66,6 +76,9 @@ class BrokerReadonlyViewTests(unittest.TestCase):
         self.assertEqual(view["status"], "missing_snapshot")
         self.assertEqual(view["account_count"], 0)
         self.assertEqual(view["position_count"], 0)
+        self.assertEqual(view["freshness_label"], "missing")
+        self.assertEqual(view["freshness_summary"]["freshness_label"], "missing")
+        self.assertTrue(any("missing" in warning.lower() for warning in view["freshness_summary"]["warnings"]))
         self.assertIn("manual/config capital availability", view["empty_state"])
         self.assertEqual(view["cash_summary"]["manual_config_fallback"]["available_amount"], 2500.0)
         self.assertTrue(view["read_only"])
@@ -80,6 +93,8 @@ class BrokerReadonlyViewTests(unittest.TestCase):
 
         self.assertEqual(view["status"], "stale")
         self.assertEqual(view["snapshot_age_days"], 12)
+        self.assertEqual(view["freshness_label"], "stale")
+        self.assertEqual(view["freshness_summary"]["age_days"], 12)
         self.assertTrue(any("stale" in warning.lower() for warning in view["warnings"]))
 
     def test_top_holdings_displayed_by_market_value(self) -> None:

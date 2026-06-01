@@ -99,3 +99,19 @@ Implications:
 - Backlog items should be added to `docs/FEEDBACK_BACKLOG.md`.
 - Roadmap-impacting decisions should be added to this decision log.
 - Dashboard feedback tooling can remain supplemental rather than primary for post-wave validation.
+
+### RD-009 - Top Action Queue Drilldown Is The Next Dashboard Iteration
+
+Decision: The next dashboard UI iteration should focus narrowly on a top-of-page Top 10 Action Queue with expandable per-symbol drilldowns.
+
+Rationale: Matt found the Daily Decision Review useful and the Action Queue list shape directionally right. The product should combine those strengths before making broader dashboard changes. The first page should become usable through small, feedback-driven iterations rather than a large redesign.
+
+Implications:
+
+- Combine Daily Decision Review-style detail with the Action Queue list.
+- Place a Top 10 Action Queue near the top of the dashboard.
+- Each Top 10 item should expand to show Daily Decision Review-style detail, Score Drivers, Target Source Drilldown, and Provider Gap Review.
+- Move dashboard navigation currently near the bottom toward the top.
+- Reduce first-page redundancy before adding new surfaces.
+- Treat remaining dashboard sections as candidates for future sub-tabs or drilldowns.
+- Do not add new model, data, broker, trading, scoring, target, allocation, provider, AI, or decision-safety behavior in this UI iteration.

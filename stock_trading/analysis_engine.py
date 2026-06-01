@@ -33,6 +33,7 @@ from stock_trading.broker_holdings_context import build_broker_holdings_context
 from stock_trading.broker_readonly_view import build_broker_readonly_view
 from stock_trading.capital_deployment import capital_deployment_context
 from stock_trading.catalyst_outcomes import build_catalyst_follow_through_review
+from stock_trading.decision_gate_explanations import explain_decision_gate
 from stock_trading.decision_safety_outcomes import build_decision_safety_effectiveness_review
 from stock_trading.earnings_events import build_earnings_event_queue
 from stock_trading.earnings_signals import extract_earnings_signals, summarize_earnings_signals
@@ -64,6 +65,7 @@ from stock_trading.tactical_setups import classify_tactical_setup
 from stock_trading.tactical_watchlist import build_tactical_watchlist_queue
 from stock_trading.target_confidence import calibrate_target_confidence
 from stock_trading.technical_targets import calculate_technical_target
+from stock_trading.top5_opportunities import build_top5_opportunities
 from stock_trading.watchlist_policy import evaluate_watchlist_policy
 
 
@@ -844,7 +846,7 @@ def decision_safety_gate(
     unique_reasons = list(dict.fromkeys(reason for reason in reasons if reason))
     safe_to_buy = not unique_reasons
     summary = "Decision-safe buy candidate." if safe_to_buy else "; ".join(unique_reasons)
-    return {
+    gate = {
         "safe_to_buy": safe_to_buy,
         "status": "Ready" if safe_to_buy else "Blocked",
         "candidate_action": action,
@@ -852,6 +854,22 @@ def decision_safety_gate(
         "summary": summary,
         "watchlist_policy": watchlist_policy,
     }
+    gate["decision_gate_explanation"] = explain_decision_gate(
+        {
+            "action": action,
+            "candidate_action": action,
+            "decision_gate_status": gate["status"],
+            "safe_to_buy": safe_to_buy,
+            "blocked_reasons": unique_reasons,
+            "target_confidence": confidence,
+            "data_status": target_status,
+            "current_price": item.current_price,
+            "provider_gaps": [item.provider_notes] if item.provider_notes else [],
+            "watchlist_policy": watchlist_policy,
+            "decision_gate": gate,
+        }
+    )
+    return gate
 
 
 def decision_summary_candidate(
@@ -8308,6 +8326,10 @@ def run_analysis(
         },
         "holdings_freshness": {"rows": holdings_freshness_rows},
     }
+    top5_opportunities = build_top5_opportunities(
+        long_term_queue_candidates,
+        provider_gap_rows=[row for row in provider_gap_rows if isinstance(row, dict)],
+    )
     report_date = f"{now:%Y-%m-%d}"
     report_context = {
         "metadata": {
@@ -8351,6 +8373,7 @@ def run_analysis(
         "model_evaluation": model_evaluation,
         "alerts_review": alerts_review,
         "multi_model_competition": multi_model_competition,
+        "top5_opportunities": top5_opportunities,
         "long_term_add_queue": long_term_add_queue,
         "reliability": {
             "mode": reliability_status,

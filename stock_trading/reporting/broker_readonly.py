@@ -51,6 +51,7 @@ def build_broker_readonly_view(context: dict[str, object]) -> dict[str, object]:
             "note": NOTE,
             "manual_config_fallback": {"fallback_used": True, "status": "needs_manual_update"},
         }
+    freshness = as_dict(broker.get("freshness_summary"))
     positions = as_dict(broker.get("positions_summary"))
     fallback = as_dict(broker.get("manual_config_fallback"))
     account_labels = [text(item) for item in as_list(broker.get("masked_account_labels")) if text(item)]
@@ -82,6 +83,31 @@ def build_broker_readonly_view(context: dict[str, object]) -> dict[str, object]:
                 "label": "Snapshot status",
                 "value": text(broker.get("snapshot_status"), "missing"),
                 "detail": f"Source: {text(broker.get('source'), 'manual_config_fallback')}; as of {text(broker.get('as_of'), 'n/a')}.",
+            },
+            {
+                "label": "Holdings source",
+                "value": text(freshness.get("source"), text(broker.get("source"), "unknown")),
+                "detail": text(freshness.get("source_detail"), text(broker.get("snapshot_source"), "Read-only snapshot source.")),
+            },
+            {
+                "label": "As of",
+                "value": text(freshness.get("as_of"), text(broker.get("as_of"), "n/a")),
+                "detail": "Timestamp for the holdings/cash snapshot shown here.",
+            },
+            {
+                "label": "Last pulled",
+                "value": text(freshness.get("last_pulled_at"), text(broker.get("last_pulled_at"), "n/a")),
+                "detail": "Last successful local import or broker read-only pull, when available.",
+            },
+            {
+                "label": "Freshness",
+                "value": text(freshness.get("freshness_label"), text(broker.get("snapshot_status"), "unknown")),
+                "detail": text(freshness.get("warning"), "Freshness is displayed so stale holdings are not treated as current."),
+            },
+            {
+                "label": "Read-only snapshot",
+                "value": "Yes" if broker.get("read_only", True) else "No",
+                "detail": "No order capability is available from this broker context.",
             },
             {
                 "label": "Accounts",
