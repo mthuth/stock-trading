@@ -33,6 +33,7 @@ from stock_trading.broker_holdings_context import build_broker_holdings_context
 from stock_trading.broker_readonly_view import build_broker_readonly_view
 from stock_trading.capital_deployment import capital_deployment_context
 from stock_trading.catalyst_outcomes import build_catalyst_follow_through_review
+from stock_trading.decision_gate_explanations import explain_decision_gate
 from stock_trading.decision_safety_outcomes import build_decision_safety_effectiveness_review
 from stock_trading.earnings_events import build_earnings_event_queue
 from stock_trading.earnings_signals import extract_earnings_signals, summarize_earnings_signals
@@ -844,7 +845,7 @@ def decision_safety_gate(
     unique_reasons = list(dict.fromkeys(reason for reason in reasons if reason))
     safe_to_buy = not unique_reasons
     summary = "Decision-safe buy candidate." if safe_to_buy else "; ".join(unique_reasons)
-    return {
+    gate = {
         "safe_to_buy": safe_to_buy,
         "status": "Ready" if safe_to_buy else "Blocked",
         "candidate_action": action,
@@ -852,6 +853,22 @@ def decision_safety_gate(
         "summary": summary,
         "watchlist_policy": watchlist_policy,
     }
+    gate["decision_gate_explanation"] = explain_decision_gate(
+        {
+            "action": action,
+            "candidate_action": action,
+            "decision_gate_status": gate["status"],
+            "safe_to_buy": safe_to_buy,
+            "blocked_reasons": unique_reasons,
+            "target_confidence": confidence,
+            "data_status": target_status,
+            "current_price": item.current_price,
+            "provider_gaps": [item.provider_notes] if item.provider_notes else [],
+            "watchlist_policy": watchlist_policy,
+            "decision_gate": gate,
+        }
+    )
+    return gate
 
 
 def decision_summary_candidate(
