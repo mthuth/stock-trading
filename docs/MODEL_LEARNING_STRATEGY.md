@@ -154,6 +154,8 @@ Shadow models may compare:
 
 Shadow output must never change official recommendations by itself.
 
+See [Wave 13 Multi-Model Shadow Competition Requirements](WAVE13_MULTI_MODEL_SHADOW_REQUIREMENTS.md) before implementing shadow model roles, output contracts, comparison scoreboards, debate packets, or promotion-readiness review behavior.
+
 ## Rules Before Feedback Can Affect Recommendations
 
 Feedback can affect official recommendations only after all are true:

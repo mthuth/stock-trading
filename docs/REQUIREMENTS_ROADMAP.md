@@ -13,6 +13,7 @@ Related strategy docs:
 - [Wave 10 Tactical Review Requirements](WAVE10_TACTICAL_REVIEW_REQUIREMENTS.md)
 - [Wave 11 Model Evaluation Requirements](WAVE11_MODEL_EVALUATION_REQUIREMENTS.md)
 - [Wave 12 Alerts And Review Triggers Requirements](WAVE12_ALERTS_REVIEW_TRIGGERS_REQUIREMENTS.md)
+- [Wave 13 Multi-Model Shadow Competition Requirements](WAVE13_MULTI_MODEL_SHADOW_REQUIREMENTS.md)
 - [Decision Modes](DECISION_MODES.md)
 - [Model Learning Strategy](MODEL_LEARNING_STRATEGY.md)
 - [Local App Strategy](LOCAL_APP_STRATEGY.md)
@@ -262,6 +263,8 @@ Alerts are review prompts, not trade instructions.
 ## Wave 13: Multi-Model Shadow Competition
 
 Goal: compare alternative models in shadow mode before any model-promotion decision.
+
+Read [Wave 13 Multi-Model Shadow Competition Requirements](WAVE13_MULTI_MODEL_SHADOW_REQUIREMENTS.md) before starting implementation.
 
 Rules:
 
