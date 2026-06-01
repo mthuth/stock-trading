@@ -30,6 +30,7 @@ from stock_trading.reporting.product_coherence import (
     build_review_path,
 )
 from stock_trading.reporting.tactical_review import build_tactical_review_view
+from stock_trading.queue_refinement import refine_queue_context
 from stock_trading.reporting.top5_opportunities import (
     render_top5_opportunities_html,
     top5_opportunities_markdown_lines,
@@ -227,6 +228,27 @@ def queue_table(context: dict[str, object], name: str, class_name: str = "decisi
     )
 
 
+def queue_section_note(context: dict[str, object], name: str, fallback: str = "") -> str:
+    return text(queue(context, name).get("queue_purpose"), fallback)
+
+
+def queue_row_metadata(section: dict[str, Any], index: int) -> dict[str, Any]:
+    metadata = as_list(section.get("row_metadata"))
+    return as_dict(metadata[index]) if index < len(metadata) else {}
+
+
+def queue_display_label(name: object) -> str:
+    labels = {
+        "top5_opportunities": "Top 5 Opportunities",
+        "top_5_opportunities": "Top 5 Opportunities",
+        "daily_decision_review": "Daily Decision Review",
+        "full_universe": "Full Audit Queue",
+        "action_queue": "Action Queue",
+    }
+    key = text(name)
+    return labels.get(key, key.replace("_", " ").title())
+
+
 def column_lookup(headers: list[str]) -> dict[str, int]:
     return {header.lower(): index for index, header in enumerate(headers)}
 
@@ -320,20 +342,38 @@ def render_action_queue(context: dict[str, object]) -> str:
     headers = [text(header) for header in as_list(section.get("headers"))]
     rows = as_list(section.get("rows"))
     audit_table = queue_table(context, "action_queue")
+    section_note = queue_section_note(context, "action_queue", "Compact decision scan; audit table retained below")
     if not headers or not rows:
         return (
             '<section class="action-queue-section">'
-            '<div class="section-title"><h2>Action Queue</h2><span class="section-note">Compact decision scan</span></div>'
+            f'<div class="section-title"><h2>Action Queue</h2><span class="section-note">{html.escape(section_note)}</span></div>'
             "<p>No rows available.</p>"
             '<details class="action-audit-table"><summary>Full Action Queue Audit</summary>'
             f"{audit_table}</details></section>"
         )
 
     cards: list[str] = []
-    for row in rows:
+    for index, row in enumerate(rows):
         values = as_list(row)
         rank = plain_text(row_cell(headers, values, ["Rank"]))
         symbol = plain_text(row_cell(headers, values, ["Symbol"]))
+        metadata = queue_row_metadata(section, index)
+        if metadata.get("display_mode") == "reference":
+            related = queue_display_label(metadata.get("related_primary_section") or "daily_decision_review")
+            cards.append(
+                '<article class="action-card" data-queue-display="reference">'
+                '<div class="action-card-head">'
+                '<div class="action-card-title">'
+                f'<span class="action-rank">{html.escape(f"#{rank}" if rank else "")}</span>'
+                f'<strong>{html.escape(symbol)}</strong>'
+                '<span class="pill hold">Referenced</span>'
+                "</div>"
+                "</div>"
+                f'<p class="action-card-rationale"><strong>Already covered in {html.escape(related)}</strong> · '
+                f'{html.escape(text(metadata.get("why_this_queue_exists"), "Full audit detail is retained below."))}</p>'
+                "</article>"
+            )
+            continue
         action_html = action_pill_html(row_cell(headers, values, ["Action"]))
         score = plain_text(row_cell(headers, values, ["Score"]))
         change_html = change_badge_html(row_cell(headers, values, ["Change"]))
@@ -380,7 +420,7 @@ def render_action_queue(context: dict[str, object]) -> str:
 
     return (
         '<section class="action-queue-section">'
-        '<div class="section-title"><h2>Action Queue</h2><span class="section-note">Compact decision scan; audit table retained below</span></div>'
+        f'<div class="section-title"><h2>Action Queue</h2><span class="section-note">{html.escape(section_note)}</span></div>'
         f'<div class="action-queue-list">{"".join(cards)}</div>'
         '<details class="action-audit-table"><summary>Full Action Queue Audit</summary>'
         f"{audit_table}</details></section>"
@@ -504,6 +544,7 @@ def normalized_summary(context: dict[str, object]) -> dict[str, Any]:
 def normalized_report_context(context: dict[str, object]) -> dict[str, object]:
     normalized = dict(context)
     normalized["summary"] = normalized_summary(context)
+    normalized = refine_queue_context(normalized)
     normalized["decision_safety"] = safety_review.decision_safety_object(normalized["summary"])
     return normalized
 
@@ -797,6 +838,37 @@ def render_decision_quality(context: dict[str, object]) -> str:
         "</div>"
         "</section>"
     )
+
+
+def render_queue_top5_opportunities(context: dict[str, object]) -> str:
+    section = queue(context, "top5_opportunities") or queue(context, "top_5_opportunities")
+    if not as_list(section.get("rows")):
+        return ""
+    return (
+        '<section class="top5-opportunities">'
+        f'<div class="section-title"><h2>Top 5 Opportunities</h2><span class="section-note">{html.escape(text(section.get("queue_purpose"), "Primary first-screen summary"))}</span></div>'
+        f'{html_table(as_list(section.get("headers")), as_list(section.get("rows"))[:5], "decision-table", set(as_list(section.get("raw_columns"))))}'
+        f'<p class="section-note">{html.escape(text(section.get("why_this_queue_exists"), "Answers the daily question before detailed queue drilldowns."))}</p>'
+        "</section>"
+    )
+
+
+def queue_top5_opportunities_markdown_lines(context: dict[str, object]) -> list[str]:
+    section = queue(context, "top5_opportunities") or queue(context, "top_5_opportunities")
+    rows = as_list(section.get("rows"))[:5]
+    if not rows:
+        return []
+    rendered = markdown_table(as_list(section.get("headers")), rows)
+    return [
+        "## Top 5 Opportunities",
+        "",
+        text(section.get("queue_purpose"), "Primary first-screen summary."),
+        "",
+        rendered,
+        "",
+        text(section.get("why_this_queue_exists"), "Answers the daily question before detailed queue drilldowns."),
+        "",
+    ]
 
 
 def decision_safety_markdown_lines(summary: dict[str, Any]) -> list[str]:
@@ -1721,6 +1793,7 @@ def capital_deployment_prep_markdown_lines(context: dict[str, object]) -> list[s
 
 
 def render_dashboard_html(context: dict[str, object]) -> str:
+    context = normalized_report_context(context)
     metadata = as_dict(context.get("metadata"))
     summary = normalized_summary(context)
     reliability = as_dict(context.get("reliability"))
@@ -1936,6 +2009,7 @@ def render_dashboard_html(context: dict[str, object]) -> str:
     </div>
 
     {render_decision_quality(context)}
+    {render_queue_top5_opportunities(context)}
     {render_daily_decision_review(context)}
     {render_long_term_capital_deployment(context)}
     {render_broker_readonly(context)}
@@ -1972,16 +2046,16 @@ def render_dashboard_html(context: dict[str, object]) -> str:
         {render_decision_cards(as_list(decision_briefs.get("rows")))}
         {render_action_queue(context)}
       </div>
-      <div id="longTermSubtab" class="recommendation-subtab" hidden><section><div class="section-title"><h2>Long-Term Queue</h2><span class="section-note">75% sleeve</span></div>{queue_table(context, "long_term")}</section></div>
-      <div id="shortTermSubtab" class="recommendation-subtab" hidden><section><div class="section-title"><h2>Short-Term Queue</h2><span class="section-note">Day, week, or 2-4 week trades</span></div>{queue_table(context, "short_term")}</section></div>
-      <div id="nextDaySubtab" class="recommendation-subtab" hidden><section><div class="section-title"><h2>Next-Day Watchlist</h2><span class="section-note">{html.escape(text(next_day.get("status", {}).get("label") if isinstance(next_day.get("status"), dict) else ""))}</span></div>{queue_table(context, "next_day")}</section></div>
-      <div id="speculativeSubtab" class="recommendation-subtab" hidden><section><div class="section-title"><h2>Speculative AI Watchlist</h2><span class="section-note">Observation only</span></div>{queue_table(context, "speculative")}</section></div>
+      <div id="longTermSubtab" class="recommendation-subtab" hidden><section><div class="section-title"><h2>Long-Term Queue</h2><span class="section-note">{html.escape(queue_section_note(context, "long_term", "75% sleeve"))}</span></div>{queue_table(context, "long_term")}</section></div>
+      <div id="shortTermSubtab" class="recommendation-subtab" hidden><section><div class="section-title"><h2>Short-Term Queue</h2><span class="section-note">{html.escape(queue_section_note(context, "short_term", "Day, week, or 2-4 week review"))}</span></div>{queue_table(context, "short_term")}</section></div>
+      <div id="nextDaySubtab" class="recommendation-subtab" hidden><section><div class="section-title"><h2>Next-Day Watchlist</h2><span class="section-note">{html.escape(queue_section_note(context, "next_day", text(next_day.get("status", {}).get("label") if isinstance(next_day.get("status"), dict) else "")))}</span></div>{queue_table(context, "next_day")}</section></div>
+      <div id="speculativeSubtab" class="recommendation-subtab" hidden><section><div class="section-title"><h2>Speculative AI Watchlist</h2><span class="section-note">{html.escape(queue_section_note(context, "speculative", "Observation only"))}</span></div>{queue_table(context, "speculative")}</section></div>
       <div id="dataGapsSubtab" class="recommendation-subtab" hidden>
-        <section><div class="section-title"><h2>Ranked Data Gap Queue</h2><span class="section-note">{html.escape(text(data_gaps.get("note"), "Ranked by expected score and confidence impact"))}</span></div>{queue_table(context, "data_gaps", "compact-table")}</section>
+        <section><div class="section-title"><h2>Ranked Data Gap Queue</h2><span class="section-note">{html.escape(queue_section_note(context, "data_gaps", text(data_gaps.get("note"), "Ranked by expected score and confidence impact")))}</span></div>{queue_table(context, "data_gaps", "compact-table")}</section>
         <section><div class="section-title"><h2>Verification Queue</h2><span class="section-note">Semi-automatic next checks from persisted decision insights</span></div>{html_table(as_list(verification_queue.get("headers")), as_list(verification_queue.get("rows")), "compact-table")}</section>
         <section><div class="section-title"><h2>Source Drilldowns</h2><span class="section-note">Target-source and evidence counts</span></div>{html_table(as_list(source_drilldown.get("headers")), as_list(source_drilldown.get("rows")), "compact-table")}</section>
       </div>
-      <details class="full-universe"><summary>Open full ranked V1 universe and filters</summary><div class="toolbar"><input id="tickerFilter" type="search" placeholder="Filter ticker or company"><select id="sleeveFilter"><option value="">All sleeves</option><option value="long_term">Long term</option><option value="short_term">Short term</option><option value="speculative_ai">Speculative AI</option><option value="etf">ETF</option></select><select id="actionFilter"><option value="">All actions</option><option value="Add">Add</option><option value="Watch">Watch</option><option value="Avoid">Avoid</option><option value="Hold">Hold</option></select><button type="button" id="sortScore">Sort by score</button></div>{html_table(as_list(full_universe.get("headers")), as_list(full_universe.get("rows")), "rank-table", set(as_list(full_universe.get("raw_columns"))))}</details>
+      <details class="full-universe"><summary>Open Full Audit Queue (ranked universe drilldown)</summary><p class="section-note">{html.escape(queue_section_note(context, "full_universe", "Detailed drilldown only"))}</p><div class="toolbar"><input id="tickerFilter" type="search" placeholder="Filter ticker or company"><select id="sleeveFilter"><option value="">All sleeves</option><option value="long_term">Long term</option><option value="short_term">Short term</option><option value="speculative_ai">Speculative AI</option><option value="etf">ETF</option></select><select id="actionFilter"><option value="">All actions</option><option value="Add">Add</option><option value="Watch">Watch</option><option value="Avoid">Avoid</option><option value="Hold">Hold</option></select><button type="button" id="sortScore">Sort by score</button></div>{html_table(as_list(full_universe.get("headers")), as_list(full_universe.get("rows")), "rank-table", set(as_list(full_universe.get("raw_columns"))))}</details>
       <section><h2>Notes</h2><ul class="notes"><li>This dashboard is decision support, not automated trading.</li><li>Low-confidence, wide-range, partial-blend, or verification-blocked candidates stay visible for review but cannot be labeled as the recommended next buy.</li><li>The 10% single-stock cap is applied to any decision-safe suggested purchase amount.</li></ul></section>
     </div>
 
@@ -2180,6 +2254,7 @@ def render_print_review(context: dict[str, object]) -> str:
       {render_top5_opportunities_html(as_dict(context.get("top5_opportunities")))}
       {render_print_summary(context)}
       {render_decision_quality(context)}
+      {render_queue_top5_opportunities(context)}
       {render_daily_decision_review(context)}
       {render_long_term_capital_deployment(context)}
       {render_broker_readonly(context)}
@@ -2472,6 +2547,7 @@ def dashboard_script(fallback_symbol: str, report_date: str) -> str:
 
 
 def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
+    context = normalized_report_context(context)
     metadata = as_dict(context.get("metadata"))
     summary = normalized_summary(context)
     reliability = as_dict(context.get("reliability"))
@@ -2532,6 +2608,7 @@ def render_markdown(context: dict[str, object], kind: str = "daily") -> str:
         f"- Latest successful provider refresh: **{reliability.get('latest_provider_refresh', 'n/a')}**",
         "",
         *decision_quality_lines,
+        *queue_top5_opportunities_markdown_lines(context),
         *daily_decision_review_markdown_lines(context),
         *decision_safety_markdown_lines(summary),
         *coherence_lines,
